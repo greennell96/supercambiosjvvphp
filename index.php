@@ -876,14 +876,15 @@
 				return;
 			}
 
-			// DB is open — auto-close only when past closing hour
-			const closeHour = season === 1 ? 22 : 21;
+			// DB is open — show open only within operating hours (open hour → close hour)
+			const openHour    = season === 1 ? 15 : 14;
+			const closeHour   = season === 1 ? 22 : 21;
 			const satCloseHour = season === 1 ? 19 : 18;
-			const withinClose =
-				(diaSemana >= 1 && diaSemana <= 5 && hora < closeHour) ||
-				(diaSemana === 6 && hora < satCloseHour);
+			const withinHours =
+				(diaSemana >= 1 && diaSemana <= 5 && hora >= openHour && hora < closeHour) ||
+				(diaSemana === 6 && hora >= openHour && hora < satCloseHour);
 
-			applyStatus(withinClose, withinClose ? '✅ ¡ABIERTO!' : '⛔ CERRADO');
+			applyStatus(withinHours, withinHours ? '✅ ¡ABIERTO!' : '⛔ CERRADO');
 		}
 
 		function applyStatus(isOpen, statusMsg) {
