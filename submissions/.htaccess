@@ -1,0 +1,3 @@
+<FilesMatch "\.docx$">
+    Deny from all
+</FilesMatch>

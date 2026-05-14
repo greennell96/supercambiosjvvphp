@@ -1,0 +1,15 @@
+# Allow access to PHP files
+<FilesMatch "\.php$">
+    Allow from all
+</FilesMatch>
+
+# Force UTF-8
+AddDefaultCharset UTF-8
+
+# Clean URL: /formularioaml -> formularioaml.php
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^formularioaml/?$ formularioaml.php [L,QSA]
+</IfModule>

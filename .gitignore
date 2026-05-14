@@ -1,0 +1,18 @@
+# Database credentials — never commit the real file
+root.php
+
+# Claude Code config
+.claude/
+
+# Temp files
+temp/*
+!temp/.htaccess
+
+# OS junk
+.DS_Store
+Thumbs.db
+*.Zone.Identifier
+
+# Editor folders
+.vscode/
+.idea/

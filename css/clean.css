@@ -1,0 +1,471 @@
+/* ============================================
+   CLEAN, UNIFIED CSS - NO CONFLICTS
+   ============================================ */
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+html, body {
+	width: 100%;
+	height: 100%;
+}
+
+body {
+	font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	color: #1f2937;
+	line-height: 1.6;
+	background: #ffffff;
+	font-size: 16px;
+}
+
+.container {
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 0 20px;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+header {
+	background: linear-gradient(135deg, #fff 0%, #f3f4f6 100%);
+	padding: 20px 0;
+	position: sticky;
+	top: 0;
+	z-index: 1000;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.header-content {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.logo {
+	font-size: 24px;
+	font-weight: 800;
+	color: #10b981;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	text-decoration: none;
+}
+
+.logo img {
+	height: 40px;
+	width: auto;
+}
+
+nav a {
+	text-decoration: none;
+	color: #4b5563;
+	font-weight: 500;
+	margin: 0 20px;
+	transition: color 0.3s;
+	display: inline-block;
+}
+
+nav a:hover {
+	color: #ff6b35;
+}
+
+.header-cta {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.btn-whatsapp-header {
+	background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+	color: white;
+	padding: 12px 24px;
+	border-radius: 8px;
+	text-decoration: none;
+	font-weight: 700;
+	font-size: 14px;
+	transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+	border: none;
+	cursor: pointer;
+}
+
+.btn-whatsapp-header:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 10px 30px rgba(255, 107, 53, 0.4);
+}
+
+/* ============================================
+   SECTIONS & LAYOUT
+   ============================================ */
+
+.section {
+	padding: 60px 0;
+}
+
+.section-title {
+	font-size: 40px;
+	font-weight: 800;
+	text-align: center;
+	margin-bottom: 50px;
+	color: #1f2937;
+}
+
+.bg-gradient-light {
+	background: linear-gradient(135deg, rgba(16, 185, 129, 0.02) 0%, rgba(255, 107, 53, 0.02) 100%);
+}
+
+.bg-white {
+	background: #ffffff;
+}
+
+/* ============================================
+   CARDS & CONTENT
+   ============================================ */
+
+.card {
+	background: white;
+	border-radius: 16px;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+	padding: 30px;
+	transition: all 0.3s;
+	border-left: 5px solid #ff6b35;
+}
+
+.card:hover {
+	transform: translateY(-8px);
+	box-shadow: 0 15px 50px rgba(255, 107, 53, 0.15);
+}
+
+.card-title {
+	font-size: 22px;
+	font-weight: 700;
+	color: #1f2937;
+	margin-bottom: 15px;
+}
+
+.card-text {
+	color: #6b7280;
+	line-height: 1.8;
+}
+
+.grid {
+	display: grid;
+	gap: 30px;
+	margin-top: 50px;
+}
+
+.grid-2 {
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.grid-3 {
+	grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+	font-weight: 800;
+	line-height: 1.2;
+	color: #1f2937;
+}
+
+h1 {
+	font-size: 48px;
+}
+
+h2 {
+	font-size: 36px;
+}
+
+h3 {
+	font-size: 28px;
+}
+
+p {
+	color: #6b7280;
+	margin-bottom: 15px;
+}
+
+strong {
+	font-weight: 700;
+	color: #1f2937;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn {
+	display: inline-block;
+	padding: 14px 32px;
+	background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+	color: white;
+	text-decoration: none;
+	border-radius: 10px;
+	font-weight: 700;
+	transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+	box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+	border: none;
+	cursor: pointer;
+	text-align: center;
+}
+
+.btn:hover {
+	transform: translateY(-4px);
+	box-shadow: 0 10px 35px rgba(255, 107, 53, 0.4);
+}
+
+.btn-secondary {
+	background: #f3f4f6;
+	color: #1f2937;
+	box-shadow: none;
+}
+
+.btn-secondary:hover {
+	background: #e5e7eb;
+}
+
+/* ============================================
+   FORMS
+   ============================================ */
+
+.form-group {
+	margin-bottom: 25px;
+}
+
+.form-label {
+	display: block;
+	font-weight: 700;
+	color: #1f2937;
+	margin-bottom: 10px;
+	font-size: 14px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.form-input {
+	width: 100%;
+	padding: 14px 16px;
+	border: 2px solid #e5e7eb;
+	border-radius: 10px;
+	font-family: 'Poppins', sans-serif;
+	font-size: 16px;
+	transition: all 0.3s;
+}
+
+.form-input:focus {
+	outline: none;
+	border-color: #ff6b35;
+	box-shadow: 0 0 0 4px rgba(255, 107, 53, 0.1);
+	background: #fafafa;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+
+footer {
+	background: #1f2937;
+	color: #d1d5db;
+	padding: 50px 0 20px 0;
+	text-align: center;
+	margin-top: 80px;
+}
+
+footer p {
+	color: #d1d5db;
+	margin-bottom: 10px;
+	font-size: 14px;
+}
+
+footer a {
+	color: #ff6b35;
+	text-decoration: none;
+	font-weight: 700;
+	transition: color 0.3s;
+}
+
+footer a:hover {
+	color: #f7931e;
+}
+
+/* ============================================
+   ALERTS & MESSAGES
+   ============================================ */
+
+.alert {
+	padding: 20px;
+	border-radius: 12px;
+	margin-bottom: 25px;
+	border-left: 4px solid;
+}
+
+.alert-success {
+	background: #ecfdf5;
+	border-left-color: #10b981;
+	color: #065f46;
+}
+
+.alert-warning {
+	background: #fffbeb;
+	border-left-color: #f59e0b;
+	color: #92400e;
+}
+
+.alert-danger {
+	background: #fef2f2;
+	border-left-color: #ef4444;
+	color: #991b1b;
+}
+
+.alert-info {
+	background: #eff6ff;
+	border-left-color: #3b82f6;
+	color: #1e40af;
+}
+
+/* ============================================
+   MOBILE STICKY CTA
+   ============================================ */
+
+.mobile-sticky-cta {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+	z-index: 999;
+	display: none;
+	box-shadow: 0 -5px 20px rgba(255, 107, 53, 0.3);
+}
+
+.mobile-sticky-cta a {
+	display: block;
+	padding: 16px;
+	color: white;
+	text-decoration: none;
+	font-weight: 700;
+	font-size: 15px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	text-align: center;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+	.header-content {
+		flex-wrap: wrap;
+		gap: 15px;
+	}
+
+	nav {
+		display: none;
+	}
+
+	.logo {
+		font-size: 18px;
+	}
+
+	.section-title {
+		font-size: 28px;
+		margin-bottom: 40px;
+	}
+
+	h1 {
+		font-size: 32px;
+	}
+
+	h2 {
+		font-size: 26px;
+	}
+
+	.section {
+		padding: 40px 0;
+	}
+
+	.grid-2, .grid-3 {
+		grid-template-columns: 1fr;
+	}
+
+	body {
+		padding-bottom: 70px;
+	}
+
+	.mobile-sticky-cta {
+		display: block;
+	}
+
+	.card {
+		padding: 20px;
+	}
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-center {
+	text-align: center;
+}
+
+.text-orange {
+	color: #ff6b35;
+}
+
+.text-green {
+	color: #10b981;
+}
+
+.text-muted {
+	color: #6b7280;
+}
+
+.mt-20 {
+	margin-top: 20px;
+}
+
+.mt-40 {
+	margin-top: 40px;
+}
+
+.mb-20 {
+	margin-bottom: 20px;
+}
+
+.mb-40 {
+	margin-bottom: 40px;
+}
+
+.d-flex {
+	display: flex;
+	gap: 15px;
+}
+
+.flex-center {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.relative {
+	position: relative;
+}
+
+.icon-orange {
+	color: #ff6b35;
+}
+
+.icon-green {
+	color: #10b981;
+}
