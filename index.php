@@ -729,6 +729,7 @@
 					<input type="hidden" id="usdFee2" value="<?php echo $feeUsd2; ?>">
 					<input type="hidden" id="actualdate" value="<?php echo date('Y-m-d H:i:s', strtotime('now +2 hours')); ?>">
 					<input type="hidden" id="dbStatus" value="<?php echo (int)$status; ?>">
+					<input type="hidden" id="lastGuardar" value="<?php echo htmlspecialchars($dateves); ?>">
 					<input type="hidden" id="seasonData" value="<?php echo $season; ?>">
 					<input type="hidden" id="overrideStart" value="<?php echo $overrideStart; ?>">
 					<input type="hidden" id="overrideEnd" value="<?php echo $overrideEnd; ?>">
@@ -838,49 +839,53 @@
 
 	<!-- CALCULATOR JAVASCRIPT -->
 	<script>
-		// Status display: opening requires admin action (Guardar), closing is automatic by time
+		// Rules: toggle=intent, Guardar today=rate confirmation, time=gate
 		function updateStatusDisplay() {
-			const dbStatus = parseInt(document.getElementById('dbStatus').value) || 0;
+			const dbStatus  = parseInt(document.getElementById('dbStatus').value) || 0;
 			const forceOpen = localStorage.getItem('forceOpen') === 'true';
 
-			// If DB says closed and no testing mode, always show closed — no time-based auto-open
-			if (!dbStatus && !forceOpen) {
-				applyStatus(false, '⛔ CERRADO');
-				return;
-			}
+			if (forceOpen) { applyStatus(true, '✅ ¡ABIERTO! (Modo Testing)'); return; }
+			if (!dbStatus)  { applyStatus(false, '⛔ CERRADO'); return; }
 
-			const ahora = new Date();
+			const ahora     = new Date();
 			const horaEspaña = new Date(ahora.toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
 			const diaSemana = horaEspaña.getDay();
-			const hora = horaEspaña.getHours();
-			const minutos = horaEspaña.getMinutes();
-			const todayDate = horaEspaña.toISOString().split('T')[0];
+			const hora      = horaEspaña.getHours();
+			const minutos   = horaEspaña.getMinutes();
 
-			const season = parseInt(document.getElementById('seasonData').value) || 0;
+			// Today's date in Spain timezone (avoid toISOString which gives UTC)
+			const todayDate = horaEspaña.getFullYear() + '-' +
+				String(horaEspaña.getMonth() + 1).padStart(2, '0') + '-' +
+				String(horaEspaña.getDate()).padStart(2, '0');
+
+			const season        = parseInt(document.getElementById('seasonData').value) || 0;
 			const overrideStart = document.getElementById('overrideStart').value;
-			const overrideEnd = document.getElementById('overrideEnd').value;
-			const overrideDate = document.getElementById('overrideDate').value;
+			const overrideEnd   = document.getElementById('overrideEnd').value;
+			const overrideDate  = document.getElementById('overrideDate').value;
 
-			if (forceOpen) {
-				applyStatus(true, '✅ ¡ABIERTO! (Modo Testing)');
-				return;
-			}
-
-			// Override schedule for today
+			// Override schedule takes priority (no Guardar requirement)
 			if (overrideDate === todayDate && overrideStart && overrideEnd) {
-				const [startHour, startMin] = overrideStart.split(':').map(Number);
-				const [endHour, endMin] = overrideEnd.split(':').map(Number);
 				const currentTime = hora * 60 + minutos;
-				const isOpen = currentTime >= (startHour * 60 + startMin) && currentTime < (endHour * 60 + endMin);
+				const [sh, sm] = overrideStart.split(':').map(Number);
+				const [eh, em] = overrideEnd.split(':').map(Number);
+				const isOpen = currentTime >= (sh * 60 + sm) && currentTime < (eh * 60 + em);
 				applyStatus(isOpen, isOpen ? '✅ ¡ABIERTO! (Horario Especial)' : '⛔ CERRADO');
 				return;
 			}
 
-			// DB is open — show open only within operating hours (open hour → close hour)
-			const openHour    = season === 1 ? 15 : 14;
-			const closeHour   = season === 1 ? 22 : 21;
+			// Regular schedule: Guardar must have been clicked today
+			const lastGuardar     = document.getElementById('lastGuardar').value || '';
+			const lastGuardarDate = lastGuardar.substring(0, 10); // "YYYY-MM-DD"
+			if (lastGuardarDate !== todayDate) {
+				applyStatus(false, '⛔ CERRADO');
+				return;
+			}
+
+			// Toggle ON + Guardar today + within hours = open
+			const openHour     = season === 1 ? 15 : 14;
+			const closeHour    = season === 1 ? 22 : 21;
 			const satCloseHour = season === 1 ? 19 : 18;
-			const withinHours =
+			const withinHours  =
 				(diaSemana >= 1 && diaSemana <= 5 && hora >= openHour && hora < closeHour) ||
 				(diaSemana === 6 && hora >= openHour && hora < satCloseHour);
 
