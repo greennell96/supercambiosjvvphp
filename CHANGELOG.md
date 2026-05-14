@@ -11,6 +11,9 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 > Changes that are done locally but not yet uploaded to Hostinger.
 
 ### Fixed
+- `root.php` + `aml-process.php` — private files (`db-config.php`, `BLANK-WAYLLET-AML.docx`) now stored one level above `public_html`, outside Hostinger's git deploy path, so they survive every auto-deploy permanently
+
+### Fixed
 - `supertasa.php` — page was blank due to `Swal.fire()` firing before `<body>` existed; moved DB error handling to after DOM is ready
 - `supertasa.php` — JS error on `document.getElementById("timer")` (element doesn't exist on all tabs); added null guard
 

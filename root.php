@@ -1,7 +1,12 @@
 <?php
 
 ## CONEXION A LA BASE DE DATOS
-require_once __DIR__ . '/db-config.php';
+// On Hostinger: db-config.php lives one level above public_html (outside git deploy path)
+// Locally: falls back to same directory
+$_dbConfig = isset($_SERVER['DOCUMENT_ROOT'])
+    ? dirname($_SERVER['DOCUMENT_ROOT']) . '/db-config.php'
+    : __DIR__ . '/db-config.php';
+require_once $_dbConfig;
 
 try {
 	if (extension_loaded('mysqli')) {

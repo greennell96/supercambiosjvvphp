@@ -163,8 +163,11 @@ $autoFields = [
 // Merge all data
 $allData = array_merge($data, $autoFields);
 
-// Generate DOCX
-$templatePath = __DIR__ . '/BLANK-WAYLLET-AML.docx';
+// Generate DOCX — template lives above public_html, outside git deploy path
+$_privateDir = isset($_SERVER['DOCUMENT_ROOT'])
+    ? dirname($_SERVER['DOCUMENT_ROOT'])
+    : __DIR__;
+$templatePath = $_privateDir . '/BLANK-WAYLLET-AML.docx';
 if (!file_exists($templatePath)) {
     $_SESSION['aml_form_error'] = 'Error interno: Template DOCX no encontrado';
     header('Location: /formularioaml?error=1');
