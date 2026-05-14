@@ -1,5 +1,69 @@
+<?php
+// --- AUTH GATE ---
+require_once __DIR__ . '/root.php'; // starts session, connects DB
+
+define('SUPERTASA_PASSWORD_HASH', '$2y$10$12l4uQbPAGXpzr0D.PUZZukB9jYQ5TKpHnp0NiBFMF7SwzvmMAynO');
+// Default password: jvv2024
+// To change: php -r "echo password_hash('nueva_clave', PASSWORD_DEFAULT);"
+
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    unset($_SESSION['supertasa_auth']);
+    header('Location: /supertasa.php');
+    exit;
+}
+
+if (empty($_SESSION['supertasa_auth'])) {
+    $loginError = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['st_password'])) {
+        if (password_verify($_POST['st_password'], SUPERTASA_PASSWORD_HASH)) {
+            $_SESSION['supertasa_auth'] = true;
+            header('Location: /supertasa.php');
+            exit;
+        } else {
+            $loginError = 'Contraseña incorrecta';
+        }
+    }
+    ?>
 <!DOCTYPE html>
-<html class="wide wow-animation" lang="en"> 
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperTasa Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#f0fdf4,#eff6ff);min-height:100vh;display:flex;align-items:center;justify-content:center}
+        .box{background:white;padding:50px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.1);width:100%;max-width:380px;border-top:4px solid #10b981}
+        h1{text-align:center;color:#1f2937;margin-bottom:8px;font-size:24px}
+        p{text-align:center;color:#6b7280;margin-bottom:28px;font-size:14px}
+        label{display:block;font-weight:600;color:#1f2937;margin-bottom:8px;font-size:14px}
+        input{width:100%;padding:12px 15px;border:1px solid #e5e7eb;border-radius:8px;font-family:'Poppins',sans-serif;font-size:14px}
+        input:focus{outline:none;border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.1)}
+        .err{background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;border-left:4px solid #ef4444}
+        button{width:100%;padding:12px;margin-top:16px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:8px;font-family:'Poppins',sans-serif;font-weight:600;font-size:15px;cursor:pointer}
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>⚙️ SuperTasa</h1>
+        <p>Panel de administración</p>
+        <?php if ($loginError): ?><div class="err"><?php echo htmlspecialchars($loginError); ?></div><?php endif; ?>
+        <form method="POST">
+            <label for="st_password">Contraseña</label>
+            <input type="password" id="st_password" name="st_password" required autofocus>
+            <button type="submit">Acceder</button>
+        </form>
+    </div>
+</body>
+</html>
+    <?php
+    exit;
+}
+// --- END AUTH GATE ---
+?>
+<!DOCTYPE html>
+<html class="wide wow-animation" lang="en">
 	<head>
 		<title>Admin</title>
 		<meta charset="utf-8">
@@ -165,11 +229,13 @@ transform: translateX(2rem);
 
 		<style>.ie-panel{display: none;background: #212121;padding: 10px 0;box-shadow: 3px 3px 5px 0 rgba(0,0,0,.3);clear: both;text-align:center;position: relative;z-index: 1;} html.ie-10 .ie-panel, html.lt-ie-10 .ie-panel {display: block;}</style>
 		<?php
-			INCLUDE ('root.php');
+			// root.php already included at top (auth gate)
 
-			// Debug: Check if database is connected
+			// Check database connection
 			if (!$db) {
-				ECHO '<script type="text/javascript">Swal.fire("Error", "No hay conexión a la base de datos", "error");</script>';
+				echo '</head><body>';
+				echo '<script>document.addEventListener("DOMContentLoaded",function(){Swal.fire("Error","No hay conexión a la base de datos","error").then(function(){window.location.href="/"});});</script>';
+				echo '</body></html>';
 				exit;
 			}
 
@@ -352,6 +418,7 @@ transform: translateX(2rem);
 									<li class="rd-nav-item active"><a class="rd-nav-link" href="?mod=horarios">Horarios</a></li>
 									<li class="rd-nav-item active"><a class="rd-nav-link" href="?mod=alert">Ventana Flotante</a></li>
 									<li class="rd-nav-item active"><a class="rd-nav-link" href="aml-admin.php">Formularios AML</a></li>
+									<li class="rd-nav-item active"><a class="rd-nav-link" href="?action=logout" style="color:#ef4444;">Salir</a></li>
 								</ul>
 								<!--
 								<a class="brand-logo-light icon icon-sm icon-circle icon-circle-md fa-instagram" href="//instagram.com/supercambiosjvv"></a>
@@ -541,7 +608,8 @@ document.getElementById("fee").value="<?php ECHO $feeEur; ?>";
 document.getElementById("v2e").value="<?php ECHO $feeVes; ?>";
 document.getElementById("u2e").value="<?php ECHO $feeUsd; ?>";
 document.getElementById("e2u").value="<?php ECHO $feeUsd2; ?>";
-document.getElementById("timer").value="<?php ECHO $countTime; ?>";
+var timerEl = document.getElementById("timer");
+if (timerEl) timerEl.value = "<?php ECHO $countTime; ?>";
 
 function changeBtn ( id ) {
 	$.ajax({

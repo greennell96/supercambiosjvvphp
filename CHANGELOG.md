@@ -10,6 +10,13 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 
 > Changes that are done locally but not yet uploaded to Hostinger.
 
+### Fixed
+- `supertasa.php` — page was blank due to `Swal.fire()` firing before `<body>` existed; moved DB error handling to after DOM is ready
+- `supertasa.php` — JS error on `document.getElementById("timer")` (element doesn't exist on all tabs); added null guard
+
+### Added
+- `supertasa.php` — password login gate (session-based, bcrypt) with logout link in navbar; default password: `jvv2024`
+
 ---
 
 ## [1.0.0] - 2026-05-14
