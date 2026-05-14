@@ -1,5 +1,5 @@
-# Database credentials — never commit the real file
-root.php
+# Database credentials live in db-config.php (never committed)
+db-config.php
 
 # Private documents
 BLANK-WAYLLET-AML.docx

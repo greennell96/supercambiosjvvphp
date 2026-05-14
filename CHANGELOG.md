@@ -20,6 +20,8 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 ### Fixed (hotfix)
 - `supertasa.php` — 500 error on Hostinger caused by `require_once __DIR__` (absolute path incompatible with shared hosting); replaced with `session_start()` and kept `INCLUDE('root.php')` in original location
 - `root.php` — added `session_status()` guard so `SESSION_START()` doesn't fire twice when auth gate has already started the session
+- `.htaccess` — added CSP header allowing `unsafe-eval` so SweetAlert2 works (Hostinger blocks eval by default)
+- `root.php` — split credentials into `db-config.php` (gitignored) so `root.php` can now live in git and won't be deleted by Hostinger auto-deploy
 
 ---
 

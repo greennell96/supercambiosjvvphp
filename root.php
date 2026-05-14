@@ -1,7 +1,6 @@
 <?php
 
-## Setup: copy db-config.example.php to db-config.php and fill in real credentials.
-## root.php itself is safe to commit — credentials live only in db-config.php.
+## CONEXION A LA BASE DE DATOS
 require_once __DIR__ . '/db-config.php';
 
 try {
@@ -17,6 +16,7 @@ try {
 	$db = null;
 }
 
+// Ensure required columns exist in config table
 if ($db) {
 	@$db->query("ALTER TABLE config ADD COLUMN season INT DEFAULT 0");
 	@$db->query("ALTER TABLE config ADD COLUMN override_start TIME");
@@ -25,7 +25,7 @@ if ($db) {
 }
 
 error_reporting(E_ALL ^ E_NOTICE);
-SESSION_START();
+if (session_status() === PHP_SESSION_NONE) SESSION_START();
 
 $IP = $_SERVER['REMOTE_ADDR'];
 $local = $_SERVER["SERVER_NAME"];
