@@ -1,6 +1,6 @@
 <?php
 // --- AUTH GATE ---
-require_once __DIR__ . '/root.php'; // starts session, connects DB
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 define('SUPERTASA_PASSWORD_HASH', '$2y$10$12l4uQbPAGXpzr0D.PUZZukB9jYQ5TKpHnp0NiBFMF7SwzvmMAynO');
 // Default password: jvv2024
@@ -229,7 +229,7 @@ transform: translateX(2rem);
 
 		<style>.ie-panel{display: none;background: #212121;padding: 10px 0;box-shadow: 3px 3px 5px 0 rgba(0,0,0,.3);clear: both;text-align:center;position: relative;z-index: 1;} html.ie-10 .ie-panel, html.lt-ie-10 .ie-panel {display: block;}</style>
 		<?php
-			// root.php already included at top (auth gate)
+			INCLUDE('root.php');
 
 			// Check database connection
 			if (!$db) {

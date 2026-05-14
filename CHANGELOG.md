@@ -17,6 +17,10 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 ### Added
 - `supertasa.php` — password login gate (session-based, bcrypt) with logout link in navbar; default password: `jvv2024`
 
+### Fixed (hotfix)
+- `supertasa.php` — 500 error on Hostinger caused by `require_once __DIR__` (absolute path incompatible with shared hosting); replaced with `session_start()` and kept `INCLUDE('root.php')` in original location
+- `root.php` — added `session_status()` guard so `SESSION_START()` doesn't fire twice when auth gate has already started the session
+
 ---
 
 ## [1.0.0] - 2026-05-14
