@@ -243,27 +243,6 @@ $filename = $_SESSION['aml_filename'];
 	</style>
 </head>
 <body>
-	<!-- HEADER -->
-	<header>
-		<div class="container">
-			<div class="header-content">
-				<a href="/" class="logo">
-					<img src="images/logo-default1-140x57.png" alt="SuperCambios JVV" style="height: 45px; width: auto;">
-				</a>
-				<nav>
-					<a href="faq.php">Preguntas Frecuentes</a>
-					<a href="aboutus.php">Quiénes Somos</a>
-					<a href="contact.php">Contacto</a>
-				</nav>
-				<div class="header-cta">
-					<a href="https://wa.me/34624442673?text=Hola%20SuperCambios%20JVV" target="_blank" rel="noopener noreferrer" class="whatsapp-btn" style="display: flex; align-items: center; gap: 8px;">
-						<i class="fab fa-whatsapp"></i> WhatsApp
-					</a>
-				</div>
-			</div>
-		</div>
-	</header>
-
 	<!-- HERO -->
 	<section class="hero-review">
 		<div class="container">
@@ -389,16 +368,6 @@ $filename = $_SESSION['aml_filename'];
 			</form>
 		</div>
 	</div>
-
-	<!-- FOOTER -->
-	<footer>
-		<div class="container">
-			<div class="footer-content">
-				<p>&copy; 2026 SuperCambios JVV. Todos los derechos reservados.</p>
-				<?php include('footermenu.php'); ?>
-			</div>
-		</div>
-	</footer>
 
 	<script>
 		const submitForm = document.querySelector('form[action="aml-submit.php"]');
