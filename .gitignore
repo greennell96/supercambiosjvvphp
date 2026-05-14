@@ -1,6 +1,9 @@
 # Database credentials — never commit the real file
 root.php
 
+# Private documents
+BLANK-WAYLLET-AML.docx
+
 # Claude Code config
 .claude/
 
