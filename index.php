@@ -728,6 +728,7 @@
 					<input type="hidden" id="usdFee" value="<?php echo $feeUsd; ?>">
 					<input type="hidden" id="usdFee2" value="<?php echo $feeUsd2; ?>">
 					<input type="hidden" id="actualdate" value="<?php echo date('Y-m-d H:i:s', strtotime('now +2 hours')); ?>">
+					<input type="hidden" id="dbStatus" value="<?php echo (int)$status; ?>">
 					<input type="hidden" id="seasonData" value="<?php echo $season; ?>">
 					<input type="hidden" id="overrideStart" value="<?php echo $overrideStart; ?>">
 					<input type="hidden" id="overrideEnd" value="<?php echo $overrideEnd; ?>">
@@ -837,89 +838,70 @@
 
 	<!-- CALCULATOR JAVASCRIPT -->
 	<script>
-		// Auto-detect open/closed status with season and override support
+		// Status display: opening requires admin action (Guardar), closing is automatic by time
 		function updateStatusDisplay() {
+			const dbStatus = parseInt(document.getElementById('dbStatus').value) || 0;
+			const forceOpen = localStorage.getItem('forceOpen') === 'true';
+
+			// If DB says closed and no testing mode, always show closed — no time-based auto-open
+			if (!dbStatus && !forceOpen) {
+				applyStatus(false, '⛔ CERRADO');
+				return;
+			}
+
 			const ahora = new Date();
 			const horaEspaña = new Date(ahora.toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
-			const diaSemana = horaEspaña.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+			const diaSemana = horaEspaña.getDay();
 			const hora = horaEspaña.getHours();
 			const minutos = horaEspaña.getMinutes();
 			const todayDate = horaEspaña.toISOString().split('T')[0];
 
-			// Get configuration from hidden inputs
 			const season = parseInt(document.getElementById('seasonData').value) || 0;
 			const overrideStart = document.getElementById('overrideStart').value;
 			const overrideEnd = document.getElementById('overrideEnd').value;
 			const overrideDate = document.getElementById('overrideDate').value;
-			const forceOpen = localStorage.getItem('forceOpen') === 'true';
 
-			let isOpen = false;
-			let statusMsg = '⛔ CERRADO';
+			if (forceOpen) {
+				applyStatus(true, '✅ ¡ABIERTO! (Modo Testing)');
+				return;
+			}
 
-			// Check for today's override
+			// Override schedule for today
 			if (overrideDate === todayDate && overrideStart && overrideEnd) {
 				const [startHour, startMin] = overrideStart.split(':').map(Number);
 				const [endHour, endMin] = overrideEnd.split(':').map(Number);
 				const currentTime = hora * 60 + minutos;
-				const startTime = startHour * 60 + startMin;
-				const endTime = endHour * 60 + endMin;
-
-				if (currentTime >= startTime && currentTime < endTime) {
-					isOpen = true;
-					statusMsg = '✅ ¡ABIERTO! (Horario Especial)';
-				}
-			} else {
-				// Use regular schedule based on season
-				let openHours, closeHours, satOpenHours, satCloseHours;
-
-				if (season === 1) {
-					// VERANO: 3PM-10PM weekdays, 3PM-7PM Saturday
-					openHours = 15;
-					closeHours = 22;
-					satOpenHours = 15;
-					satCloseHours = 19;
-				} else {
-					// INVIERNO: 2PM-9PM weekdays, 2PM-6PM Saturday
-					openHours = 14;
-					closeHours = 21;
-					satOpenHours = 14;
-					satCloseHours = 18;
-				}
-
-				if ((diaSemana >= 1 && diaSemana <= 5 && hora >= openHours && hora < closeHours) ||
-					(diaSemana === 6 && hora >= satOpenHours && hora < satCloseHours)) {
-					isOpen = true;
-					statusMsg = '✅ ¡ABIERTO!';
-				}
+				const isOpen = currentTime >= (startHour * 60 + startMin) && currentTime < (endHour * 60 + endMin);
+				applyStatus(isOpen, isOpen ? '✅ ¡ABIERTO! (Horario Especial)' : '⛔ CERRADO');
+				return;
 			}
 
-			// Force open override for testing
-			if (forceOpen) {
-				isOpen = true;
-				statusMsg = '✅ ¡ABIERTO! (Modo Testing)';
-			}
+			// DB is open — auto-close only when past closing hour
+			const closeHour = season === 1 ? 22 : 21;
+			const satCloseHour = season === 1 ? 19 : 18;
+			const withinClose =
+				(diaSemana >= 1 && diaSemana <= 5 && hora < closeHour) ||
+				(diaSemana === 6 && hora < satCloseHour);
 
+			applyStatus(withinClose, withinClose ? '✅ ¡ABIERTO!' : '⛔ CERRADO');
+		}
+
+		function applyStatus(isOpen, statusMsg) {
 			document.getElementById('rateStatus').innerHTML = `<i class="fas ${isOpen ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${statusMsg}`;
-			document.getElementById('rateStatus').style.backgroundImage = isOpen ?
-				'linear-gradient(135deg, #10b981 0%, #059669 100%)' :
-				'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+			document.getElementById('rateStatus').style.backgroundImage = isOpen
+				? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+				: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
 
-			// Update rate display based on open/closed status
 			const rateValueEl = document.getElementById('rateValue');
 			if (!isOpen) {
 				rateValueEl.textContent = '-';
 			} else {
-				// Restore the rate based on which tab is active
 				const activeTab = document.querySelector('.tab-btn.active');
 				if (activeTab) {
 					const tabIndex = Array.from(document.querySelectorAll('.tab-btn')).indexOf(activeTab);
-					if (tabIndex === 0) {
-						rateValueEl.textContent = document.getElementById('eurFee').value;
-					} else if (tabIndex === 1) {
-						rateValueEl.textContent = document.getElementById('vesFee').value;
-					} else if (tabIndex === 2) {
-						rateValueEl.textContent = document.getElementById('usdFee').value;
-					}
+					if (tabIndex === 0) rateValueEl.textContent = document.getElementById('eurFee').value;
+					else if (tabIndex === 1) rateValueEl.textContent = document.getElementById('vesFee').value;
+					else if (tabIndex === 2) rateValueEl.textContent = document.getElementById('usdFee').value;
 				}
 			}
 		}

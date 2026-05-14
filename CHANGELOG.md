@@ -12,6 +12,7 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 
 ### Fixed
 - `root.php` + `aml-process.php` — private files (`db-config.php`, `BLANK-WAYLLET-AML.docx`) now stored one level above `public_html`, outside Hostinger's git deploy path, so they survive every auto-deploy permanently
+- `index.php` + `supertasa.php` — site no longer auto-opens at 15:00 with stale rates; open state now requires admin to click "Guardar" which sets DB status based on current time; auto-close at end of day is still time-based
 
 ### Fixed
 - `supertasa.php` — page was blank due to `Swal.fire()` firing before `<body>` existed; moved DB error handling to after DOM is ready

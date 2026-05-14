@@ -370,16 +370,30 @@ transform: translateX(2rem);
 			$eur2usd = $_POST['e2u'];
 			$date = $_POST['feeDate'];
 			$dateves = $_POST['dateves'];
-			MYSQLI_QUERY($db, "UPDATE config SET 
-				fee = $fee , 
-				ves2eur = $ves2eur , 
-				usd2eur = $usd2eur , 
-				eur2usd = $eur2usd , 
-				date = '$date' , 
-				date_ves = '$dateves' 
+
+			// Auto-set open/closed based on current time (Europe/Madrid set in root.php)
+			$currentHour = (int)date('H');
+			$currentDay  = (int)date('N'); // 1=Mon … 7=Sun
+			$openHour    = ($season == 1) ? 15 : 14; // summer : winter
+			$closeHour   = ($season == 1) ? 22 : 21;
+			$satClose    = ($season == 1) ? 19 : 18;
+			$newStatus = 0;
+			if ($currentDay >= 1 && $currentDay <= 5 && $currentHour >= $openHour && $currentHour < $closeHour) {
+				$newStatus = 1;
+			} elseif ($currentDay == 6 && $currentHour >= $openHour && $currentHour < $satClose) {
+				$newStatus = 1;
+			}
+
+			MYSQLI_QUERY($db, "UPDATE config SET
+				fee = $fee ,
+				ves2eur = $ves2eur ,
+				usd2eur = $usd2eur ,
+				eur2usd = $eur2usd ,
+				date = '$date' ,
+				date_ves = '$dateves' ,
+				status = $newStatus
 			WHERE id = $actualDB ");
 			ECHO '<script type="text/javascript">window.location="";</script>';
-			
 		}
 		if (ISSET($_POST['alertSave'])) {
 			$tittle = $_POST['tittle1'];
