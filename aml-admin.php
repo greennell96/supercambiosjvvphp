@@ -2,7 +2,7 @@
 require_once __DIR__ . '/root.php';
 
 // To change: php -r "echo password_hash('nueva_clave', PASSWORD_DEFAULT);"
-define('ADMIN_PASSWORD_HASH', '$2y$10$9aAAgYaUIk2tBbnqUxFEAejMZeCmbV30WGo5XkmaYhK.bAGzjnLMW');
+define('ADMIN_PASSWORD_HASH', '$2y$10$sAVS3eeE2OlPJMN6dliuiehdQjvxlZhVa7ThOqODAGCgep55oX8fq');
 
 // Anti-brute-force
 $maxAttempts = 5;
