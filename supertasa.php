@@ -2,8 +2,7 @@
 // --- AUTH GATE ---
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-define('SUPERTASA_PASSWORD_HASH', '$2y$10$12l4uQbPAGXpzr0D.PUZZukB9jYQ5TKpHnp0NiBFMF7SwzvmMAynO');
-// Default password: jvv2024
+define('SUPERTASA_PASSWORD_HASH', '$2y$10$NZPinNl6WqYS0C1mGA86qunVnzRyuEQ6zjLz/AWk1FeDyh6Qgr0h.');
 // To change: php -r "echo password_hash('nueva_clave', PASSWORD_DEFAULT);"
 
 if (isset($_GET['action']) && $_GET['action'] === 'logout') {

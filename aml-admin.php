@@ -1,10 +1,8 @@
 <?php
 require_once __DIR__ . '/root.php';
 
-// Admin password hash (change this!)
-// To generate a new hash: php -r "echo password_hash('your-password-here', PASSWORD_DEFAULT);"
-// Password: admin123
-define('ADMIN_PASSWORD_HASH', '$2y$10$doZNFdKZjhF/v1CnOGTIDeAfgdLZBquQxiVTr/w2n0/uZlt00aR0O');
+// To change: php -r "echo password_hash('nueva_clave', PASSWORD_DEFAULT);"
+define('ADMIN_PASSWORD_HASH', '$2y$10$9aAAgYaUIk2tBbnqUxFEAejMZeCmbV30WGo5XkmaYhK.bAGzjnLMW');
 
 // Anti-brute-force
 $maxAttempts = 5;

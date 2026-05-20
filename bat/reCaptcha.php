@@ -1,11 +1,16 @@
 <?php
+// Load credentials (gitignored db-config.php, one level up from bat/)
+$_dbConfig = isset($_SERVER['DOCUMENT_ROOT'])
+    ? dirname($_SERVER['DOCUMENT_ROOT']) . '/db-config.php'
+    : dirname(__DIR__) . '/db-config.php';
+if (file_exists($_dbConfig)) require_once $_dbConfig;
+
 // Initiate the autoloader.
 require_once 'ReCaptcha/autoload.php';
 
-// Register You API keys at https://www.google.com/recaptcha/admin
-// And write it here
-$siteKey = '6LfZlSETAAAAAC5VW4R4tQP8Am_to4bM3dddxkEt';
-$secret = '6LfZlSETAAAAAOi4lh7GHcSOO0pbXnAMJRhnsr7O';
+// Keys live in db-config.php (gitignored) — never hardcode here
+$siteKey = defined('RECAPTCHA_SITE_KEY') ? RECAPTCHA_SITE_KEY : '';
+$secret  = defined('RECAPTCHA_SECRET')   ? RECAPTCHA_SECRET   : '';
 
 // reCAPTCHA supported 40+ languages listed here: https://developers.google.com/recaptcha/docs/language
 $lang = 'en';
