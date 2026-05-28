@@ -136,15 +136,18 @@ background-color: var(--color-green);
 transform: translateX(2rem);
 }
 
-/* EUR/USD live top bar */
-.fx-topbar {
-    background: #1f2937;
-    color: #d1fae5;
-    text-align: right;
-    padding: 5px 20px;
+/* EUR/USD live rate chip */
+.fx-rate {
+    flex-shrink: 0;
     font-size: 12px;
+    font-weight: 600;
+    color: #10b981;
+    white-space: nowrap;
+    padding: 5px 12px;
+    background: rgba(16,185,129,0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(16,185,129,0.25);
     font-family: 'Poppins', sans-serif;
-    letter-spacing: 0.3px;
 }
 
 /* Supertasa Admin Header Styling */
@@ -232,6 +235,11 @@ transform: translateX(2rem);
 	.rd-nav-link {
 		padding: 8px 10px;
 		font-size: 11px;
+	}
+
+	.fx-rate {
+		font-size: 10px;
+		padding: 4px 8px;
 	}
 }
 
@@ -406,7 +414,6 @@ transform: translateX(2rem);
 		}
 	?>
 
-	<div class="fx-topbar" id="fx-topbar">Cargando tasa EUR/USD…</div>
 	<header class="section page-header">
 		<!-- RD Navbar-->
 		<div class="rd-navbar-wrap">
@@ -437,6 +444,7 @@ transform: translateX(2rem);
 								-->
 							</div>
 						</div>
+						<div class="fx-rate" id="fx-topbar"></div>
 					</div>
 				</div>
 			</nav>
