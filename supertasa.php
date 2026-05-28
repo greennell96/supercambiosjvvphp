@@ -136,6 +136,17 @@ background-color: var(--color-green);
 transform: translateX(2rem);
 }
 
+/* EUR/USD live top bar */
+.fx-topbar {
+    background: #1f2937;
+    color: #d1fae5;
+    text-align: right;
+    padding: 5px 20px;
+    font-size: 12px;
+    font-family: 'Poppins', sans-serif;
+    letter-spacing: 0.3px;
+}
+
 /* Supertasa Admin Header Styling */
 .rd-navbar-main {
 	display: flex;
@@ -395,6 +406,7 @@ transform: translateX(2rem);
 		}
 	?>
 
+	<div class="fx-topbar" id="fx-topbar">Cargando tasa EUR/USD…</div>
 	<header class="section page-header">
 		<!-- RD Navbar-->
 		<div class="rd-navbar-wrap">
@@ -807,6 +819,17 @@ function updateTestingStatus() {
 }
 
 document.addEventListener('DOMContentLoaded', updateTestingStatus);
+
+// Live EUR/USD rate (ECB via Frankfurter)
+fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD')
+    .then(r => r.json())
+    .then(data => {
+        const rate = data.rates.USD.toFixed(4);
+        document.getElementById('fx-topbar').textContent = '1 EUR = ' + rate + ' USD';
+    })
+    .catch(() => {
+        document.getElementById('fx-topbar').textContent = '';
+    });
 
 // Show alert if there's a message from form submission
 <?php if (!empty($alertMessage)): ?>
