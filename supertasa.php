@@ -442,7 +442,6 @@ if (empty($_SESSION['supertasa_auth'])) {
 <!-- TASAS -->
 <?php if ($mod == 'status'): ?>
 <main class="page">
-	<div class="page-title">Estado de Operación</div>
 	<form method="post" action="?mod=status">
 
 		<div class="card">
