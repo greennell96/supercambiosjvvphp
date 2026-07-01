@@ -380,7 +380,12 @@
 			align-items: baseline;
 			justify-content: center;
 			gap: 8px;
-			margin-bottom: 14px;
+			margin: 2px 0 18px;
+			padding: 10px 20px;
+			background: #f9fafb;
+			border: 1px solid #eef0f2;
+			border-radius: 14px;
+			position: relative;
 		}
 
 		.rate-display-label {
@@ -422,24 +427,32 @@
 			position: absolute;
 			top: -16px;
 			left: 50%;
-			transform: translateX(-50%) scale(0.9);
+			transform: translateX(-50%);
 			background: #1f2937;
 			color: white;
-			font-size: 12.5px;
-			font-weight: 600;
-			padding: 8px 16px;
+			font-size: 13px;
+			font-weight: 700;
+			padding: 7px 15px;
 			border-radius: 20px;
 			white-space: nowrap;
 			opacity: 0;
 			pointer-events: none;
-			transition: opacity 0.4s ease, transform 0.4s ease;
+			transition: opacity 0.3s ease;
 			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 			z-index: 30;
 		}
 
 		.calc-hint.show {
 			opacity: 1;
-			transform: translateX(-50%) scale(1);
+			animation: calcHintShake 0.6s ease;
+		}
+
+		@keyframes calcHintShake {
+			0%, 100% { transform: translateX(-50%) rotate(0deg); }
+			20% { transform: translateX(-50%) rotate(-10deg); }
+			40% { transform: translateX(-50%) rotate(10deg); }
+			60% { transform: translateX(-50%) rotate(-8deg); }
+			80% { transform: translateX(-50%) rotate(8deg); }
 		}
 
 		.form-group {
@@ -871,8 +884,6 @@
 				<p class="hero-subtitle">Tasa real, sin comisiones ocultas</p>
 
 				<div class="calculator-wrapper">
-					<div class="calc-hint" id="calcHint">😉 Toca la bandera para cambiar de tasa</div>
-
 					<div class="calc-header">
 						<?php if ($status == 1) { ?>
 							<span class="rate-status status-open" id="rateStatus">
@@ -923,6 +934,7 @@
 						</div>
 
 						<div class="rate-display-mid">
+							<div class="calc-hint" id="calcHint">Toca ☝️</div>
 							<span class="rate-display-label">Tasa:</span>
 							<span class="rate-display-value" id="rateValue"><?php echo ($status == 1) ? $feeEur : '-'; ?></span>
 						</div>
@@ -1340,13 +1352,19 @@
 		});
 
 		// Calc hint: small popup nudging people to try the currency chips.
-		// Shows for 2.5s, hides for 2.5s, repeats — stops for good once someone
-		// actually opens a currency menu (remembered across visits).
+		// Shows for 2.5s, hides for 2.5s, repeats, alternating which flag it points
+		// at — stops for good once someone actually opens a currency menu
+		// (remembered across visits).
 		let calcHintInterval;
+		let calcHintPointsUp = true;
 
 		function loopCalcHint() {
 			const hint = document.getElementById('calcHint');
 			if (!hint) return;
+			hint.textContent = calcHintPointsUp ? 'Toca ☝️' : 'Toca 👇';
+			calcHintPointsUp = !calcHintPointsUp;
+			hint.classList.remove('show');
+			void hint.offsetWidth;
 			hint.classList.add('show');
 			setTimeout(() => hint.classList.remove('show'), 2500);
 		}
