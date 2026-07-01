@@ -415,68 +415,31 @@
 			margin: 40px auto 0;
 			border-top: 5px solid #ff6b35;
 			text-align: left;
+			position: relative;
 		}
 
-		.hero-demo {
-			max-width: 320px;
-			margin: 24px auto 0;
-			padding: 16px 22px;
-			background: rgba(255, 255, 255, 0.6);
-			border: 1px dashed #e5e7eb;
-			border-radius: 16px;
-			text-align: center;
-		}
-
-		.hero-demo-label {
-			display: block;
-			font-size: 12px;
-			color: #9ca3af;
-			font-weight: 700;
-			text-transform: uppercase;
-			letter-spacing: 0.5px;
-			margin-bottom: 10px;
-		}
-
-		.hero-demo-row {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 3px 2px;
-		}
-
-		.hero-demo-field-label {
-			font-size: 13px;
-			color: #6b7280;
+		.calc-hint {
+			position: absolute;
+			top: -16px;
+			left: 50%;
+			transform: translateX(-50%) scale(0.9);
+			background: #1f2937;
+			color: white;
+			font-size: 12.5px;
 			font-weight: 600;
+			padding: 8px 16px;
+			border-radius: 20px;
+			white-space: nowrap;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.4s ease, transform 0.4s ease;
+			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+			z-index: 30;
 		}
 
-		.hero-demo-value {
-			font-size: 16px;
-			font-weight: 800;
-			color: #1f2937;
-		}
-
-		.hero-demo-arrow {
-			display: block;
-			font-size: 12px;
-			color: #ff6b35;
-			margin: 2px 0;
-		}
-
-		.hero-demo-result {
-			color: #059669;
-			display: inline-block;
-			transition: transform 0.25s ease;
-		}
-
-		@keyframes heroDemoPulse {
-			0% { transform: scale(1); }
-			35% { transform: scale(1.15); }
-			100% { transform: scale(1); }
-		}
-
-		.hero-demo-result.hero-demo-pulse {
-			animation: heroDemoPulse 0.6s ease;
+		.calc-hint.show {
+			opacity: 1;
+			transform: translateX(-50%) scale(1);
 		}
 
 		.form-group {
@@ -908,6 +871,8 @@
 				<p class="hero-subtitle">Tasa real, sin comisiones ocultas</p>
 
 				<div class="calculator-wrapper">
+					<div class="calc-hint" id="calcHint">😉 Toca la bandera para cambiar de tasa</div>
+
 					<div class="calc-header">
 						<?php if ($status == 1) { ?>
 							<span class="rate-status status-open" id="rateStatus">
@@ -1012,19 +977,6 @@
 							<i class="fab fa-whatsapp"></i> Enviar Ahora por WhatsApp
 						</button></a>
 					</form>
-				</div>
-
-				<div class="hero-demo" id="heroDemo" aria-hidden="true">
-					<span class="hero-demo-label">Así de fácil</span>
-					<div class="hero-demo-row">
-						<span class="hero-demo-field-label">Envías</span>
-						<span class="hero-demo-value" id="heroDemoSend">€20</span>
-					</div>
-					<i class="fas fa-arrow-down hero-demo-arrow"></i>
-					<div class="hero-demo-row">
-						<span class="hero-demo-field-label">Recibes</span>
-						<span class="hero-demo-value hero-demo-result" id="heroDemoReceive">Bs <?php echo number_format(20 * floatval(str_replace(',', '', $feeEur)), 2); ?></span>
-					</div>
 				</div>
 			</div>
 		</div>
@@ -1239,6 +1191,7 @@
 		setInterval(updateStatusDisplay, 60000);
 
 		function toggleCurrencyMenu(which) {
+			dismissCalcHint();
 			const thisWrap = document.getElementById(which === 'send' ? 'sendPillWrap' : 'receivePillWrap');
 			const otherWrap = document.getElementById(which === 'send' ? 'receivePillWrap' : 'sendPillWrap');
 			otherWrap.classList.remove('open');
@@ -1386,50 +1339,29 @@
 			setCash('x');
 		});
 
-		// HeroAnimation: self-playing demo showing the calculator ticking through sample
-		// amounts, so visitors get the idea without reading instructions. Pure DOM/CSS —
-		// a step counter advances on a timer, each step updates real text and applies a
-		// CSS transition. Loops forever.
-		const HERO_DEMO_AMOUNTS = [20, 50, 100];
-		let heroDemoStep = 0;
-		let heroDemoCurrent = 20;
+		// Calc hint: small popup nudging people to try the currency chips.
+		// Shows for 2.5s, hides for 2.5s, repeats — stops for good once someone
+		// actually opens a currency menu (remembered across visits).
+		let calcHintInterval;
 
-		function heroDemoTickTo(el, from, to, duration) {
-			const start = performance.now();
-			function frame(now) {
-				const progress = Math.min((now - start) / duration, 1);
-				el.textContent = '€' + Math.round(from + (to - from) * progress);
-				if (progress < 1) requestAnimationFrame(frame);
-			}
-			requestAnimationFrame(frame);
+		function loopCalcHint() {
+			const hint = document.getElementById('calcHint');
+			if (!hint) return;
+			hint.classList.add('show');
+			setTimeout(() => hint.classList.remove('show'), 2500);
 		}
 
-		function heroDemoLoop() {
-			const sendEl = document.getElementById('heroDemoSend');
-			const receiveEl = document.getElementById('heroDemoReceive');
-			if (!sendEl || !receiveEl) return;
-
-			const nextAmount = HERO_DEMO_AMOUNTS[heroDemoStep % HERO_DEMO_AMOUNTS.length];
-
-			// Step 1 (~3s): tick the "envías" value to the next sample amount
-			heroDemoTickTo(sendEl, heroDemoCurrent, nextAmount, 900);
-			heroDemoCurrent = nextAmount;
-
-			// Step 2 (~3s): update "recibes" using today's real rate, with a pulse
-			setTimeout(() => {
-				const rate = parseFloat(document.getElementById('eurFee').value) || 0;
-				const result = (nextAmount * rate).toFixed(2);
-				receiveEl.textContent = 'Bs ' + formatNumber(result);
-				receiveEl.classList.remove('hero-demo-pulse');
-				void receiveEl.offsetWidth;
-				receiveEl.classList.add('hero-demo-pulse');
-			}, 3000);
-
-			heroDemoStep++;
-			setTimeout(heroDemoLoop, 6000);
+		function dismissCalcHint() {
+			localStorage.setItem('calcHintDismissed', 'true');
+			clearInterval(calcHintInterval);
+			const hint = document.getElementById('calcHint');
+			if (hint) hint.classList.remove('show');
 		}
 
-		setTimeout(heroDemoLoop, 1500);
+		if (localStorage.getItem('calcHintDismissed') !== 'true') {
+			setTimeout(loopCalcHint, 1200);
+			calcHintInterval = setInterval(loopCalcHint, 5000);
+		}
 
 		// Ventana Flotante (Alert Display)
 		<?php if ($alertStatus == 1) { ?>
