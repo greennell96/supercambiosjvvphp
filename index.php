@@ -291,8 +291,8 @@
 		}
 
 		.currency-pill i {
-			font-size: 10px;
-			color: #9ca3af;
+			font-size: 13px;
+			color: #6b7280;
 			transition: transform 0.2s;
 		}
 
@@ -736,7 +736,7 @@
 			}
 
 			.currency-pill i {
-				font-size: 9px;
+				font-size: 11px;
 				color: #ff6b35;
 			}
 
