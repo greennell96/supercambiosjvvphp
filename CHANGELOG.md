@@ -28,7 +28,9 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 - `root.php` — split credentials into `db-config.php` (gitignored) so `root.php` can now live in git and won't be deleted by Hostinger auto-deploy
 
 ### Changed
-- `index.php` — homepage hero redesigned around the rate calculator instead of a bare rate number; open/closed status pill now lives inside the calculator card with a soft pulse animation; the 4 conversion tabs merged into one dropdown selector; rate display restored to the bold hero-style format ("Tasa: XX"), positioned between the two inputs
+- `index.php` — homepage hero redesigned around the rate calculator instead of a bare rate number; open/closed status pill lives inside the calculator card with a soft pulse animation; rate display restored to the bold hero-style format ("Tasa: XX"), positioned between the two inputs; tightened vertical spacing throughout the card
+- `index.php` — each input now has its own currency chip (real flag PNG + code + chevron) instead of one shared corridor dropdown — flag swaps to match whichever currency is active in that box (Spain for EUR, Venezuela for VES, USA for USD); both chips open the same 4-corridor menu
+- `index.php` — input labels now swap verb tense depending on which field the user is typing in ("¿Cuánto envías?"/"Recibirás:" vs "Tendrías que enviar:"/"¿Quieres recibir...?"), with a soft fade transition
 - `index.php` — fixed pre-existing missing wrapper markup (`<section class="trust-section">`/`.trust-grid`) around the trust-cards, which had been rendering as loose unstyled divs
 
 ### Added

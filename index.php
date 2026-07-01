@@ -244,51 +244,67 @@
 		.calc-header {
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
+			justify-content: flex-end;
 			gap: 12px;
-			margin-bottom: 28px;
+			margin-bottom: 14px;
 			flex-wrap: wrap;
 		}
 
-		.exchange-selector {
+		.currency-pill-wrap {
 			position: relative;
+			flex-shrink: 0;
 		}
 
-		.exchange-selector-btn {
+		.currency-pill {
 			display: flex;
 			align-items: center;
 			gap: 8px;
-			background: #fff5ef;
-			border: 1.5px solid #ffd4b8;
-			color: #ff6b35;
+			background: white;
+			border: 1.5px solid #e5e7eb;
+			color: #1f2937;
 			font-weight: 700;
 			font-size: 14px;
-			padding: 8px 14px;
-			border-radius: 10px;
+			padding: 8px 12px;
+			border-radius: 999px;
 			cursor: pointer;
-			transition: all 0.2s;
+			transition: all 0.15s;
 			font-family: 'Poppins', sans-serif;
+			box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 		}
 
-		.exchange-selector-btn:hover {
-			background: #ffe8d9;
+		.currency-pill:hover {
 			border-color: #ff6b35;
+			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 		}
 
-		.exchange-selector-btn i {
-			font-size: 11px;
+		.currency-pill:active {
+			transform: scale(0.96);
+			box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		}
+
+		.currency-pill-flag {
+			width: 22px;
+			height: 22px;
+			border-radius: 50%;
+			object-fit: cover;
+			flex-shrink: 0;
+		}
+
+		.currency-pill i {
+			font-size: 10px;
+			color: #9ca3af;
 			transition: transform 0.2s;
 		}
 
-		.exchange-selector.open .exchange-selector-btn i {
-			transform: rotate(180deg);
+		.currency-pill-wrap.open .currency-pill i {
+			transform: rotate(90deg);
 		}
 
-		.exchange-menu {
+		.currency-menu {
 			display: none;
 			position: absolute;
 			top: calc(100% + 8px);
-			left: 0;
+			right: 0;
 			background: white;
 			border: 1px solid #e5e7eb;
 			border-radius: 12px;
@@ -299,7 +315,7 @@
 			overflow: hidden;
 		}
 
-		.exchange-selector.open .exchange-menu {
+		.currency-pill-wrap.open .currency-menu {
 			display: block;
 		}
 
@@ -342,8 +358,7 @@
 			align-items: baseline;
 			justify-content: center;
 			gap: 8px;
-			text-align: center;
-			margin-bottom: 24px;
+			margin-bottom: 14px;
 		}
 
 		.rate-display-label {
@@ -381,7 +396,12 @@
 		}
 
 		.form-group {
-			margin-bottom: 30px;
+			margin-bottom: 14px;
+		}
+
+		.label-text-swap {
+			display: inline-block;
+			transition: opacity 0.15s ease;
 		}
 
 		.form-label-text {
@@ -404,10 +424,14 @@
 
 		.input-wrapper {
 			position: relative;
+			display: flex;
+			align-items: center;
+			gap: 10px;
 		}
 
 		.form-input-modern {
-			width: 100%;
+			flex: 1;
+			min-width: 0;
 			padding: 16px 20px;
 			border: 2px solid #e5e7eb;
 			border-radius: 12px;
@@ -438,7 +462,7 @@
 			box-shadow: 0 10px 30px rgba(255, 107, 53, 0.3);
 			text-transform: uppercase;
 			letter-spacing: 1px;
-			margin-top: 30px;
+			margin-top: 12px;
 		}
 
 		.submit-btn:hover {
@@ -694,8 +718,12 @@
 				padding-bottom: 65px;
 			}
 
-			.exchange-menu {
+			.currency-menu {
 				min-width: 200px;
+			}
+
+			.currency-pill span {
+				display: none;
 			}
 
 			.rate-display-value {
@@ -779,30 +807,6 @@
 
 				<div class="calculator-wrapper">
 					<div class="calc-header">
-						<div class="exchange-selector" id="exchangeSelector">
-							<button type="button" class="exchange-selector-btn" onclick="toggleExchangeMenu()">
-								<span id="exchangeLabel">€ → Bs</span>
-								<i class="fas fa-chevron-down"></i>
-							</button>
-							<div class="exchange-menu">
-								<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
-									<span class="exchange-menu-item-main">€ → Bs</span>
-									<span class="exchange-menu-item-sub">Euros a Bolívares</span>
-								</button>
-								<button type="button" class="exchange-menu-item" onclick="setNewCash(2)">
-									<span class="exchange-menu-item-main">Bs → €</span>
-									<span class="exchange-menu-item-sub">Bolívares a Euros</span>
-								</button>
-								<button type="button" class="exchange-menu-item" onclick="setNewCash(3)">
-									<span class="exchange-menu-item-main">$ → €</span>
-									<span class="exchange-menu-item-sub">Dólares a Euros</span>
-								</button>
-								<button type="button" class="exchange-menu-item" onclick="setNewCash(4)">
-									<span class="exchange-menu-item-main">€ → $</span>
-									<span class="exchange-menu-item-sub">Euros a Dólares</span>
-								</button>
-							</div>
-						</div>
 						<?php if ($status == 1) { ?>
 							<span class="rate-status status-open" id="rateStatus">
 								<i class="fas fa-check-circle"></i> <?php echo $statusT; ?>
@@ -817,12 +821,37 @@
 					<form onsubmit="return false;">
 						<div class="form-group">
 							<label class="form-label-text">
-								¿Cuánto envías?
+								<span id="labelSend" class="label-text-swap">¿Cuánto envías?</span>
 								<i class="fas fa-info-circle info-icon relative" onmouseover="document.getElementById('info-box').style.display='block'" onmouseout="document.getElementById('info-box').style.display='none'"></i>
 								<div id="info-box">Calcula mientras escribes</div>
 							</label>
 							<div class="input-wrapper">
-								<input class="form-input-modern" id="eurCash" type="text" placeholder="Ingresa cantidad" oninput="setCash(1)">
+								<input class="form-input-modern" id="eurCash" type="text" placeholder="Ingresa cantidad" oninput="setCash(1)" onfocus="setActiveField('send')">
+								<div class="currency-pill-wrap" id="sendPillWrap">
+									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('send')">
+										<img src="images/flags/spain.png" class="currency-pill-flag" id="sendFlag" alt="">
+										<span id="sendCode">EUR</span>
+										<i class="fas fa-chevron-right"></i>
+									</button>
+									<div class="currency-menu" id="sendMenu">
+										<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
+											<span class="exchange-menu-item-main">€ → Bs</span>
+											<span class="exchange-menu-item-sub">Euros a Bolívares</span>
+										</button>
+										<button type="button" class="exchange-menu-item" onclick="setNewCash(2)">
+											<span class="exchange-menu-item-main">Bs → €</span>
+											<span class="exchange-menu-item-sub">Bolívares a Euros</span>
+										</button>
+										<button type="button" class="exchange-menu-item" onclick="setNewCash(3)">
+											<span class="exchange-menu-item-main">$ → €</span>
+											<span class="exchange-menu-item-sub">Dólares a Euros</span>
+										</button>
+										<button type="button" class="exchange-menu-item" onclick="setNewCash(4)">
+											<span class="exchange-menu-item-main">€ → $</span>
+											<span class="exchange-menu-item-sub">Euros a Dólares</span>
+										</button>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -832,9 +861,36 @@
 						</div>
 
 						<div class="form-group">
-							<label class="form-label-text">Recibirás</label>
+							<label class="form-label-text">
+								<span id="labelReceive" class="label-text-swap">Recibirás:</span>
+							</label>
 							<div class="input-wrapper">
-								<input class="form-input-modern" id="vesCash" type="text" placeholder="Resultado" oninput="setCash(2)">
+								<input class="form-input-modern" id="vesCash" type="text" placeholder="Resultado" oninput="setCash(2)" onfocus="setActiveField('receive')">
+								<div class="currency-pill-wrap" id="receivePillWrap">
+									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('receive')">
+										<img src="images/flags/venezuela.png" class="currency-pill-flag" id="receiveFlag" alt="">
+										<span id="receiveCode">VES</span>
+										<i class="fas fa-chevron-right"></i>
+									</button>
+									<div class="currency-menu" id="receiveMenu">
+										<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
+											<span class="exchange-menu-item-main">€ → Bs</span>
+											<span class="exchange-menu-item-sub">Euros a Bolívares</span>
+										</button>
+										<button type="button" class="exchange-menu-item" onclick="setNewCash(2)">
+											<span class="exchange-menu-item-main">Bs → €</span>
+											<span class="exchange-menu-item-sub">Bolívares a Euros</span>
+										</button>
+										<button type="button" class="exchange-menu-item" onclick="setNewCash(3)">
+											<span class="exchange-menu-item-main">$ → €</span>
+											<span class="exchange-menu-item-sub">Dólares a Euros</span>
+										</button>
+										<button type="button" class="exchange-menu-item" onclick="setNewCash(4)">
+											<span class="exchange-menu-item-main">€ → $</span>
+											<span class="exchange-menu-item-sub">Euros a Dólares</span>
+										</button>
+									</div>
+								</div>
 							</div>
 						</div>
 
@@ -1067,16 +1123,65 @@
 		updateStatusDisplay();
 		setInterval(updateStatusDisplay, 60000);
 
-		function toggleExchangeMenu() {
-			document.getElementById('exchangeSelector').classList.toggle('open');
+		function toggleCurrencyMenu(which) {
+			const thisWrap = document.getElementById(which === 'send' ? 'sendPillWrap' : 'receivePillWrap');
+			const otherWrap = document.getElementById(which === 'send' ? 'receivePillWrap' : 'sendPillWrap');
+			otherWrap.classList.remove('open');
+			thisWrap.classList.toggle('open');
 		}
 
 		document.addEventListener('click', function(e) {
-			const selector = document.getElementById('exchangeSelector');
-			if (selector && !selector.contains(e.target)) {
-				selector.classList.remove('open');
-			}
+			['sendPillWrap', 'receivePillWrap'].forEach((id) => {
+				const wrap = document.getElementById(id);
+				if (wrap && !wrap.contains(e.target)) {
+					wrap.classList.remove('open');
+				}
+			});
 		});
+
+		const CURRENCY_INFO = {
+			'€':  { code: 'EUR', flag: 'images/flags/spain.png' },
+			'Bs': { code: 'VES', flag: 'images/flags/venezuela.png' },
+			'$':  { code: 'USD', flag: 'images/flags/usa.png' }
+		};
+
+		function updateCurrencyPills() {
+			const sendInfo = CURRENCY_INFO[symbol1];
+			const receiveInfo = CURRENCY_INFO[symbol2];
+			document.getElementById('sendFlag').src = sendInfo.flag;
+			document.getElementById('sendCode').textContent = sendInfo.code;
+			document.getElementById('receiveFlag').src = receiveInfo.flag;
+			document.getElementById('receiveCode').textContent = receiveInfo.code;
+		}
+
+		function setActiveMenuItem(index) {
+			['sendMenu', 'receiveMenu'].forEach((id) => {
+				const items = document.querySelectorAll('#' + id + ' .exchange-menu-item');
+				items.forEach((btn) => btn.classList.remove('active'));
+				items[index].classList.add('active');
+			});
+		}
+
+		function fadeSwapText(el, text) {
+			if (el.textContent.trim() === text) return;
+			el.style.opacity = '0';
+			setTimeout(() => {
+				el.textContent = text;
+				el.style.opacity = '1';
+			}, 150);
+		}
+
+		function setActiveField(field) {
+			const labelSend = document.getElementById('labelSend');
+			const labelReceive = document.getElementById('labelReceive');
+			if (field === 'send') {
+				fadeSwapText(labelSend, '¿Cuánto envías?');
+				fadeSwapText(labelReceive, 'Recibirás:');
+			} else {
+				fadeSwapText(labelSend, 'Tendrías que enviar:');
+				fadeSwapText(labelReceive, '¿Quieres recibir...?');
+			}
+		}
 
 		let symbol1 = '€';
 		let symbol2 = 'Bs';
@@ -1089,18 +1194,14 @@
 				fee_eur = parseFloat(document.getElementById('eurFee').value);
 				symbol1 = '€';
 				symbol2 = 'Bs';
-				document.getElementById('exchangeLabel').innerHTML = '€ → Bs';
 				document.getElementById('rateValue').innerHTML = fee_eur;
-				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.exchange-menu-item')[0].classList.add('active');
+				setActiveMenuItem(0);
 			} else if (cash == 2) {
 				fee_eur = 1 / parseFloat(document.getElementById('vesFee').value);
 				symbol1 = 'Bs';
 				symbol2 = '€';
-				document.getElementById('exchangeLabel').innerHTML = 'Bs → €';
 				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('vesFee').value);
-				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.exchange-menu-item')[1].classList.add('active');
+				setActiveMenuItem(1);
 
 				var fechaDada = new Date("<?php echo $dateves; ?>");
 				let newdate = document.getElementById('actualdate').value;
@@ -1120,21 +1221,19 @@
 				fee_eur = parseFloat(document.getElementById('usdFee').value);
 				symbol1 = '$';
 				symbol2 = '€';
-				document.getElementById('exchangeLabel').innerHTML = '$ → €';
 				document.getElementById('rateValue').innerHTML = fee_eur;
-				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.exchange-menu-item')[2].classList.add('active');
+				setActiveMenuItem(2);
 			} else if (cash == 4) {
 				fee_eur = 1 / parseFloat(document.getElementById('usdFee2').value);
 				symbol1 = '€';
 				symbol2 = '$';
-				document.getElementById('exchangeLabel').innerHTML = '€ → $';
 				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('usdFee2').value);
-				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.exchange-menu-item')[3].classList.add('active');
+				setActiveMenuItem(3);
 			}
 
-			document.getElementById('exchangeSelector').classList.remove('open');
+			updateCurrencyPills();
+			document.getElementById('sendPillWrap').classList.remove('open');
+			document.getElementById('receivePillWrap').classList.remove('open');
 			setCash('x');
 		}
 
