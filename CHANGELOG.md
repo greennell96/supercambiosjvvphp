@@ -28,7 +28,7 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 - `root.php` — split credentials into `db-config.php` (gitignored) so `root.php` can now live in git and won't be deleted by Hostinger auto-deploy
 
 ### Changed
-- `index.php` — homepage hero redesigned around the rate calculator instead of a bare rate number; open/closed status now lives inside the calculator card, plus a rate breakdown line and a delivery-time note per conversion tab
+- `index.php` — homepage hero redesigned around the rate calculator instead of a bare rate number; open/closed status pill now lives inside the calculator card with a soft pulse animation; the 4 conversion tabs merged into one dropdown selector; rate display restored to the bold hero-style format ("Tasa: XX"), positioned between the two inputs
 - `index.php` — fixed pre-existing missing wrapper markup (`<section class="trust-section">`/`.trust-grid`) around the trust-cards, which had been rendering as loose unstyled divs
 
 ### Added

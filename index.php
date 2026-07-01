@@ -217,14 +217,20 @@
 			font-weight: 500;
 		}
 
+		@keyframes softPulse {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.5; }
+		}
+
 		.rate-status {
-			font-size: 14px;
-			padding: 10px 20px;
+			font-size: 12px;
+			padding: 6px 14px;
 			border-radius: 20px;
 			font-weight: 700;
 			display: inline-block;
 			color: white;
 			white-space: nowrap;
+			animation: softPulse 2.4s ease-in-out infinite;
 		}
 
 		.status-open {
@@ -240,45 +246,119 @@
 			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
-			margin-bottom: 24px;
+			margin-bottom: 28px;
+			flex-wrap: wrap;
 		}
 
-		.calc-header-title {
-			font-size: 13px;
-			font-weight: 700;
-			color: #6b7280;
-			text-transform: uppercase;
-			letter-spacing: 0.6px;
+		.exchange-selector {
+			position: relative;
 		}
 
-		.rate-breakdown {
+		.exchange-selector-btn {
 			display: flex;
 			align-items: center;
-			justify-content: space-between;
-			background: #f9fafb;
-			border: 1px dashed #e5e7eb;
+			gap: 8px;
+			background: #fff5ef;
+			border: 1.5px solid #ffd4b8;
+			color: #ff6b35;
+			font-weight: 700;
+			font-size: 14px;
+			padding: 8px 14px;
 			border-radius: 10px;
+			cursor: pointer;
+			transition: all 0.2s;
+			font-family: 'Poppins', sans-serif;
+		}
+
+		.exchange-selector-btn:hover {
+			background: #ffe8d9;
+			border-color: #ff6b35;
+		}
+
+		.exchange-selector-btn i {
+			font-size: 11px;
+			transition: transform 0.2s;
+		}
+
+		.exchange-selector.open .exchange-selector-btn i {
+			transform: rotate(180deg);
+		}
+
+		.exchange-menu {
+			display: none;
+			position: absolute;
+			top: calc(100% + 8px);
+			left: 0;
+			background: white;
+			border: 1px solid #e5e7eb;
+			border-radius: 12px;
+			box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+			min-width: 230px;
+			max-width: 85vw;
+			z-index: 50;
+			overflow: hidden;
+		}
+
+		.exchange-selector.open .exchange-menu {
+			display: block;
+		}
+
+		.exchange-menu-item {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 2px;
+			width: 100%;
 			padding: 12px 16px;
+			background: none;
+			border: none;
+			text-align: left;
+			cursor: pointer;
+			font-family: 'Poppins', sans-serif;
+			transition: background 0.15s;
+		}
+
+		.exchange-menu-item:hover {
+			background: #f9fafb;
+		}
+
+		.exchange-menu-item.active {
+			background: #fff5ef;
+		}
+
+		.exchange-menu-item-main {
+			font-weight: 700;
+			font-size: 14px;
+			color: #1f2937;
+		}
+
+		.exchange-menu-item-sub {
+			font-size: 12px;
+			color: #6b7280;
+		}
+
+		.rate-display-mid {
+			display: flex;
+			align-items: baseline;
+			justify-content: center;
+			gap: 8px;
+			text-align: center;
 			margin-bottom: 24px;
 		}
 
-		.rate-breakdown-label {
-			font-size: 13px;
+		.rate-display-label {
+			font-size: 15px;
 			color: #6b7280;
 			font-weight: 600;
 		}
 
-		.rate-breakdown-value {
-			font-size: 16px;
-			color: #ff6b35;
+		.rate-display-value {
+			font-size: 32px;
 			font-weight: 800;
-		}
-
-		.delivery-note {
-			text-align: center;
-			font-size: 13px;
-			color: #6b7280;
-			font-weight: 600;
+			background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+			background-clip: text;
 		}
 
 		.section-title {
@@ -298,43 +378,6 @@
 			margin: 40px auto 0;
 			border-top: 5px solid #ff6b35;
 			text-align: left;
-		}
-
-		/* ============================================
-		   BACKUP: Original Button Style (2-col desktop, 1-col mobile)
-		   .conversion-tabs { grid-template-columns: 1fr 1fr; margin-bottom: 40px; gap: 12px; }
-		   .tab-btn { padding: 14px 20px; font-size: 13px; }
-		   @media (max-width: 768px) { grid-template-columns: 1fr; padding: 16px; }
-		   ============================================ */
-
-		/* COMPACT VERSION - 4 columns desktop, 2x2 mobile */
-		.conversion-tabs {
-			display: grid;
-			grid-template-columns: repeat(4, 1fr);
-			gap: 10px;
-			margin-bottom: 30px;
-		}
-
-		.tab-btn {
-			padding: 10px 12px;
-			border: none;
-			border-radius: 8px;
-			background: #f3f4f6;
-			color: #4b5563;
-			font-weight: 600;
-			cursor: pointer;
-			transition: all 0.3s;
-			font-size: 12px;
-		}
-
-		.tab-btn.active {
-			background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-			color: white;
-		}
-
-		.tab-btn:hover {
-			transform: translateY(-1px);
-			box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 		}
 
 		.form-group {
@@ -651,15 +694,12 @@
 				padding-bottom: 65px;
 			}
 
-			.conversion-tabs {
-				grid-template-columns: repeat(2, 1fr);
-				gap: 8px;
-				margin-bottom: 25px;
+			.exchange-menu {
+				min-width: 200px;
 			}
 
-			.tab-btn {
-				padding: 10px 8px;
-				font-size: 11px;
+			.rate-display-value {
+				font-size: 26px;
 			}
 		}
 
@@ -739,7 +779,30 @@
 
 				<div class="calculator-wrapper">
 					<div class="calc-header">
-						<span class="calc-header-title">Calcula tu envío</span>
+						<div class="exchange-selector" id="exchangeSelector">
+							<button type="button" class="exchange-selector-btn" onclick="toggleExchangeMenu()">
+								<span id="exchangeLabel">€ → Bs</span>
+								<i class="fas fa-chevron-down"></i>
+							</button>
+							<div class="exchange-menu">
+								<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
+									<span class="exchange-menu-item-main">€ → Bs</span>
+									<span class="exchange-menu-item-sub">Euros a Bolívares</span>
+								</button>
+								<button type="button" class="exchange-menu-item" onclick="setNewCash(2)">
+									<span class="exchange-menu-item-main">Bs → €</span>
+									<span class="exchange-menu-item-sub">Bolívares a Euros</span>
+								</button>
+								<button type="button" class="exchange-menu-item" onclick="setNewCash(3)">
+									<span class="exchange-menu-item-main">$ → €</span>
+									<span class="exchange-menu-item-sub">Dólares a Euros</span>
+								</button>
+								<button type="button" class="exchange-menu-item" onclick="setNewCash(4)">
+									<span class="exchange-menu-item-main">€ → $</span>
+									<span class="exchange-menu-item-sub">Euros a Dólares</span>
+								</button>
+							</div>
+						</div>
 						<?php if ($status == 1) { ?>
 							<span class="rate-status status-open" id="rateStatus">
 								<i class="fas fa-check-circle"></i> <?php echo $statusT; ?>
@@ -749,14 +812,6 @@
 								<i class="fas fa-times-circle"></i> <?php echo $statusT; ?>
 							</span>
 						<?php } ?>
-					</div>
-
-					<div class="conversion-tabs" style="position: relative;">
-						<button class="tab-btn active" onclick="setNewCash(1)">€ → Bs</button>
-						<button class="tab-btn" onclick="setNewCash(2)">Bs → €</button>
-						<button class="tab-btn" onclick="setNewCash(3)">$ → €</button>
-						<button class="tab-btn" onclick="setNewCash(4)">€ → $</button>
-						<span id="btnHint" style="position: absolute; right: 0; top: -28px; font-size: 12px; color: #6b7280; opacity: 0; transition: opacity 0.3s; white-space: nowrap;">💡 Haz clic para ver otras tasas</span>
 					</div>
 
 					<form onsubmit="return false;">
@@ -771,9 +826,9 @@
 							</div>
 						</div>
 
-						<div class="rate-breakdown">
-							<span class="rate-breakdown-label" id="rateLabel">Euros a Bolivares</span>
-							<span class="rate-breakdown-value" id="rateValue"><?php echo ($status == 1) ? $feeEur : '-'; ?></span>
+						<div class="rate-display-mid">
+							<span class="rate-display-label">Tasa:</span>
+							<span class="rate-display-value" id="rateValue"><?php echo ($status == 1) ? $feeEur : '-'; ?></span>
 						</div>
 
 						<div class="form-group">
@@ -782,8 +837,6 @@
 								<input class="form-input-modern" id="vesCash" type="text" placeholder="Resultado" oninput="setCash(2)">
 							</div>
 						</div>
-
-						<div class="delivery-note" id="deliveryNote">💸 Tu familia lo recibe el mismo día</div>
 
 						<input type="hidden" id="eurFee" value="<?php echo $feeEur; ?>">
 						<input type="hidden" id="vesFee" value="<?php echo $feeVes; ?>">
@@ -988,12 +1041,12 @@
 			if (!isOpen) {
 				rateValueEl.textContent = '-';
 			} else {
-				const activeTab = document.querySelector('.tab-btn.active');
-				if (activeTab) {
-					const tabIndex = Array.from(document.querySelectorAll('.tab-btn')).indexOf(activeTab);
-					if (tabIndex === 0) rateValueEl.textContent = document.getElementById('eurFee').value;
-					else if (tabIndex === 1) rateValueEl.textContent = document.getElementById('vesFee').value;
-					else if (tabIndex === 2) rateValueEl.textContent = document.getElementById('usdFee').value;
+				const activeItem = document.querySelector('.exchange-menu-item.active');
+				if (activeItem) {
+					const itemIndex = Array.from(document.querySelectorAll('.exchange-menu-item')).indexOf(activeItem);
+					if (itemIndex === 0) rateValueEl.textContent = document.getElementById('eurFee').value;
+					else if (itemIndex === 1) rateValueEl.textContent = document.getElementById('vesFee').value;
+					else if (itemIndex === 2) rateValueEl.textContent = document.getElementById('usdFee').value;
 				}
 			}
 		}
@@ -1014,16 +1067,16 @@
 		updateStatusDisplay();
 		setInterval(updateStatusDisplay, 60000);
 
-		// Show button hint briefly on page load
-		const btnHint = document.getElementById('btnHint');
-		if (btnHint) {
-			setTimeout(() => {
-				btnHint.style.opacity = '1';
-			}, 500);
-			setTimeout(() => {
-				btnHint.style.opacity = '0';
-			}, 3500);
+		function toggleExchangeMenu() {
+			document.getElementById('exchangeSelector').classList.toggle('open');
 		}
+
+		document.addEventListener('click', function(e) {
+			const selector = document.getElementById('exchangeSelector');
+			if (selector && !selector.contains(e.target)) {
+				selector.classList.remove('open');
+			}
+		});
 
 		let symbol1 = '€';
 		let symbol2 = 'Bs';
@@ -1036,20 +1089,18 @@
 				fee_eur = parseFloat(document.getElementById('eurFee').value);
 				symbol1 = '€';
 				symbol2 = 'Bs';
-				document.getElementById('rateLabel').innerHTML = 'Euros a Bolivares';
-				document.getElementById('rateValue').innerHTML = fee_eur + ' Bs/€';
-				document.getElementById('deliveryNote').innerHTML = '💸 Tu familia lo recibe el mismo día';
-				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.tab-btn')[0].classList.add('active');
+				document.getElementById('exchangeLabel').innerHTML = '€ → Bs';
+				document.getElementById('rateValue').innerHTML = fee_eur;
+				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
+				document.querySelectorAll('.exchange-menu-item')[0].classList.add('active');
 			} else if (cash == 2) {
 				fee_eur = 1 / parseFloat(document.getElementById('vesFee').value);
 				symbol1 = 'Bs';
 				symbol2 = '€';
-				document.getElementById('rateLabel').innerHTML = 'Bolivares a Euros';
-				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('vesFee').value) + ' Bs/€';
-				document.getElementById('deliveryNote').innerHTML = '🔁 Tasa válida por 3 horas por la volatilidad del bolívar';
-				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.tab-btn')[1].classList.add('active');
+				document.getElementById('exchangeLabel').innerHTML = 'Bs → €';
+				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('vesFee').value);
+				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
+				document.querySelectorAll('.exchange-menu-item')[1].classList.add('active');
 
 				var fechaDada = new Date("<?php echo $dateves; ?>");
 				let newdate = document.getElementById('actualdate').value;
@@ -1069,22 +1120,21 @@
 				fee_eur = parseFloat(document.getElementById('usdFee').value);
 				symbol1 = '$';
 				symbol2 = '€';
-				document.getElementById('rateLabel').innerHTML = 'Dólares a Euros';
-				document.getElementById('rateValue').innerHTML = fee_eur + ' €/$';
-				document.getElementById('deliveryNote').innerHTML = '🏦 Retiro en efectivo únicamente en Valencia, Venezuela';
-				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.tab-btn')[2].classList.add('active');
+				document.getElementById('exchangeLabel').innerHTML = '$ → €';
+				document.getElementById('rateValue').innerHTML = fee_eur;
+				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
+				document.querySelectorAll('.exchange-menu-item')[2].classList.add('active');
 			} else if (cash == 4) {
 				fee_eur = 1 / parseFloat(document.getElementById('usdFee2').value);
 				symbol1 = '€';
 				symbol2 = '$';
-				document.getElementById('rateLabel').innerHTML = 'Euros a Dólares';
-				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('usdFee2').value) + ' $';
-				document.getElementById('deliveryNote').innerHTML = '🏦 Entrega en efectivo únicamente en Valencia, Venezuela';
-				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
-				document.querySelectorAll('.tab-btn')[3].classList.add('active');
+				document.getElementById('exchangeLabel').innerHTML = '€ → $';
+				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('usdFee2').value);
+				document.querySelectorAll('.exchange-menu-item').forEach((btn, i) => btn.classList.remove('active'));
+				document.querySelectorAll('.exchange-menu-item')[3].classList.add('active');
 			}
 
+			document.getElementById('exchangeSelector').classList.remove('open');
 			setCash('x');
 		}
 
