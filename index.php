@@ -290,13 +290,35 @@
 			flex-shrink: 0;
 		}
 
-		.currency-pill i {
-			font-size: 13px;
-			color: #6b7280;
+		.currency-pill-arrow {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 20px;
+			height: 20px;
+			border-radius: 50%;
+			background: #f3f4f6;
+			color: #ff6b35;
+			flex-shrink: 0;
+			transition: all 0.2s;
+		}
+
+		.currency-pill-arrow i {
+			font-size: 10px;
 			transition: transform 0.2s;
 		}
 
-		.currency-pill-wrap.open .currency-pill i {
+		.currency-pill:hover .currency-pill-arrow {
+			background: #ff6b35;
+			color: white;
+		}
+
+		.currency-pill-wrap.open .currency-pill-arrow {
+			background: #ff6b35;
+			color: white;
+		}
+
+		.currency-pill-wrap.open .currency-pill-arrow i {
 			transform: rotate(90deg);
 		}
 
@@ -393,6 +415,68 @@
 			margin: 40px auto 0;
 			border-top: 5px solid #ff6b35;
 			text-align: left;
+		}
+
+		.hero-demo {
+			max-width: 320px;
+			margin: 24px auto 0;
+			padding: 16px 22px;
+			background: rgba(255, 255, 255, 0.6);
+			border: 1px dashed #e5e7eb;
+			border-radius: 16px;
+			text-align: center;
+		}
+
+		.hero-demo-label {
+			display: block;
+			font-size: 12px;
+			color: #9ca3af;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			margin-bottom: 10px;
+		}
+
+		.hero-demo-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 3px 2px;
+		}
+
+		.hero-demo-field-label {
+			font-size: 13px;
+			color: #6b7280;
+			font-weight: 600;
+		}
+
+		.hero-demo-value {
+			font-size: 16px;
+			font-weight: 800;
+			color: #1f2937;
+		}
+
+		.hero-demo-arrow {
+			display: block;
+			font-size: 12px;
+			color: #ff6b35;
+			margin: 2px 0;
+		}
+
+		.hero-demo-result {
+			color: #059669;
+			display: inline-block;
+			transition: transform 0.25s ease;
+		}
+
+		@keyframes heroDemoPulse {
+			0% { transform: scale(1); }
+			35% { transform: scale(1.15); }
+			100% { transform: scale(1); }
+		}
+
+		.hero-demo-result.hero-demo-pulse {
+			animation: heroDemoPulse 0.6s ease;
 		}
 
 		.form-group {
@@ -735,9 +819,13 @@
 				height: 18px;
 			}
 
-			.currency-pill i {
-				font-size: 11px;
-				color: #ff6b35;
+			.currency-pill-arrow {
+				width: 16px;
+				height: 16px;
+			}
+
+			.currency-pill-arrow i {
+				font-size: 8px;
 			}
 
 			.rate-display-value {
@@ -845,7 +933,7 @@
 									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('send')">
 										<img src="images/flags/spain.png" class="currency-pill-flag" id="sendFlag" alt="">
 										<span id="sendCode">EUR</span>
-										<i class="fas fa-chevron-right"></i>
+										<span class="currency-pill-arrow"><i class="fas fa-chevron-right"></i></span>
 									</button>
 									<div class="currency-menu" id="sendMenu">
 										<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
@@ -884,7 +972,7 @@
 									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('receive')">
 										<img src="images/flags/venezuela.png" class="currency-pill-flag" id="receiveFlag" alt="">
 										<span id="receiveCode">VES</span>
-										<i class="fas fa-chevron-right"></i>
+										<span class="currency-pill-arrow"><i class="fas fa-chevron-right"></i></span>
 									</button>
 									<div class="currency-menu" id="receiveMenu">
 										<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
@@ -924,6 +1012,19 @@
 							<i class="fab fa-whatsapp"></i> Enviar Ahora por WhatsApp
 						</button></a>
 					</form>
+				</div>
+
+				<div class="hero-demo" id="heroDemo" aria-hidden="true">
+					<span class="hero-demo-label">Así de fácil</span>
+					<div class="hero-demo-row">
+						<span class="hero-demo-field-label">Envías</span>
+						<span class="hero-demo-value" id="heroDemoSend">€20</span>
+					</div>
+					<i class="fas fa-arrow-down hero-demo-arrow"></i>
+					<div class="hero-demo-row">
+						<span class="hero-demo-field-label">Recibes</span>
+						<span class="hero-demo-value hero-demo-result" id="heroDemoReceive">Bs <?php echo number_format(20 * floatval(str_replace(',', '', $feeEur)), 2); ?></span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -1284,6 +1385,51 @@
 		document.addEventListener('DOMContentLoaded', function() {
 			setCash('x');
 		});
+
+		// HeroAnimation: self-playing demo showing the calculator ticking through sample
+		// amounts, so visitors get the idea without reading instructions. Pure DOM/CSS —
+		// a step counter advances on a timer, each step updates real text and applies a
+		// CSS transition. Loops forever.
+		const HERO_DEMO_AMOUNTS = [20, 50, 100];
+		let heroDemoStep = 0;
+		let heroDemoCurrent = 20;
+
+		function heroDemoTickTo(el, from, to, duration) {
+			const start = performance.now();
+			function frame(now) {
+				const progress = Math.min((now - start) / duration, 1);
+				el.textContent = '€' + Math.round(from + (to - from) * progress);
+				if (progress < 1) requestAnimationFrame(frame);
+			}
+			requestAnimationFrame(frame);
+		}
+
+		function heroDemoLoop() {
+			const sendEl = document.getElementById('heroDemoSend');
+			const receiveEl = document.getElementById('heroDemoReceive');
+			if (!sendEl || !receiveEl) return;
+
+			const nextAmount = HERO_DEMO_AMOUNTS[heroDemoStep % HERO_DEMO_AMOUNTS.length];
+
+			// Step 1 (~3s): tick the "envías" value to the next sample amount
+			heroDemoTickTo(sendEl, heroDemoCurrent, nextAmount, 900);
+			heroDemoCurrent = nextAmount;
+
+			// Step 2 (~3s): update "recibes" using today's real rate, with a pulse
+			setTimeout(() => {
+				const rate = parseFloat(document.getElementById('eurFee').value) || 0;
+				const result = (nextAmount * rate).toFixed(2);
+				receiveEl.textContent = 'Bs ' + formatNumber(result);
+				receiveEl.classList.remove('hero-demo-pulse');
+				void receiveEl.offsetWidth;
+				receiveEl.classList.add('hero-demo-pulse');
+			}, 3000);
+
+			heroDemoStep++;
+			setTimeout(heroDemoLoop, 6000);
+		}
+
+		setTimeout(heroDemoLoop, 1500);
 
 		// Ventana Flotante (Alert Display)
 		<?php if ($alertStatus == 1) { ?>
