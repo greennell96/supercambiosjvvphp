@@ -27,6 +27,13 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 - `.htaccess` — added CSP header allowing `unsafe-eval` so SweetAlert2 works (Hostinger blocks eval by default)
 - `root.php` — split credentials into `db-config.php` (gitignored) so `root.php` can now live in git and won't be deleted by Hostinger auto-deploy
 
+### Changed
+- `index.php` — homepage hero redesigned around the rate calculator instead of a bare rate number; open/closed status now lives inside the calculator card, plus a rate breakdown line and a delivery-time note per conversion tab
+- `index.php` — fixed pre-existing missing wrapper markup (`<section class="trust-section">`/`.trust-grid`) around the trust-cards, which had been rendering as loose unstyled divs
+
+### Added
+- `root.php` + `supertasa.php` + `index.php` — admin-managed testimonials: new `testimonios` table, a "Testimonios" tab in the admin panel (upload with image validation, reorder, toggle visibility, delete), and a homepage section displaying active testimonials
+
 ---
 
 ## [1.0.0] - 2026-05-14

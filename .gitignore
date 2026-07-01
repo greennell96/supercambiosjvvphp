@@ -11,6 +11,9 @@ BLANK-WAYLLET-AML.docx
 temp/*
 !temp/.htaccess
 
+# Uploaded testimonial screenshots (may contain customer phone numbers/PII)
+images/testimonios/
+
 # OS junk
 .DS_Store
 Thumbs.db

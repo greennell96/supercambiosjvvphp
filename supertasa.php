@@ -413,6 +413,84 @@ if (empty($_SESSION['supertasa_auth'])) {
 		");
 		ECHO '<script type="text/javascript">window.location="";</script>';
 	}
+
+	if (ISSET($_POST['testimonioUpload'])) {
+		if (!$db) {
+			$alertMessage = 'Sin conexión a BD';
+			$alertType = 'error';
+		} elseif (empty($_FILES['imagen']['name'])) {
+			$alertMessage = 'Selecciona una imagen';
+			$alertType = 'error';
+		} else {
+			$file = $_FILES['imagen'];
+			$allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+			$ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+			$maxSize = 5 * 1024 * 1024;
+
+			if ($file['error'] !== UPLOAD_ERR_OK) {
+				$alertMessage = 'Error al subir el archivo';
+				$alertType = 'error';
+			} elseif (!in_array($ext, $allowedExt, true)) {
+				$alertMessage = 'Formato no permitido. Usa JPG, PNG o WEBP';
+				$alertType = 'error';
+			} elseif ($file['size'] > $maxSize) {
+				$alertMessage = 'La imagen supera el límite de 5MB';
+				$alertType = 'error';
+			} elseif (@getimagesize($file['tmp_name']) === false) {
+				$alertMessage = 'El archivo no es una imagen válida';
+				$alertType = 'error';
+			} else {
+				$testimoniosDir = __DIR__ . '/images/testimonios/';
+				if (!is_dir($testimoniosDir)) {
+					mkdir($testimoniosDir, 0755, true);
+				}
+				$filename = 'testimonio_' . uniqid() . '.' . $ext;
+				if (move_uploaded_file($file['tmp_name'], $testimoniosDir . $filename)) {
+					$nombre = $db->real_escape_string($_POST['nombre'] ?? '');
+					MYSQLI_QUERY($db, "INSERT INTO testimonios (imagen, nombre) VALUES ('$filename', '$nombre')");
+					$alertMessage = 'Testimonio subido correctamente';
+					$alertType = 'success';
+				} else {
+					$alertMessage = 'No se pudo guardar el archivo';
+					$alertType = 'error';
+				}
+			}
+		}
+	}
+
+	if (ISSET($_POST['testimonioSave'])) {
+		if (!$db) {
+			$alertMessage = 'Sin conexión a BD';
+			$alertType = 'error';
+		} else {
+			$tid = intval($_POST['id']);
+			$orden = intval($_POST['orden']);
+			$activo = isset($_POST['activo']) ? 1 : 0;
+			MYSQLI_QUERY($db, "UPDATE testimonios SET orden = $orden, activo = $activo WHERE id = $tid");
+			$alertMessage = 'Testimonio actualizado';
+			$alertType = 'success';
+		}
+	}
+
+	if (ISSET($_POST['testimonioDelete'])) {
+		if (!$db) {
+			$alertMessage = 'Sin conexión a BD';
+			$alertType = 'error';
+		} else {
+			$tid = intval($_POST['id']);
+			$row1 = MYSQLI_QUERY($db, "SELECT imagen FROM testimonios WHERE id = $tid");
+			if ($row1 && $row1->num_rows > 0) {
+				$row2 = $row1->fetch_array(MYSQLI_ASSOC);
+				$imgPath = __DIR__ . '/images/testimonios/' . $row2['imagen'];
+				if (is_file($imgPath)) {
+					unlink($imgPath);
+				}
+				MYSQLI_QUERY($db, "DELETE FROM testimonios WHERE id = $tid");
+			}
+			$alertMessage = 'Testimonio eliminado';
+			$alertType = 'success';
+		}
+	}
 ?>
 <body>
 
@@ -420,9 +498,10 @@ if (empty($_SESSION['supertasa_auth'])) {
 <nav class="nav">
 	<div class="nav-brand">Super<span>Tasa</span></div>
 	<div class="nav-links">
-		<a class="nav-link <?php echo $mod == 'status'   ? 'active' : ''; ?>" href="?mod=status">Tasas</a>
-		<a class="nav-link <?php echo $mod == 'horarios' ? 'active' : ''; ?>" href="?mod=horarios">Horarios</a>
-		<a class="nav-link <?php echo $mod == 'alert'    ? 'active' : ''; ?>" href="?mod=alert">Alerta</a>
+		<a class="nav-link <?php echo $mod == 'status'      ? 'active' : ''; ?>" href="?mod=status">Tasas</a>
+		<a class="nav-link <?php echo $mod == 'horarios'    ? 'active' : ''; ?>" href="?mod=horarios">Horarios</a>
+		<a class="nav-link <?php echo $mod == 'alert'       ? 'active' : ''; ?>" href="?mod=alert">Alerta</a>
+		<a class="nav-link <?php echo $mod == 'testimonios' ? 'active' : ''; ?>" href="?mod=testimonios">Testimonios</a>
 		<a class="nav-link" href="aml-admin.php">AML</a>
 		<a class="nav-link danger" href="?action=logout">Salir</a>
 	</div>
@@ -431,9 +510,10 @@ if (empty($_SESSION['supertasa_auth'])) {
 	</div>
 </nav>
 <div class="nav-mobile">
-	<a class="nav-link <?php echo $mod == 'status'   ? 'active' : ''; ?>" href="?mod=status">Tasas</a>
-	<a class="nav-link <?php echo $mod == 'horarios' ? 'active' : ''; ?>" href="?mod=horarios">Horarios</a>
-	<a class="nav-link <?php echo $mod == 'alert'    ? 'active' : ''; ?>" href="?mod=alert">Alerta</a>
+	<a class="nav-link <?php echo $mod == 'status'      ? 'active' : ''; ?>" href="?mod=status">Tasas</a>
+	<a class="nav-link <?php echo $mod == 'horarios'    ? 'active' : ''; ?>" href="?mod=horarios">Horarios</a>
+	<a class="nav-link <?php echo $mod == 'alert'       ? 'active' : ''; ?>" href="?mod=alert">Alerta</a>
+	<a class="nav-link <?php echo $mod == 'testimonios' ? 'active' : ''; ?>" href="?mod=testimonios">Testimonios</a>
 	<a class="nav-link" href="aml-admin.php">AML</a>
 	<a class="nav-link danger" href="?action=logout">Salir</a>
 	<span class="fx-chip" id="fx-topbar-m"></span>
@@ -625,6 +705,75 @@ if (empty($_SESSION['supertasa_auth'])) {
 			</div>
 		</div>
 	</form>
+</main>
+<?php endif ?>
+
+<!-- TESTIMONIOS -->
+<?php if ($mod == 'testimonios'): ?>
+<main class="page">
+	<div class="page-title">Testimonios</div>
+
+	<form method="post" action="?mod=testimonios" enctype="multipart/form-data">
+		<div class="card">
+			<div class="card-label">Subir Nuevo Testimonio</div>
+			<div class="field">
+				<label>Captura de WhatsApp</label>
+				<input type="file" name="imagen" accept="image/jpeg,image/png,image/webp" required>
+			</div>
+			<div class="field">
+				<label>Nombre (opcional)</label>
+				<input type="text" name="nombre" placeholder="Ej: Andrea M.">
+			</div>
+			<button class="btn btn-primary btn-block" type="submit" name="testimonioUpload">Subir</button>
+		</div>
+	</form>
+
+	<?php
+		$testimonios = [];
+		if ($db) {
+			$tRes = MYSQLI_QUERY($db, "SELECT * FROM testimonios ORDER BY orden ASC, id ASC");
+			if ($tRes) {
+				while ($tRow = $tRes->fetch_array(MYSQLI_ASSOC)) {
+					$testimonios[] = $tRow;
+				}
+			}
+		}
+	?>
+
+	<?php if (empty($testimonios)): ?>
+		<div class="card" style="text-align:center;color:#94a3b8;font-size:13px;">Aún no hay testimonios subidos.</div>
+	<?php else: ?>
+		<?php foreach ($testimonios as $t): ?>
+		<form method="post" action="?mod=testimonios">
+			<input type="hidden" name="id" value="<?php echo (int)$t['id']; ?>">
+			<div class="card" style="display:flex;gap:16px;align-items:center;">
+				<img src="images/testimonios/<?php echo htmlspecialchars($t['imagen']); ?>" style="width:64px;height:64px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+				<div style="flex:1;min-width:0;">
+					<div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:8px;"><?php echo htmlspecialchars($t['nombre'] !== '' ? $t['nombre'] : '(sin nombre)'); ?></div>
+					<div class="g2">
+						<div class="field">
+							<label>Orden</label>
+							<input type="number" name="orden" value="<?php echo (int)$t['orden']; ?>">
+						</div>
+						<div class="field">
+							<label>Visible</label>
+							<div class="switch-wrap">
+								<div class="switch-button">
+									<input type="checkbox" name="activo" value="1" class="switch-button__checkbox" id="activo<?php echo (int)$t['id']; ?>" <?php echo $t['activo'] ? 'checked' : ''; ?>>
+									<label for="activo<?php echo (int)$t['id']; ?>" class="switch-button__label"></label>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+					<button class="btn btn-primary" type="submit" name="testimonioSave">Guardar</button>
+					<button class="btn btn-danger" type="submit" name="testimonioDelete" onclick="return confirm('¿Eliminar este testimonio?');">Eliminar</button>
+				</div>
+			</div>
+		</form>
+		<?php endforeach; ?>
+	<?php endif; ?>
 </main>
 <?php endif ?>
 

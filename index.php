@@ -12,7 +12,7 @@
 	<link rel="icon" href="images/favicon.ico" type="image/x-icon">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Caveat:wght@700&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.0/css/all.css">
 	<script src="js/sweetalert2.all.min.js"></script>
 	<?php INCLUDE('root.php'); ?>
@@ -70,6 +70,16 @@
 		$basicEur = 20;
 		$basicVes = $basicEur * $feeEur;
 		$feeEur = number_format($feeEur, 2);
+
+		$testimonios = [];
+		if ($db) {
+			$tRes = MYSQLI_QUERY($db, "SELECT * FROM testimonios WHERE activo = 1 ORDER BY orden ASC, id ASC");
+			if ($tRes) {
+				while ($tRow = $tRes->fetch_array(MYSQLI_ASSOC)) {
+					$testimonios[] = $tRow;
+				}
+			}
+		}
 	?>
 	<style>
 		* {
@@ -207,34 +217,6 @@
 			font-weight: 500;
 		}
 
-		.rate-display {
-			background: white;
-			padding: 40px;
-			border-radius: 20px;
-			box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
-			max-width: 500px;
-			margin: 40px auto;
-		}
-
-		.rate-label {
-			font-size: 16px;
-			color: #6b7280;
-			font-weight: 600;
-			margin-bottom: 10px;
-			text-transform: uppercase;
-			letter-spacing: 1px;
-		}
-
-		.rate-value {
-			font-size: 64px;
-			font-weight: 800;
-			background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-			-webkit-background-clip: text;
-			-webkit-text-fill-color: transparent;
-			background-clip: text;
-			margin-bottom: 15px;
-		}
-
 		.rate-status {
 			font-size: 14px;
 			padding: 10px 20px;
@@ -242,6 +224,7 @@
 			font-weight: 700;
 			display: inline-block;
 			color: white;
+			white-space: nowrap;
 		}
 
 		.status-open {
@@ -252,9 +235,50 @@
 			background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
 		}
 
-		.calculator-section {
-			padding: 80px 0;
-			background: linear-gradient(to bottom, #ffffff 0%, #f9fafb 100%);
+		.calc-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-bottom: 24px;
+		}
+
+		.calc-header-title {
+			font-size: 13px;
+			font-weight: 700;
+			color: #6b7280;
+			text-transform: uppercase;
+			letter-spacing: 0.6px;
+		}
+
+		.rate-breakdown {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			background: #f9fafb;
+			border: 1px dashed #e5e7eb;
+			border-radius: 10px;
+			padding: 12px 16px;
+			margin-bottom: 24px;
+		}
+
+		.rate-breakdown-label {
+			font-size: 13px;
+			color: #6b7280;
+			font-weight: 600;
+		}
+
+		.rate-breakdown-value {
+			font-size: 16px;
+			color: #ff6b35;
+			font-weight: 800;
+		}
+
+		.delivery-note {
+			text-align: center;
+			font-size: 13px;
+			color: #6b7280;
+			font-weight: 600;
 		}
 
 		.section-title {
@@ -271,8 +295,9 @@
 			box-shadow: 0 25px 80px rgba(0, 0, 0, 0.08);
 			padding: 50px;
 			max-width: 600px;
-			margin: 0 auto;
+			margin: 40px auto 0;
 			border-top: 5px solid #ff6b35;
+			text-align: left;
 		}
 
 		/* ============================================
@@ -380,6 +405,50 @@
 
 		.submit-btn:active {
 			transform: translateY(-2px);
+		}
+
+		.testimonials-section {
+			padding: 60px 0;
+		}
+
+		.testimonials-title {
+			font-family: 'Caveat', cursive;
+			font-size: 48px;
+			font-weight: 700;
+			text-align: center;
+			color: #1f2937;
+			margin-bottom: 30px;
+		}
+
+		.testimonials-scroll {
+			display: flex;
+			gap: 20px;
+			overflow-x: auto;
+			scroll-snap-type: x mandatory;
+			padding: 10px 4px 20px;
+		}
+
+		.testimonial-card {
+			flex: 0 0 auto;
+			scroll-snap-align: start;
+			width: 220px;
+			background: white;
+			border-radius: 16px;
+			box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+			overflow: hidden;
+			text-align: center;
+		}
+
+		.testimonial-card img {
+			width: 100%;
+			display: block;
+		}
+
+		.testimonial-name {
+			padding: 12px 10px;
+			font-size: 13px;
+			font-weight: 600;
+			color: #6b7280;
 		}
 
 		.trust-section {
@@ -566,10 +635,6 @@
 				font-size: 36px;
 			}
 
-			.rate-value {
-				font-size: 48px;
-			}
-
 			nav {
 				display: none;
 			}
@@ -665,84 +730,105 @@
 		</div>
 	</header>
 
-	<!-- HERO SECTION -->
+	<!-- HERO + CALCULATOR SECTION -->
 	<section class="hero">
 		<div class="container">
 			<div class="hero-content">
 				<h1>Envía dinero a Venezuela<br>De forma segura</h1>
 				<p class="hero-subtitle">Tasa real, sin comisiones ocultas</p>
 
-				<div class="rate-display">
-					<div class="rate-label" id="rateLabel">Euros a Bolivares</div>
-					<?php if ($status == 1) { ?>
-						<div class="rate-value" id="rateValue"><?php echo $feeEur; ?></div>
-						<span class="rate-status status-open" id="rateStatus">
-							<i class="fas fa-check-circle"></i> <?php echo $statusT; ?>
-						</span>
-					<?php } else { ?>
-						<div class="rate-value" id="rateValue">-</div>
-						<span class="rate-status status-closed" id="rateStatus">
-							<i class="fas fa-times-circle"></i> <?php echo $statusT; ?>
-						</span>
-					<?php } ?>
+				<div class="calculator-wrapper">
+					<div class="calc-header">
+						<span class="calc-header-title">Calcula tu envío</span>
+						<?php if ($status == 1) { ?>
+							<span class="rate-status status-open" id="rateStatus">
+								<i class="fas fa-check-circle"></i> <?php echo $statusT; ?>
+							</span>
+						<?php } else { ?>
+							<span class="rate-status status-closed" id="rateStatus">
+								<i class="fas fa-times-circle"></i> <?php echo $statusT; ?>
+							</span>
+						<?php } ?>
+					</div>
+
+					<div class="conversion-tabs" style="position: relative;">
+						<button class="tab-btn active" onclick="setNewCash(1)">€ → Bs</button>
+						<button class="tab-btn" onclick="setNewCash(2)">Bs → €</button>
+						<button class="tab-btn" onclick="setNewCash(3)">$ → €</button>
+						<button class="tab-btn" onclick="setNewCash(4)">€ → $</button>
+						<span id="btnHint" style="position: absolute; right: 0; top: -28px; font-size: 12px; color: #6b7280; opacity: 0; transition: opacity 0.3s; white-space: nowrap;">💡 Haz clic para ver otras tasas</span>
+					</div>
+
+					<form onsubmit="return false;">
+						<div class="form-group">
+							<label class="form-label-text">
+								¿Cuánto envías?
+								<i class="fas fa-info-circle info-icon relative" onmouseover="document.getElementById('info-box').style.display='block'" onmouseout="document.getElementById('info-box').style.display='none'"></i>
+								<div id="info-box">Calcula mientras escribes</div>
+							</label>
+							<div class="input-wrapper">
+								<input class="form-input-modern" id="eurCash" type="text" placeholder="Ingresa cantidad" oninput="setCash(1)">
+							</div>
+						</div>
+
+						<div class="rate-breakdown">
+							<span class="rate-breakdown-label" id="rateLabel">Euros a Bolivares</span>
+							<span class="rate-breakdown-value" id="rateValue"><?php echo ($status == 1) ? $feeEur : '-'; ?></span>
+						</div>
+
+						<div class="form-group">
+							<label class="form-label-text">Recibirás</label>
+							<div class="input-wrapper">
+								<input class="form-input-modern" id="vesCash" type="text" placeholder="Resultado" oninput="setCash(2)">
+							</div>
+						</div>
+
+						<div class="delivery-note" id="deliveryNote">💸 Tu familia lo recibe el mismo día</div>
+
+						<input type="hidden" id="eurFee" value="<?php echo $feeEur; ?>">
+						<input type="hidden" id="vesFee" value="<?php echo $feeVes; ?>">
+						<input type="hidden" id="usdFee" value="<?php echo $feeUsd; ?>">
+						<input type="hidden" id="usdFee2" value="<?php echo $feeUsd2; ?>">
+						<input type="hidden" id="actualdate" value="<?php echo date('Y-m-d H:i:s', strtotime('now +2 hours')); ?>">
+						<input type="hidden" id="dbStatus" value="<?php echo (int)$status; ?>">
+						<input type="hidden" id="lastGuardar" value="<?php echo htmlspecialchars($dateves); ?>">
+						<input type="hidden" id="seasonData" value="<?php echo $season; ?>">
+						<input type="hidden" id="overrideStart" value="<?php echo $overrideStart; ?>">
+						<input type="hidden" id="overrideEnd" value="<?php echo $overrideEnd; ?>">
+						<input type="hidden" id="overrideDate" value="<?php echo $overrideDate; ?>">
+
+						<a href="//wa.me/34624442673"><button type="button" class="submit-btn">
+							<i class="fab fa-whatsapp"></i> Enviar Ahora por WhatsApp
+						</button></a>
+					</form>
 				</div>
 			</div>
 		</div>
 	</section>
 
-	<!-- CALCULATOR SECTION -->
-	<section class="calculator-section">
+	<!-- TESTIMONIOS SECTION -->
+	<?php if (!empty($testimonios)): ?>
+	<section class="testimonials-section">
 		<div class="container">
-			<h2 class="section-title">Calcula tu Transferencia</h2>
-
-			<div class="calculator-wrapper">
-				<div class="conversion-tabs" style="position: relative;">
-					<button class="tab-btn active" onclick="setNewCash(1)">€ → Bs</button>
-					<button class="tab-btn" onclick="setNewCash(2)">Bs → €</button>
-					<button class="tab-btn" onclick="setNewCash(3)">$ → €</button>
-					<button class="tab-btn" onclick="setNewCash(4)">€ → $</button>
-					<span id="btnHint" style="position: absolute; right: 0; top: -28px; font-size: 12px; color: #6b7280; opacity: 0; transition: opacity 0.3s; white-space: nowrap;">💡 Haz clic para ver otras tasas</span>
+			<h2 class="testimonials-title">Testimonios</h2>
+			<div class="testimonials-scroll">
+				<?php foreach ($testimonios as $t): ?>
+				<div class="testimonial-card">
+					<img src="images/testimonios/<?php echo htmlspecialchars($t['imagen']); ?>" alt="Testimonio<?php echo $t['nombre'] !== '' ? ' de ' . htmlspecialchars($t['nombre']) : ''; ?>" loading="lazy">
+					<?php if ($t['nombre'] !== ''): ?>
+					<div class="testimonial-name"><?php echo htmlspecialchars($t['nombre']); ?></div>
+					<?php endif; ?>
 				</div>
-
-				<form onsubmit="return false;">
-					<div class="form-group">
-						<label class="form-label-text">
-							¿Cuánto envías?
-							<i class="fas fa-info-circle info-icon relative" onmouseover="document.getElementById('info-box').style.display='block'" onmouseout="document.getElementById('info-box').style.display='none'"></i>
-							<div id="info-box">Calcula mientras escribes</div>
-						</label>
-						<div class="input-wrapper">
-							<input class="form-input-modern" id="eurCash" type="text" placeholder="Ingresa cantidad" oninput="setCash(1)">
-						</div>
-					</div>
-
-					<div class="form-group">
-						<label class="form-label-text">Recibirás</label>
-						<div class="input-wrapper">
-							<input class="form-input-modern" id="vesCash" type="text" placeholder="Resultado" oninput="setCash(2)">
-						</div>
-					</div>
-
-					<input type="hidden" id="eurFee" value="<?php echo $feeEur; ?>">
-					<input type="hidden" id="vesFee" value="<?php echo $feeVes; ?>">
-					<input type="hidden" id="usdFee" value="<?php echo $feeUsd; ?>">
-					<input type="hidden" id="usdFee2" value="<?php echo $feeUsd2; ?>">
-					<input type="hidden" id="actualdate" value="<?php echo date('Y-m-d H:i:s', strtotime('now +2 hours')); ?>">
-					<input type="hidden" id="dbStatus" value="<?php echo (int)$status; ?>">
-					<input type="hidden" id="lastGuardar" value="<?php echo htmlspecialchars($dateves); ?>">
-					<input type="hidden" id="seasonData" value="<?php echo $season; ?>">
-					<input type="hidden" id="overrideStart" value="<?php echo $overrideStart; ?>">
-					<input type="hidden" id="overrideEnd" value="<?php echo $overrideEnd; ?>">
-					<input type="hidden" id="overrideDate" value="<?php echo $overrideDate; ?>">
-
-					<a href="//wa.me/34624442673"><button type="button" class="submit-btn">
-						<i class="fab fa-whatsapp"></i> Enviar Ahora por WhatsApp
-					</button></a>
-				</form>
+				<?php endforeach; ?>
 			</div>
 		</div>
 	</section>
+	<?php endif; ?>
 
+	<!-- TRUST SECTION -->
+	<section class="trust-section">
+		<div class="container">
+			<div class="trust-grid">
 				<div class="trust-card">
 					<span class="trust-number">10,000+</span>
 					<span class="trust-text">Transferencias Exitosas</span>
@@ -952,6 +1038,7 @@
 				symbol2 = 'Bs';
 				document.getElementById('rateLabel').innerHTML = 'Euros a Bolivares';
 				document.getElementById('rateValue').innerHTML = fee_eur + ' Bs/€';
+				document.getElementById('deliveryNote').innerHTML = '💸 Tu familia lo recibe el mismo día';
 				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
 				document.querySelectorAll('.tab-btn')[0].classList.add('active');
 			} else if (cash == 2) {
@@ -960,6 +1047,7 @@
 				symbol2 = '€';
 				document.getElementById('rateLabel').innerHTML = 'Bolivares a Euros';
 				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('vesFee').value) + ' Bs/€';
+				document.getElementById('deliveryNote').innerHTML = '🔁 Tasa válida por 3 horas por la volatilidad del bolívar';
 				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
 				document.querySelectorAll('.tab-btn')[1].classList.add('active');
 
@@ -983,6 +1071,7 @@
 				symbol2 = '€';
 				document.getElementById('rateLabel').innerHTML = 'Dólares a Euros';
 				document.getElementById('rateValue').innerHTML = fee_eur + ' €/$';
+				document.getElementById('deliveryNote').innerHTML = '🏦 Retiro en efectivo únicamente en Valencia, Venezuela';
 				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
 				document.querySelectorAll('.tab-btn')[2].classList.add('active');
 			} else if (cash == 4) {
@@ -991,6 +1080,7 @@
 				symbol2 = '$';
 				document.getElementById('rateLabel').innerHTML = 'Euros a Dólares';
 				document.getElementById('rateValue').innerHTML = parseFloat(document.getElementById('usdFee2').value) + ' $';
+				document.getElementById('deliveryNote').innerHTML = '🏦 Entrega en efectivo únicamente en Valencia, Venezuela';
 				document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.remove('active'));
 				document.querySelectorAll('.tab-btn')[3].classList.add('active');
 			}

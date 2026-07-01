@@ -22,6 +22,14 @@ if ($db) {
 	@$db->query("ALTER TABLE config ADD COLUMN override_start TIME");
 	@$db->query("ALTER TABLE config ADD COLUMN override_end TIME");
 	@$db->query("ALTER TABLE config ADD COLUMN override_date DATE");
+	@$db->query("CREATE TABLE IF NOT EXISTS testimonios (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		imagen VARCHAR(255) NOT NULL,
+		nombre VARCHAR(100) DEFAULT '',
+		activo TINYINT DEFAULT 1,
+		orden INT DEFAULT 0,
+		fecha_subida DATETIME DEFAULT CURRENT_TIMESTAMP
+	)");
 }
 
 error_reporting(E_ALL ^ E_NOTICE);
