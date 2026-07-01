@@ -425,7 +425,6 @@
 
 		.calc-hint {
 			position: absolute;
-			top: -16px;
 			left: 50%;
 			transform: translateX(-50%);
 			background: #1f2937;
@@ -442,17 +441,66 @@
 			z-index: 30;
 		}
 
-		.calc-hint.show {
-			opacity: 1;
-			animation: calcHintShake 0.6s ease;
+		.calc-hint.point-up {
+			top: -16px;
+			bottom: auto;
 		}
 
-		@keyframes calcHintShake {
-			0%, 100% { transform: translateX(-50%) rotate(0deg); }
-			20% { transform: translateX(-50%) rotate(-10deg); }
-			40% { transform: translateX(-50%) rotate(10deg); }
-			60% { transform: translateX(-50%) rotate(-8deg); }
-			80% { transform: translateX(-50%) rotate(8deg); }
+		.calc-hint.point-down {
+			top: auto;
+			bottom: -16px;
+		}
+
+		.calc-hint.show.point-up {
+			opacity: 1;
+			animation: calcHintShakeUp 0.7s ease forwards;
+		}
+
+		.calc-hint.show.point-down {
+			opacity: 1;
+			animation: calcHintShakeDown 0.7s ease forwards;
+		}
+
+		@keyframes calcHintShakeUp {
+			0% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+			15% { transform: translateX(-50%) translateY(0) rotate(-10deg); }
+			30% { transform: translateX(-50%) translateY(0) rotate(10deg); }
+			45% { transform: translateX(-50%) translateY(0) rotate(-8deg); }
+			60% { transform: translateX(-50%) translateY(0) rotate(8deg); }
+			75% { transform: translateX(-50%) translateY(0) rotate(-4deg); }
+			100% { transform: translateX(-50%) translateY(-6px) rotate(0deg); }
+		}
+
+		@keyframes calcHintShakeDown {
+			0% { transform: translateX(-50%) translateY(0) rotate(0deg); }
+			15% { transform: translateX(-50%) translateY(0) rotate(-10deg); }
+			30% { transform: translateX(-50%) translateY(0) rotate(10deg); }
+			45% { transform: translateX(-50%) translateY(0) rotate(-8deg); }
+			60% { transform: translateX(-50%) translateY(0) rotate(8deg); }
+			75% { transform: translateX(-50%) translateY(0) rotate(-4deg); }
+			100% { transform: translateX(-50%) translateY(6px) rotate(0deg); }
+		}
+
+		.calc-hint-serious {
+			position: absolute;
+			top: -14px;
+			right: 4px;
+			background: #1f2937;
+			color: white;
+			font-size: 12px;
+			font-weight: 600;
+			padding: 6px 13px;
+			border-radius: 16px;
+			white-space: nowrap;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.3s ease;
+			box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+			z-index: 25;
+		}
+
+		.calc-hint-serious.show {
+			opacity: 1;
 		}
 
 		.form-group {
@@ -904,7 +952,8 @@
 								<div id="info-box">Calcula mientras escribes</div>
 							</label>
 							<div class="input-wrapper">
-								<input class="form-input-modern" id="eurCash" type="text" placeholder="Ingresa cantidad" oninput="setCash(1)" onfocus="setActiveField('send')">
+								<div class="calc-hint-serious" id="writeHint">Escribe aquí..</div>
+								<input class="form-input-modern" id="eurCash" type="text" placeholder="Ingresa cantidad" oninput="setCash(1)" onfocus="setActiveField('send'); dismissWriteHint();">
 								<div class="currency-pill-wrap" id="sendPillWrap">
 									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('send')">
 										<img src="images/flags/spain.png" class="currency-pill-flag" id="sendFlag" alt="">
@@ -934,7 +983,7 @@
 						</div>
 
 						<div class="rate-display-mid">
-							<div class="calc-hint" id="calcHint">Toca ☝️</div>
+							<div class="calc-hint point-up" id="calcHint">Toca ☝️</div>
 							<span class="rate-display-label">Tasa:</span>
 							<span class="rate-display-value" id="rateValue"><?php echo ($status == 1) ? $feeEur : '-'; ?></span>
 						</div>
@@ -1353,16 +1402,32 @@
 
 		// Calc hint: small popup nudging people to try the currency chips.
 		// Shows for 2.5s, hides for 2.5s, repeats, alternating which flag it points
-		// at — stops for good once someone actually opens a currency menu
-		// (remembered across visits).
+		// at — position is measured against the actual flag chip each time, so it
+		// stays accurate regardless of screen size. Stops for good once someone
+		// actually opens a currency menu (remembered across visits).
 		let calcHintInterval;
 		let calcHintPointsUp = true;
+
+		function positionCalcHint(pointsUp) {
+			const hint = document.getElementById('calcHint');
+			const pillWrap = document.getElementById(pointsUp ? 'sendPillWrap' : 'receivePillWrap');
+			if (!hint || !pillWrap) return;
+			const boxRect = hint.parentElement.getBoundingClientRect();
+			const pillRect = pillWrap.getBoundingClientRect();
+			const offsetX = (pillRect.left + pillRect.width / 2) - boxRect.left;
+			hint.style.left = offsetX + 'px';
+		}
 
 		function loopCalcHint() {
 			const hint = document.getElementById('calcHint');
 			if (!hint) return;
-			hint.textContent = calcHintPointsUp ? 'Toca ☝️' : 'Toca 👇';
+			const pointsUp = calcHintPointsUp;
+			hint.textContent = pointsUp ? 'Toca ☝️' : 'Toca 👇';
+			hint.classList.toggle('point-up', pointsUp);
+			hint.classList.toggle('point-down', !pointsUp);
+			positionCalcHint(pointsUp);
 			calcHintPointsUp = !calcHintPointsUp;
+
 			hint.classList.remove('show');
 			void hint.offsetWidth;
 			hint.classList.add('show');
@@ -1379,6 +1444,29 @@
 		if (localStorage.getItem('calcHintDismissed') !== 'true') {
 			setTimeout(loopCalcHint, 1200);
 			calcHintInterval = setInterval(loopCalcHint, 5000);
+		}
+
+		// Write hint: plain, serious, no shake — nudges people toward the send
+		// input itself. Independent loop, offset from the calc hint's timing.
+		let writeHintInterval;
+
+		function loopWriteHint() {
+			const hint = document.getElementById('writeHint');
+			if (!hint) return;
+			hint.classList.add('show');
+			setTimeout(() => hint.classList.remove('show'), 2500);
+		}
+
+		function dismissWriteHint() {
+			localStorage.setItem('writeHintDismissed', 'true');
+			clearInterval(writeHintInterval);
+			const hint = document.getElementById('writeHint');
+			if (hint) hint.classList.remove('show');
+		}
+
+		if (localStorage.getItem('writeHintDismissed') !== 'true') {
+			setTimeout(loopWriteHint, 2600);
+			writeHintInterval = setInterval(loopWriteHint, 5000);
 		}
 
 		// Ventana Flotante (Alert Display)
