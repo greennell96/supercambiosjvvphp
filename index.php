@@ -441,16 +441,6 @@
 			z-index: 30;
 		}
 
-		.calc-hint.point-up {
-			top: -16px;
-			bottom: auto;
-		}
-
-		.calc-hint.point-down {
-			top: auto;
-			bottom: -16px;
-		}
-
 		.calc-hint.show.point-up {
 			opacity: 1;
 			animation: calcHintShakeUp 0.7s ease forwards;
@@ -483,24 +473,27 @@
 
 		.calc-hint-serious {
 			position: absolute;
-			top: -14px;
-			right: 4px;
-			background: #1f2937;
-			color: white;
-			font-size: 12px;
-			font-weight: 600;
-			padding: 6px 13px;
-			border-radius: 16px;
+			top: 50%;
+			right: 90px;
+			transform: translateY(-50%);
+			color: #9ca3af;
+			font-size: 13px;
+			font-weight: 500;
+			font-style: italic;
 			white-space: nowrap;
 			opacity: 0;
 			pointer-events: none;
-			transition: opacity 0.3s ease;
-			box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
-			z-index: 25;
+			user-select: none;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-webkit-touch-callout: none;
+			transition: opacity 1.4s ease;
+			z-index: 5;
 		}
 
 		.calc-hint-serious.show {
 			opacity: 1;
+			transition: opacity 0.3s ease;
 		}
 
 		.form-group {
@@ -1414,8 +1407,21 @@
 			if (!hint || !pillWrap) return;
 			const boxRect = hint.parentElement.getBoundingClientRect();
 			const pillRect = pillWrap.getBoundingClientRect();
+			const gap = 10;
+
 			const offsetX = (pillRect.left + pillRect.width / 2) - boxRect.left;
 			hint.style.left = offsetX + 'px';
+
+			let offsetY;
+			if (pointsUp) {
+				// land just below the send pill, above the box
+				offsetY = (pillRect.bottom + gap) - boxRect.top;
+			} else {
+				// land just above the receive pill, below the box
+				const hintHeight = hint.offsetHeight || 30;
+				offsetY = (pillRect.top - gap - hintHeight) - boxRect.top;
+			}
+			hint.style.top = offsetY + 'px';
 		}
 
 		function loopCalcHint() {
@@ -1446,13 +1452,27 @@
 			calcHintInterval = setInterval(loopCalcHint, 5000);
 		}
 
-		// Write hint: plain, serious, no shake — nudges people toward the send
-		// input itself. Independent loop, offset from the calc hint's timing.
+		// Write hint: plain, serious, no shake — sits inside the send input itself,
+		// near its right edge (before the flag chip). Position is measured against
+		// the real input box each time, un-selectable and click-through so it never
+		// interferes with actually using the field. Independent loop, offset from
+		// the calc hint's timing.
 		let writeHintInterval;
+
+		function positionWriteHint() {
+			const hint = document.getElementById('writeHint');
+			const input = document.getElementById('eurCash');
+			if (!hint || !input) return;
+			const wrapperRect = hint.parentElement.getBoundingClientRect();
+			const inputRect = input.getBoundingClientRect();
+			const insetFromInputEdge = 14;
+			hint.style.right = (wrapperRect.right - inputRect.right + insetFromInputEdge) + 'px';
+		}
 
 		function loopWriteHint() {
 			const hint = document.getElementById('writeHint');
 			if (!hint) return;
+			positionWriteHint();
 			hint.classList.add('show');
 			setTimeout(() => hint.classList.remove('show'), 2500);
 		}
