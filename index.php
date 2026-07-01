@@ -244,7 +244,7 @@
 		.calc-header {
 			display: flex;
 			align-items: center;
-			justify-content: flex-end;
+			justify-content: center;
 			gap: 12px;
 			margin-bottom: 14px;
 			flex-wrap: wrap;
@@ -722,8 +722,22 @@
 				min-width: 200px;
 			}
 
-			.currency-pill span {
-				display: none;
+			.currency-pill {
+				gap: 5px;
+				padding: 6px 9px;
+				font-size: 11px;
+				background: #fff5ef;
+				border-color: #ffb98a;
+			}
+
+			.currency-pill-flag {
+				width: 18px;
+				height: 18px;
+			}
+
+			.currency-pill i {
+				font-size: 9px;
+				color: #ff6b35;
 			}
 
 			.rate-display-value {
