@@ -291,34 +291,24 @@
 		}
 
 		.currency-pill-arrow {
-			display: flex;
+			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			width: 20px;
-			height: 20px;
-			border-radius: 50%;
-			background: #f3f4f6;
-			color: #ff6b35;
 			flex-shrink: 0;
-			transition: all 0.2s;
 		}
 
 		.currency-pill-arrow i {
-			font-size: 10px;
-			transition: transform 0.2s;
+			font-size: 15px;
+			color: #9ca3af;
+			transition: transform 0.2s, color 0.15s;
 		}
 
-		.currency-pill:hover .currency-pill-arrow {
-			background: #ff6b35;
-			color: white;
-		}
-
-		.currency-pill-wrap.open .currency-pill-arrow {
-			background: #ff6b35;
-			color: white;
+		.currency-pill:hover .currency-pill-arrow i {
+			color: #ff6b35;
 		}
 
 		.currency-pill-wrap.open .currency-pill-arrow i {
+			color: #ff6b35;
 			transform: rotate(90deg);
 		}
 
@@ -439,6 +429,14 @@
 			transition: opacity 0.3s ease;
 			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 			z-index: 30;
+		}
+
+		.calc-hint.point-up {
+			transform: translateX(-50%) translateY(-6px);
+		}
+
+		.calc-hint.point-down {
+			transform: translateX(-50%) translateY(6px);
 		}
 
 		.calc-hint.show.point-up {
@@ -836,13 +834,8 @@
 				height: 18px;
 			}
 
-			.currency-pill-arrow {
-				width: 16px;
-				height: 16px;
-			}
-
 			.currency-pill-arrow i {
-				font-size: 8px;
+				font-size: 13px;
 			}
 
 			.rate-display-value {
@@ -1408,7 +1401,7 @@
 			if (!hint || !pillWrap) return;
 			const boxRect = hint.parentElement.getBoundingClientRect();
 			const pillRect = pillWrap.getBoundingClientRect();
-			const gap = 10;
+			const gap = 25;
 
 			const offsetX = (pillRect.left + pillRect.width / 2) - boxRect.left;
 			hint.style.left = offsetX + 'px';
