@@ -66,6 +66,12 @@
 			margin-bottom: 15px;
 		}
 
+		.contact-icon-img {
+			width: 38px;
+			height: 38px;
+			object-fit: contain;
+		}
+
 		.contact-title {
 			font-size: 18px;
 			font-weight: 700;
@@ -190,22 +196,30 @@
 			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
 		}
 
+		.social-link img {
+			width: 34px;
+			height: 34px;
+			object-fit: contain;
+		}
+
 		.social-link:nth-child(1) {
-			background: linear-gradient(135deg, #25d366 0%, #20ba58 100%);
+			background: white;
+			border: 1.5px solid #e5e7eb;
 		}
 
 		.social-link:nth-child(1):hover {
 			transform: translateY(-5px);
-			box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+			box-shadow: 0 10px 25px rgba(37, 211, 102, 0.35);
 		}
 
 		.social-link:nth-child(2) {
-			background: linear-gradient(135deg, #e1306c 0%, #c13584 100%);
+			background: white;
+			border: 1.5px solid #e5e7eb;
 		}
 
 		.social-link:nth-child(2):hover {
 			transform: translateY(-5px);
-			box-shadow: 0 10px 25px rgba(225, 48, 108, 0.4);
+			box-shadow: 0 10px 25px rgba(225, 48, 108, 0.35);
 		}
 
 		.social-link:nth-child(3) {
@@ -312,7 +326,7 @@
 				<div class="contact-info">
 					<div class="contact-card">
 						<div class="contact-icon">
-							<i class="fab fa-whatsapp"></i>
+							<img src="images/icons/whatsapp.png" alt="WhatsApp" class="contact-icon-img">
 						</div>
 						<div class="contact-title">WhatsApp</div>
 						<div class="contact-detail">
@@ -364,10 +378,10 @@
 			<h2 style="margin-bottom: 30px;">Síguenos en Redes Sociales</h2>
 			<div class="social-links">
 				<a href="//wa.me/34624442673" class="social-link" title="WhatsApp">
-					💬
+					<img src="images/icons/whatsapp.png" alt="WhatsApp">
 				</a>
 				<a href="//instagram.com/supercambiosjvv" class="social-link" title="Instagram">
-					📷
+					<img src="images/icons/instagram.png" alt="Instagram">
 				</a>
 				<a href="mailto:info@supercambiosjvv.com" class="social-link" title="Email">
 					✉️
