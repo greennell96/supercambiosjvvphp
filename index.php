@@ -219,7 +219,7 @@
 
 		@keyframes softPulse {
 			0%, 100% { opacity: 1; }
-			50% { opacity: 0.5; }
+			50% { opacity: 0.82; }
 		}
 
 		.rate-status {
@@ -230,7 +230,7 @@
 			display: inline-block;
 			color: white;
 			white-space: nowrap;
-			animation: softPulse 2.4s ease-in-out infinite;
+			animation: softPulse 4s ease-in-out infinite;
 		}
 
 		.status-open {
@@ -946,7 +946,7 @@
 							</label>
 							<div class="input-wrapper">
 								<div class="calc-hint-serious" id="writeHint">Escribe aquí..</div>
-								<input class="form-input-modern" id="eurCash" type="text" placeholder="Ingresa cantidad" oninput="setCash(1)" onfocus="setActiveField('send'); dismissWriteHint();">
+								<input class="form-input-modern" id="eurCash" type="text" inputmode="decimal" placeholder="Ingresa cantidad" oninput="setCash(1)" onfocus="setActiveField('send'); dismissWriteHint();">
 								<div class="currency-pill-wrap" id="sendPillWrap">
 									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('send')">
 										<img src="images/flags/spain.png" class="currency-pill-flag" id="sendFlag" alt="">
@@ -986,7 +986,8 @@
 								<span id="labelReceive" class="label-text-swap">Recibirás:</span>
 							</label>
 							<div class="input-wrapper">
-								<input class="form-input-modern" id="vesCash" type="text" placeholder="Resultado" oninput="setCash(2)" onfocus="setActiveField('receive')">
+								<div class="calc-hint-serious" id="writeHint2">O aquí..</div>
+								<input class="form-input-modern" id="vesCash" type="text" inputmode="decimal" placeholder="Resultado" oninput="setCash(2)" onfocus="setActiveField('receive'); dismissWriteHint();">
 								<div class="currency-pill-wrap" id="receivePillWrap">
 									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('receive')">
 										<img src="images/flags/venezuela.png" class="currency-pill-flag" id="receiveFlag" alt="">
@@ -1453,15 +1454,16 @@
 		}
 
 		// Write hint: plain, serious, no shake — sits inside the send input itself,
-		// near its right edge (before the flag chip). Position is measured against
-		// the real input box each time, un-selectable and click-through so it never
-		// interferes with actually using the field. Independent loop, offset from
-		// the calc hint's timing.
+		// near its right edge (before the flag chip). "Escribe aquí.." (send) and
+		// "O aquí.." (receive) are a pair — both positioned against their real
+		// input box each time, and shown/hidden in sync so they read as one
+		// message ("write here.. or here.."). Un-selectable and click-through so
+		// they never interfere with actually using the fields.
 		let writeHintInterval;
 
-		function positionWriteHint() {
-			const hint = document.getElementById('writeHint');
-			const input = document.getElementById('eurCash');
+		function positionOneWriteHint(hintId, inputId) {
+			const hint = document.getElementById(hintId);
+			const input = document.getElementById(inputId);
 			if (!hint || !input) return;
 			const wrapperRect = hint.parentElement.getBoundingClientRect();
 			const inputRect = input.getBoundingClientRect();
@@ -1470,18 +1472,26 @@
 		}
 
 		function loopWriteHint() {
-			const hint = document.getElementById('writeHint');
-			if (!hint) return;
-			positionWriteHint();
-			hint.classList.add('show');
-			setTimeout(() => hint.classList.remove('show'), 2500);
+			const hint1 = document.getElementById('writeHint');
+			const hint2 = document.getElementById('writeHint2');
+			if (!hint1 || !hint2) return;
+			positionOneWriteHint('writeHint', 'eurCash');
+			positionOneWriteHint('writeHint2', 'vesCash');
+			hint1.classList.add('show');
+			hint2.classList.add('show');
+			setTimeout(() => {
+				hint1.classList.remove('show');
+				hint2.classList.remove('show');
+			}, 2500);
 		}
 
 		function dismissWriteHint() {
 			localStorage.setItem('writeHintDismissed', 'true');
 			clearInterval(writeHintInterval);
-			const hint = document.getElementById('writeHint');
-			if (hint) hint.classList.remove('show');
+			const hint1 = document.getElementById('writeHint');
+			const hint2 = document.getElementById('writeHint2');
+			if (hint1) hint1.classList.remove('show');
+			if (hint2) hint2.classList.remove('show');
 		}
 
 		if (localStorage.getItem('writeHintDismissed') !== 'true') {
