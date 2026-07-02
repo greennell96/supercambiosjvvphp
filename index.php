@@ -294,21 +294,26 @@
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
+			width: 20px;
+			height: 20px;
+			border-radius: 50%;
+			background: #f3f4f6;
+			color: #6b7280;
+			font-size: 14px;
+			font-weight: 700;
+			line-height: 1;
 			flex-shrink: 0;
+			transition: all 0.2s;
 		}
 
-		.currency-pill-arrow i {
-			font-size: 15px;
-			color: #9ca3af;
-			transition: transform 0.2s, color 0.15s;
+		.currency-pill:hover .currency-pill-arrow {
+			background: #ff6b35;
+			color: white;
 		}
 
-		.currency-pill:hover .currency-pill-arrow i {
-			color: #ff6b35;
-		}
-
-		.currency-pill-wrap.open .currency-pill-arrow i {
-			color: #ff6b35;
+		.currency-pill-wrap.open .currency-pill-arrow {
+			background: #ff6b35;
+			color: white;
 			transform: rotate(90deg);
 		}
 
@@ -834,8 +839,10 @@
 				height: 18px;
 			}
 
-			.currency-pill-arrow i {
-				font-size: 13px;
+			.currency-pill-arrow {
+				width: 16px;
+				height: 16px;
+				font-size: 12px;
 			}
 
 			.rate-display-value {
@@ -944,7 +951,7 @@
 									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('send')">
 										<img src="images/flags/spain.png" class="currency-pill-flag" id="sendFlag" alt="">
 										<span id="sendCode">EUR</span>
-										<span class="currency-pill-arrow"><i class="fas fa-chevron-right"></i></span>
+										<span class="currency-pill-arrow">&rsaquo;</span>
 									</button>
 									<div class="currency-menu" id="sendMenu">
 										<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
@@ -985,7 +992,7 @@
 									<button type="button" class="currency-pill" onclick="toggleCurrencyMenu('receive')">
 										<img src="images/flags/venezuela.png" class="currency-pill-flag" id="receiveFlag" alt="">
 										<span id="receiveCode">VES</span>
-										<span class="currency-pill-arrow"><i class="fas fa-chevron-right"></i></span>
+										<span class="currency-pill-arrow">&rsaquo;</span>
 									</button>
 									<div class="currency-menu" id="receiveMenu">
 										<button type="button" class="exchange-menu-item active" onclick="setNewCash(1)">
