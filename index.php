@@ -434,6 +434,7 @@
 			transition: opacity 0.3s ease;
 			box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 			z-index: 30;
+			will-change: opacity, transform;
 		}
 
 		.calc-hint.point-up {
@@ -492,6 +493,7 @@
 			-webkit-touch-callout: none;
 			transition: opacity 1.4s ease;
 			z-index: 5;
+			will-change: opacity;
 		}
 
 		.calc-hint-serious.show {
@@ -1435,9 +1437,16 @@
 			positionCalcHint(pointsUp);
 			calcHintPointsUp = !calcHintPointsUp;
 
+			// iOS Safari won't (re)play the animation if the class that starts it
+			// is toggled in the same tick as the position update above — it needs
+			// a real paint of the "hidden" state first. Two nested rAFs guarantee
+			// that paint before .show is added. Harmless timing change on Chrome.
 			hint.classList.remove('show');
-			void hint.offsetWidth;
-			hint.classList.add('show');
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					hint.classList.add('show');
+				});
+			});
 			setTimeout(() => hint.classList.remove('show'), 2500);
 		}
 
@@ -1477,8 +1486,15 @@
 			if (!hint1 || !hint2) return;
 			positionOneWriteHint('writeHint', 'eurCash');
 			positionOneWriteHint('writeHint2', 'vesCash');
-			hint1.classList.add('show');
-			hint2.classList.add('show');
+			// Same iOS Safari fix as loopCalcHint: force a paint of the positioned,
+			// still-hidden state before starting the opacity transition, otherwise
+			// Safari can skip the fade entirely.
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					hint1.classList.add('show');
+					hint2.classList.add('show');
+				});
+			});
 			setTimeout(() => {
 				hint1.classList.remove('show');
 				hint2.classList.remove('show');
