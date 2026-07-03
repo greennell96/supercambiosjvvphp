@@ -4,29 +4,6 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<script>
-	// TEMP DIAGNOSTIC — only active with ?debug=1 in the URL. Safe to delete
-	// once the iOS Toca/Escribe hint + icon issue is root-caused.
-	(function() {
-		if (!/[?&]debug=1\b/.test(location.search)) return;
-		window.__dbgLog = [];
-		window.__dbg = function(msg) {
-			window.__dbgLog.push(msg);
-			var el = document.getElementById('__dbgPanel');
-			if (el) el.textContent = window.__dbgLog.join('\n');
-		};
-		window.onerror = function(msg, url, line, col) {
-			window.__dbg('JS ERROR: ' + msg + ' @ ' + (url || '').split('/').pop() + ':' + line + ':' + col);
-		};
-		document.addEventListener('DOMContentLoaded', function() {
-			var el = document.createElement('div');
-			el.id = '__dbgPanel';
-			el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:#000;color:#0f0;font:11px/1.4 monospace;padding:8px;white-space:pre-wrap;max-height:45vh;overflow:auto;';
-			el.textContent = window.__dbgLog.join('\n');
-			document.body.insertBefore(el, document.body.firstChild);
-		});
-	})();
-	</script>
 	<title>SuperCambios JVV - Envía Dinero Seguro a Venezuela</title>
 	<meta property="og:title" content="SuperCambios JVV - Envía Dinero Seguro a Venezuela" />
 	<meta property="og:description" content="Transferencias seguras de Europa a Venezuela. Cambiamos Cripto a EUR/BS. 10,000+ clientes satisfechos." />
@@ -36,8 +13,8 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Caveat:wght@700&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.0/css/all.css" id="faStylesheet" onload="window.__dbg && window.__dbg('FA stylesheet: loaded')" onerror="window.__dbg && window.__dbg('FA stylesheet: FAILED to load')">
-	<script src="js/sweetalert2.all.min.js" onload="window.__dbg && window.__dbg('sweetalert2.js: loaded')" onerror="window.__dbg && window.__dbg('sweetalert2.js: FAILED to load')"></script>
+	<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.0/css/all.css">
+	<script src="js/sweetalert2.all.min.js"></script>
 	<?php INCLUDE('root.php'); ?>
 	<?php
 		$status = 1;
@@ -1452,7 +1429,6 @@
 
 		function loopCalcHint() {
 			const hint = document.getElementById('calcHint');
-			window.__dbg && window.__dbg('loopCalcHint fired, hint found: ' + !!hint);
 			if (!hint) return;
 			const pointsUp = calcHintPointsUp;
 			hint.textContent = pointsUp ? 'Toca ☝️' : 'Toca 👇';
@@ -1481,7 +1457,6 @@
 			if (hint) hint.classList.remove('show');
 		}
 
-		window.__dbg && window.__dbg('calcHintDismissed: ' + localStorage.getItem('calcHintDismissed'));
 		if (localStorage.getItem('calcHintDismissed') !== 'true') {
 			setTimeout(loopCalcHint, 1200);
 			calcHintInterval = setInterval(loopCalcHint, 5000);
@@ -1508,7 +1483,6 @@
 		function loopWriteHint() {
 			const hint1 = document.getElementById('writeHint');
 			const hint2 = document.getElementById('writeHint2');
-			window.__dbg && window.__dbg('loopWriteHint fired, hints found: ' + !!hint1 + '/' + !!hint2);
 			if (!hint1 || !hint2) return;
 			positionOneWriteHint('writeHint', 'eurCash');
 			positionOneWriteHint('writeHint2', 'vesCash');
@@ -1536,16 +1510,10 @@
 			if (hint2) hint2.classList.remove('show');
 		}
 
-		window.__dbg && window.__dbg('writeHintDismissed: ' + localStorage.getItem('writeHintDismissed'));
 		if (localStorage.getItem('writeHintDismissed') !== 'true') {
 			setTimeout(loopWriteHint, 2600);
 			writeHintInterval = setInterval(loopWriteHint, 5000);
 		}
-
-		window.__dbg && window.__dbg('main script block reached end');
-		window.__dbg && document.fonts && document.fonts.ready.then(function() {
-			window.__dbg('fonts ready. FA solid loaded: ' + document.fonts.check('900 1em "Font Awesome 6 Free"'));
-		});
 
 		// Ventana Flotante (Alert Display)
 		<?php if ($alertStatus == 1) { ?>
