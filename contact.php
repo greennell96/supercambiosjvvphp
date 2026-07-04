@@ -10,7 +10,6 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.0/css/all.css">
 	<link rel="stylesheet" href="css/clean.css">
 	<?php INCLUDE('root.php'); ?>
 	<style>
@@ -317,7 +316,7 @@
 							<textarea class="form-input" required></textarea>
 						</div>
 						<button type="submit" class="submit-btn">
-							<i class="fas fa-paper-plane"></i> Enviar Mensaje
+							<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M498.1 5.6c10.1 7 15.4 19.1 13.5 31.2l-64 416c-1.5 9.7-7.4 18.2-16 23s-18.9 5.4-28 1.6L284 427.7l-68.5 74.1c-8.9 9.7-22.9 12.9-35.2 8.1S160 493.2 160 480V396.4c0-4 1.5-7.8 4.2-10.7L331.8 202.8c5.8-6.3 5.6-16-.4-22s-15.7-6.4-22-.7L106 360.8 17.7 316.6C7.1 311.3 .3 300.7 0 288.9s5.9-22.8 16.1-28.7l448-256c10.7-6.1 23.9-5.5 34 1.4z"/></svg> Enviar Mensaje
 						</button>
 					</form>
 				</div>
@@ -337,7 +336,7 @@
 
 					<div class="contact-card">
 						<div class="contact-icon">
-							<i class="fas fa-envelope"></i>
+							<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z"/></svg>
 						</div>
 						<div class="contact-title">Email</div>
 						<div class="contact-detail">
@@ -348,7 +347,7 @@
 
 					<div class="contact-card">
 						<div class="contact-icon">
-							<i class="fas fa-map-marker-alt"></i>
+							<svg class="ico-inline" viewBox="0 0 384 512" aria-hidden="true"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>
 						</div>
 						<div class="contact-title">Ubicación</div>
 						<div class="contact-detail">
@@ -359,7 +358,7 @@
 
 					<div class="contact-card">
 						<div class="contact-icon">
-							<i class="fas fa-clock"></i>
+							<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z"/></svg>
 						</div>
 						<div class="contact-title">Horario</div>
 						<div class="contact-detail">

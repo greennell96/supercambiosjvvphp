@@ -13,7 +13,6 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Caveat:wght@700&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.0/css/all.css">
 	<script src="js/sweetalert2.all.min.js"></script>
 	<?php INCLUDE('root.php'); ?>
 	<?php
@@ -151,6 +150,14 @@
 		}
 
 		.ico-whatsapp {
+			width: 1em;
+			height: 1em;
+			fill: currentColor;
+			vertical-align: -0.125em;
+			flex-shrink: 0;
+		}
+
+		.ico-inline {
 			width: 1em;
 			height: 1em;
 			fill: currentColor;
@@ -938,11 +945,11 @@
 					<div class="calc-header">
 						<?php if ($status == 1) { ?>
 							<span class="rate-status status-open" id="rateStatus">
-								<i class="fas fa-check-circle"></i> <?php echo $statusT; ?>
+								<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg> <?php echo $statusT; ?>
 							</span>
 						<?php } else { ?>
 							<span class="rate-status status-closed" id="rateStatus">
-								<i class="fas fa-times-circle"></i> <?php echo $statusT; ?>
+								<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM175 175c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z"/></svg> <?php echo $statusT; ?>
 							</span>
 						<?php } ?>
 					</div>
@@ -951,7 +958,7 @@
 						<div class="form-group">
 							<label class="form-label-text">
 								<span id="labelSend" class="label-text-swap">¿Cuánto envías?</span>
-								<i class="fas fa-info-circle info-icon relative" onmouseover="document.getElementById('info-box').style.display='block'" onmouseout="document.getElementById('info-box').style.display='none'"></i>
+								<svg class="ico-inline info-icon relative" viewBox="0 0 512 512" aria-hidden="true" onmouseover="document.getElementById('info-box').style.display='block'" onmouseout="document.getElementById('info-box').style.display='none'"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z"/></svg>
 								<div id="info-box">Calcula mientras escribes</div>
 							</label>
 							<div class="input-wrapper">
@@ -1219,8 +1226,11 @@
 			applyStatus(withinHours, withinHours ? '✅ ¡ABIERTO!' : '⛔ CERRADO');
 		}
 
+		const ICO_CHECK_CIRCLE = '<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg>';
+		const ICO_TIMES_CIRCLE = '<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM175 175c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z"/></svg>';
+
 		function applyStatus(isOpen, statusMsg) {
-			document.getElementById('rateStatus').innerHTML = `<i class="fas ${isOpen ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${statusMsg}`;
+			document.getElementById('rateStatus').innerHTML = `${isOpen ? ICO_CHECK_CIRCLE : ICO_TIMES_CIRCLE} ${statusMsg}`;
 			document.getElementById('rateStatus').style.backgroundImage = isOpen
 				? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
 				: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
@@ -1539,8 +1549,8 @@
 				showCloseButton: true,
 				showCancelButton: true,
 				focusConfirm: false,
-				confirmButtonText: '<i class="fa fa-thumbs-up"></i> OK',
-				cancelButtonText: '<i class="fa fa-thumbs-down"></i>'
+				confirmButtonText: '<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M313.4 32.9c26 5.2 42.9 30.5 37.7 56.5l-2.3 11.4c-5.3 26.7-15.1 52.1-28.8 75.2H464c26.5 0 48 21.5 48 48c0 18.5-10.5 34.6-25.9 42.6C497 275.4 504 288.9 504 304c0 23.4-16.8 42.9-38.9 47.1c4.4 7.3 6.9 15.8 6.9 24.9c0 21.3-13.9 39.4-33.1 45.6c.7 3.3 1.1 6.8 1.1 10.4c0 26.5-21.5 48-48 48H294.5c-19 0-37.5-5.6-53.3-16.1l-38.5-25.7C176 420.4 160 390.4 160 358.3V320 272 247.1c0-29.2 13.3-56.7 36-75l7.4-5.9c26.5-21.2 44.6-51 51.2-84.2l2.3-11.4c5.2-26 30.5-42.9 56.5-37.7zM32 192H96c17.7 0 32 14.3 32 32V448c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32V224c0-17.7 14.3-32 32-32z"/></svg> OK',
+				cancelButtonText: '<svg class="ico-inline" viewBox="0 0 512 512" aria-hidden="true"><path d="M313.4 479.1c26-5.2 42.9-30.5 37.7-56.5l-2.3-11.4c-5.3-26.7-15.1-52.1-28.8-75.2H464c26.5 0 48-21.5 48-48c0-18.5-10.5-34.6-25.9-42.6C497 236.6 504 223.1 504 208c0-23.4-16.8-42.9-38.9-47.1c4.4-7.3 6.9-15.8 6.9-24.9c0-21.3-13.9-39.4-33.1-45.6c.7-3.3 1.1-6.8 1.1-10.4c0-26.5-21.5-48-48-48H294.5c-19 0-37.5 5.6-53.3 16.1L202.7 73.8C176 91.6 160 121.6 160 153.7V192v48 24.9c0 29.2 13.3 56.7 36 75l7.4 5.9c26.5 21.2 44.6 51 51.2 84.2l2.3 11.4c5.2 26 30.5 42.9 56.5 37.7zM32 384H96c17.7 0 32-14.3 32-32V128c0-17.7-14.3-32-32-32H32C14.3 96 0 110.3 0 128V352c0 17.7 14.3 32 32 32z"/></svg>'
 			})
 		<?php } ?>
 	</script>

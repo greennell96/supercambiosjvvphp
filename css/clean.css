@@ -21,6 +21,14 @@ html, body {
 	flex-shrink: 0;
 }
 
+.ico-inline {
+	width: 1em;
+	height: 1em;
+	fill: currentColor;
+	vertical-align: -0.125em;
+	flex-shrink: 0;
+}
+
 body {
 	font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 	color: #1f2937;

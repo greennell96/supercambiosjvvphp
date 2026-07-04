@@ -10,7 +10,6 @@
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-	<link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.4.0/css/all.css">
 	<link rel="stylesheet" href="css/clean.css">
 	<?php INCLUDE('root.php'); ?>
 	<style>
@@ -192,7 +191,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Tienen un monto mínimo?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><b>Si, nuestro monto mínimo es de</b> <b style="color:#ff6b35;">40€</b></p>
@@ -203,7 +202,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Es necesario tener cuenta bancaria para enviar con ustedes?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p>Si, es <b>ESTRICTAMENTE</b> necesario, <b>NO</b> recibimos pago de terceros o de personas que no podamos identificar, y para ello debes tener cuenta bancaria.</p>
@@ -214,7 +213,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿En qué horario trabajan?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p>Nuestro horario comercial y de atención es:<br><b>TODOS LOS DÍAS DEL AÑO; SIN LOS DOMINGOS</b><br><b>VERANO:</b> de <b>15:00</b> a <b>22:00</b><br><b>INVIERNO:</b> de <b>14:00</b> a <b>21:00</b><br><br><i>¡Si algún día en específico no estaremos prestando servicio se indicará con múltiples avisos!</i></p>
@@ -225,7 +224,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Dónde puedo ver y como funciona su tasa de cambio?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><b>Puedes verla siempre que estemos disponibles en nuestra página web, la tasa de cambio puede variar sin previo aviso durante el día, debido a lo volátil que es el Bolívar. Antes de enviar tu remesa, se te indicará a que tasa se ha registrado (la misma que podrás observar en nuestra página al momento de solicitar tu envío).</b></p>
@@ -236,7 +235,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Qué tiempo demora en llegar los Bolívares?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p>Siempre y cuando sea uno de nuestros bancos afiliados, recibirás tus bolívares en un lapso de <b>5 a 180 minutos</b> después de habernos efectuado el pago.</p>
@@ -247,7 +246,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Cuáles son sus bancos afiliados en Venezuela?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><b>Banesco, Mercantil y Provincial</b><br><i>ó Cualquier banco que pueda recibir transferencias inmediatas</i></p>
@@ -258,7 +257,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Cómo realizo mi primera transacción?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><b>Luego de mirar la tasa, si te interesa, el siguiente paso es contactarnos por WhatsApp ya que es el único medio de comunicación para gestionar las remesas.</b></p>
@@ -269,7 +268,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Desde qué países puedo enviar a Venezuela utilizando sus servicios?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p>Puedes enviar desde cualquier país que tenga convenio SEPA de transferencias, o cuya moneda sea el Euro.<br><i>¡Eso pone en la lista a casi cualquier país de la Unión Europea!</i></p>
@@ -280,7 +279,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Me pueden enviar dinero desde Venezuela estando yo en Europa?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><b>¡Claro que sí!</b><br><b>Somos una de las pocas casas de cambio que procesamos Bolivares y los convertimos en Euros de manera segura.</b><br><br>Consulta la tasa para esas transacciones escribiendonos por WhatsApp</p>
@@ -291,7 +290,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Por qué enviar con ustedes?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p>Somos una Empresa con trayectoria impecable, con más de 5 años prestando este servicio.<br><b>¡NUESTRA META ES LA EXCELENCIA Y NUESTROS CLIENTES LO RATIFICAN!</b></p>
@@ -302,7 +301,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Es SuperCambios JVV completamente seguro?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p>¡Sí, 100% seguro! Implementamos:<br>🔒 Encriptación de nivel militar<br>🔒 Cumplimiento total de regulaciones SEPA (Europa)<br>🔒 Verificación de identidad rigurosa<br>🔒 Protección anti-fraude<br>🔒 Registros auditables de todas las transacciones</p>
@@ -313,7 +312,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Cómo puedo saber si mi dinero llegó a Venezuela?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><strong>Te confirmamos en cada paso:</strong><br>1️⃣ Cuando recibimos tu transferencia<br>2️⃣ Cuando iniciamos el envío a Venezuela<br>3️⃣ Cuando el dinero se deposita en el banco<br>Puedes verificar directamente con el receptor o contactar con nosotros en WhatsApp.</p>
@@ -324,7 +323,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Qué pasa si hay un problema con mi transferencia?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><strong>Garantía de resolución 24h:</strong><br>✅ Disponibles 24/7 en WhatsApp<br>✅ Seguimiento personalizado de tu caso<br>✅ Reembolso garantizado si es necesario<br>✅ Sin largos tiempos de espera<br>Tu confianza es nuestro activo más importante.</p>
@@ -335,7 +334,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Están regulados o registrados?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><strong>Sí, cumplimos con todas las regulaciones:</strong><br>📋 Operamos en España bajo leyes españolas<br>📋 Cumplimiento SEPA (Single Euro Payments Area)<br>📋 Verificación de identidad conforme a normativa AML<br>📋 Protección de datos según GDPR<br>📋 Registros auditables para todas las transacciones</p>
@@ -346,7 +345,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Por qué NO aceptan dinero de terceros?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><strong>Es por tu seguridad y la nuestra:</strong><br>🔒 Cumplimiento de regulaciones anti-lavado de dinero (AML)<br>🔒 Protección contra fraude y estafas<br>🔒 Verificación de origen lícito del dinero<br>🔒 Garantía de que no financiamos actividades ilícitas<br>Esta política protege a nuestros clientes y mantiene nuestro servicio seguro y legal.</p>
@@ -355,7 +354,7 @@
 				<div class="faq-item">
 					<div class="faq-question" onclick="toggleFaq(this)">
 						<span>¿Cuál es el máximo que puedo transferir?</span>
-						<i class="fas fa-chevron-down faq-icon"></i>
+						<svg class="ico-inline faq-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/></svg>
 					</div>
 					<div class="faq-answer">
 						<p><strong>Manejamos transferencias desde €50 hasta €100,000 y más.</strong><br><br>No nos limita el monto. Ya sea para una emergencia médica, una inversión en negocio, la compra de una casa o cualquier sueño grande que tengas en Venezuela, podemos procesarlo de forma segura y profesional.<br><br>Para montos superiores a €50,000, recomendamos contactarnos previamente por WhatsApp para coordinar los detalles y tiempos exactos.</p>
