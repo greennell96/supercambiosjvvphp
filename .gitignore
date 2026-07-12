@@ -4,6 +4,16 @@ db-config.php
 # Private documents
 BLANK-WAYLLET-AML.docx
 
+# AML flow hidden from public site 2026-07-12 (Waynance deal ended, no MiCA license).
+# Code kept locally + on branch main-backup-pre-aml-hide, excluded from repo/deploy.
+formularioaml.php
+aml-admin.php
+aml-download-temp.php
+aml-process.php
+aml-review.php
+aml-submit.php
+submissions/
+
 # Claude Code config
 .claude/
 

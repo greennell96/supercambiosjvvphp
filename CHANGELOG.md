@@ -10,6 +10,9 @@ Format: `[version] - YYYY-MM-DD` with sections **Added**, **Changed**, **Fixed**
 
 > Changes that are done locally but not yet uploaded to Hostinger.
 
+### Removed
+- AML flow hidden from the public site (2026-07-12) — Waynance partnership ended (no MiCA license obtained), so the AML/KYC intake is not needed publicly. `formularioaml.php` + `aml-*.php` + `submissions/` untracked from git and gitignored (code stays local and on branch `main-backup-pre-aml-hide`); AML nav links removed from `supertasa.php`. Server copies must be deleted manually in Hostinger File Manager — the git deploy does not remove already-deployed files.
+
 ### Fixed
 - `root.php` + `aml-process.php` — private files (`db-config.php`, `BLANK-WAYLLET-AML.docx`) now stored one level above `public_html`, outside Hostinger's git deploy path, so they survive every auto-deploy permanently
 - `index.php` + `supertasa.php` — site no longer auto-opens at 15:00 with stale rates; open state now requires admin to click "Guardar" which sets DB status based on current time; auto-close at end of day is still time-based

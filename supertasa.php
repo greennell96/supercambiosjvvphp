@@ -502,7 +502,6 @@ if (empty($_SESSION['supertasa_auth'])) {
 		<a class="nav-link <?php echo $mod == 'horarios'    ? 'active' : ''; ?>" href="?mod=horarios">Horarios</a>
 		<a class="nav-link <?php echo $mod == 'alert'       ? 'active' : ''; ?>" href="?mod=alert">Alerta</a>
 		<a class="nav-link <?php echo $mod == 'testimonios' ? 'active' : ''; ?>" href="?mod=testimonios">Testimonios</a>
-		<a class="nav-link" href="aml-admin.php">AML</a>
 		<a class="nav-link danger" href="?action=logout">Salir</a>
 	</div>
 	<div class="nav-end">
@@ -514,7 +513,6 @@ if (empty($_SESSION['supertasa_auth'])) {
 	<a class="nav-link <?php echo $mod == 'horarios'    ? 'active' : ''; ?>" href="?mod=horarios">Horarios</a>
 	<a class="nav-link <?php echo $mod == 'alert'       ? 'active' : ''; ?>" href="?mod=alert">Alerta</a>
 	<a class="nav-link <?php echo $mod == 'testimonios' ? 'active' : ''; ?>" href="?mod=testimonios">Testimonios</a>
-	<a class="nav-link" href="aml-admin.php">AML</a>
 	<a class="nav-link danger" href="?action=logout">Salir</a>
 	<span class="fx-chip" id="fx-topbar-m"></span>
 </div>
