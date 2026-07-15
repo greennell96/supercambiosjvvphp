@@ -808,38 +808,6 @@ function changeBtn ( id ) {
 	})
 }
 
-function deleteCode ( id ) {
-	$.ajax({
-		method: 'GET',
-		url: "/ajax.php",
-		data: {deleteCode: id},
-		success: (responseText) => {
-			var ajaxText = responseText;
-			if (ajaxText == 'Correcto') {
-				Swal.fire('Borrado!', 'El código ha sido borrado!', 'success')
-			} else {
-				Swal.fire('Error!', 'Ha ocurrido un error! Por favor contactar al soporte.', 'error')
-			}
-		}
-	})
-}
-
-function deleteCodes ( ) {
-	$.ajax({
-		method: 'GET',
-		url: "/ajax.php",
-		data: {deleteCodes: 'true'},
-		success: (responseText) => {
-			var ajaxText = responseText;
-			if (ajaxText == 'Correcto') {
-				Swal.fire('Borrados!', 'Los códigos vencidos o usados han sido borrados!', 'success')
-			} else {
-				Swal.fire('Información', '<b>'+ajaxText+'</b>', 'info')
-			}
-		}
-	})
-}
-
 function actionBtn( action ) {
 	let desde = text1.selectionStart;
 	let hasta = text1.selectionEnd;
@@ -873,25 +841,6 @@ function previewAlert () {
 		confirmButtonText: '<i class="fa fa-thumbs-up"></i> OK',
 		cancelButtonText: '<i class="fa fa-thumbs-down"></i>'
 	});
-}
-
-function udtaskc ( tid , uid ) {
-	$.ajax({
-		method: 'GET',
-		url: "/ajax.php",
-		data: {udtaskc: "<?php ECHO $actualDB; ?>", taskid: ""+tid+"", userid: ""+uid+""},
-		success: (responseText) => {
-			var ajaxText = responseText;
-			if (ajaxText == 'Correcto') {
-				Swal.fire('Guardado!', 'Se ha modificado la tarea!', 'success')
-				var elemento = document.getElementById(tid+'x'+uid);
-				var nuevoColor = elemento.style.borderColor === 'green' ? 'red' : 'green';
-				elemento.style.borderColor = nuevoColor;
-			} else {
-				Swal.fire('Error!', 'Ha ocurrido un error! Por favor contactar al soporte. ERNOR-874. '+responseText, 'error')
-			}
-		}
-	})
 }
 
 function toggleTestingMode() {
