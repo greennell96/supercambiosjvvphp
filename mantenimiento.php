@@ -37,7 +37,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 			height: 76px;
 			margin: 0 auto 20px;
 			display: block;
-			color: #dc2626;
+			color: #d97706;
 		}
 		.alert-mark .pulse { animation: pulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 		@keyframes pulse {
@@ -50,14 +50,14 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 			font-weight: 800;
 			letter-spacing: 0.02em;
 			text-transform: uppercase;
-			color: #dc2626;
+			color: #d97706;
 			margin-bottom: 26px;
 		}
 
 		.notice {
 			background: #ffffff;
-			border: 1px solid #fecaca;
-			border-top: 4px solid #dc2626;
+			border: 1px solid #fde68a;
+			border-top: 4px solid #d97706;
 			border-radius: 14px;
 			padding: 30px 26px;
 			box-shadow: 0 4px 20px rgba(17, 24, 39, 0.06);
@@ -74,8 +74,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 		.notice strong { color: #111827; font-weight: 700; }
 
 		.number-block {
-			background: #fef2f2;
-			border: 1px dashed #fca5a5;
+			background: #fffbeb;
+			border: 1px dashed #fcd34d;
 			border-radius: 10px;
 			padding: 18px 16px;
 			margin: 22px 0;
@@ -92,9 +92,32 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 			font-size: clamp(1.3rem, 5vw, 1.6rem);
 			font-weight: 800;
 			letter-spacing: 0.04em;
-			color: #dc2626;
+			color: #d97706;
 			margin: 8px 0;
 			white-space: nowrap;
+		}
+
+		.channels {
+			background: #f9fafb;
+			border-radius: 10px;
+			padding: 16px 18px;
+			margin-top: 22px;
+		}
+		.channels .title {
+			display: block;
+			font-size: 0.82rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			color: #6b7280;
+			margin-bottom: 8px;
+		}
+		.channels .item {
+			display: block;
+			font-size: 1rem;
+			font-weight: 600;
+			color: #111827;
+			line-height: 1.7;
 		}
 
 		.back {
@@ -151,39 +174,40 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 		<div class="notice">
 			<p>
-				Super Cambios JVV fue durante años un negocio administrado por <strong>María</strong> y
-				<strong>José</strong>. Esa etapa ha terminado y cada uno ha tomado caminos separados, por
-				lo que el servicio queda temporalmente suspendido.
+				Super Cambios JVV se encuentra en una etapa de reorganización.
+				<strong>María</strong> y <strong>José</strong> continúan por separado, cada uno con sus
+				propios canales y de forma totalmente independiente.
 			</p>
 
 			<div class="number-block">
-				<span class="lead">El número de WhatsApp</span>
+				<span class="lead">El número</span>
 				<span class="number">+34 624 44 26 73</span>
-				<span class="lead">queda en manos de María, no de José.</span>
+				<span class="lead">ya no está operativo como canal<br>de Super Cambios JVV.</span>
 			</div>
 
 			<p>
-				<strong>Quien escriba a ese número estará hablando con María, no con José.</strong>
-				Cualquier cambio, envío, cobro o transacción que se realice por ese contacto es
-				responsabilidad exclusiva de María. José no tiene participación, control, responsabilidad
-				ni garantía alguna sobre esas operaciones, ni sobre el dinero que se entregue a través de
-				ellas.
+				<strong>Importante:</strong> si tienes ese chat guardado en WhatsApp, es posible que la
+				aplicación te redirija automáticamente a un número nuevo. Ese número
+				<strong>no pertenece a Super Cambios JVV ni a José</strong>. Antes de enviar cualquier
+				cantidad, verifica siempre con quién estás operando.
 			</p>
 
 			<p>
-				Le pedimos a nuestros clientes tenerlo presente y verificar siempre con quién están
-				operando antes de enviar cualquier cantidad.
+				Las operaciones que se realicen por canales distintos a los oficiales de Super Cambios JVV
+				se gestionan de forma independiente y no están bajo la responsabilidad de José ni de
+				Super Cambios JVV.
 			</p>
 
-			<p>
-				La marca <strong>Super Cambios JVV</strong>, este sitio web y la cuenta de Instagram
-				<strong>@supercambiosjvv</strong> continúan bajo la dirección de José, su fundador.
-			</p>
+			<div class="channels">
+				<span class="title">Canales oficiales de Super Cambios JVV</span>
+				<span class="item">Instagram @supercambiosjvv</span>
+				<span class="item">supercambiosjvv.com</span>
+			</div>
 		</div>
 
 		<p class="back">
-			José estará de vuelta muy pronto,<br>
-			con el mismo servicio y la misma seriedad de siempre.
+			José está preparando una nueva etapa<br>
+			y estará de vuelta muy pronto.
 		</p>
 
 		<p class="ig-label">Nuestro <strong>único canal oficial</strong> por ahora:</p>
