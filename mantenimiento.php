@@ -185,28 +185,27 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 		<div class="notice">
 			<p>
-				Super Cambios JVV se encuentra en una etapa de reorganización.
-				<strong>María</strong> y <strong>José</strong> continúan por separado, cada uno con sus
-				propios canales y de forma totalmente independiente.
+				Super Cambios JVV se encuentra en una etapa de reorganización interna.
+				Estamos trabajando para recuperar el acceso a nuestro número de WhatsApp habitual
+				y retomar la atención con normalidad.
 			</p>
 
 			<div class="number-block">
 				<span class="lead">El número</span>
 				<span class="number">+34 624 44 26 73</span>
-				<span class="lead">ya no está operativo como canal<br>de Super Cambios JVV.</span>
+				<span class="lead">está temporalmente fuera de servicio<br>como canal de Super Cambios JVV.</span>
 			</div>
 
 			<p>
 				<strong>Importante:</strong> si tienes ese chat guardado en WhatsApp, es posible que la
 				aplicación te redirija automáticamente a un número nuevo. Ese número
-				<strong>no pertenece a Super Cambios JVV ni a José</strong>. Antes de enviar cualquier
+				<strong>no pertenece a Super Cambios JVV</strong>. Antes de enviar cualquier
 				cantidad, verifica siempre con quién estás operando.
 			</p>
 
 			<p>
 				Las operaciones que se realicen por canales distintos a los oficiales de Super Cambios JVV
-				se gestionan de forma independiente y no están bajo la responsabilidad de José ni de
-				Super Cambios JVV.
+				se gestionan de forma independiente y no están bajo la responsabilidad de Super Cambios JVV.
 			</p>
 
 			<div class="channels">
@@ -217,8 +216,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 		</div>
 
 		<p class="back">
-			José está preparando una nueva etapa<br>
-			y estará de vuelta muy pronto.
+			Estamos trabajando para recuperar el acceso<br>
+			y volver muy pronto.
 		</p>
 
 		<p class="ig-label">Nuestro <strong>único canal oficial</strong> por ahora:</p>
