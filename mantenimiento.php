@@ -119,6 +119,17 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 			color: #111827;
 			line-height: 1.7;
 		}
+		.channels a.item {
+			color: #ff6b35;
+			text-decoration: none;
+			border-bottom: 1px solid rgba(255, 107, 53, 0.35);
+			width: fit-content;
+			transition: color 0.15s ease, border-color 0.15s ease;
+		}
+		.channels a.item:hover {
+			color: #e2551f;
+			border-bottom-color: #e2551f;
+		}
 
 		.back {
 			font-size: 1rem;
@@ -200,7 +211,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 			<div class="channels">
 				<span class="title">Canales oficiales de Super Cambios JVV</span>
-				<span class="item">Instagram @supercambiosjvv</span>
+				<a class="item" href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Instagram @supercambiosjvv</a>
 				<span class="item">supercambiosjvv.com</span>
 			</div>
 		</div>
