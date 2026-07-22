@@ -32,17 +32,15 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 		.logo { height: 46px; width: auto; margin-bottom: 28px; opacity: 0.9; }
 
+		/* Static on purpose: the halo used to pulse via transform: scale(), which relies on
+		   transform-box: fill-box to scale in place. Where that isn't honored the circle
+		   shifts instead of growing and the icon reads as a wobbling blob. */
 		.alert-mark {
-			width: 76px;
-			height: 76px;
+			width: 84px;
+			height: 84px;
 			margin: 0 auto 20px;
 			display: block;
 			color: #d97706;
-		}
-		.alert-mark .pulse { animation: pulse 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-		@keyframes pulse {
-			0%, 100% { opacity: 0.18; transform: scale(1); }
-			50%      { opacity: 0.05; transform: scale(1.12); }
 		}
 
 		h1 {
@@ -166,7 +164,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 		.ig-btn svg { flex-shrink: 0; }
 
 		@media (prefers-reduced-motion: reduce) {
-			.alert-mark .pulse { animation: none; }
+			.ig-btn { transition: none; }
+			.ig-btn:hover { transform: none; }
 		}
 	</style>
 </head>
@@ -175,7 +174,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 		<img class="logo" src="images/logo-default1-140x57.png" alt="Super Cambios JVV">
 
 		<svg class="alert-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Aviso importante">
-			<circle class="pulse" cx="50" cy="52" r="46" fill="currentColor"/>
+			<circle cx="50" cy="52" r="46" fill="currentColor" opacity="0.14"/>
 			<path d="M50 14 L92 84 H8 Z" fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round"/>
 			<rect x="46" y="38" width="8" height="24" rx="4" fill="currentColor"/>
 			<circle cx="50" cy="71" r="4.6" fill="currentColor"/>
