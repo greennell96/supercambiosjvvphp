@@ -22,6 +22,16 @@
 // src/components/brand/marks.tsx (JVV-12). Keep the two in sync by hand.
 $ETAPA = 1;
 
+// ── RECOVERY GATE ────────────────────────────────────────────────────────────
+// false = pre-recovery: the WhatsApp number is not yet back under José's control,
+//         so the page must NOT claim it as the official channel. Instagram is the
+//         reachable channel and the anti-impersonation line stays generic — it
+//         never characterises anyone else's number (JVV-34 disclosure ceiling).
+// true  = the number is recovered: assert it, publish the communiqué.
+//
+// Flip to true in the Wednesday publish window, once control is actually stable.
+$RECUPERADO = false;
+
 $WA = '34624442673';
 ?><!DOCTYPE html>
 <html lang="es">
@@ -185,6 +195,7 @@ $WA = '34624442673';
 
   <h1>Estamos construyendo la mejor etapa de JVV</h1>
 
+<?php if ($RECUPERADO): ?>
   <p class="lead">Hola, familia JVV. Este número, <strong>624 44 26 73</strong>, sigue siendo el
   número oficial de Super Cambios JVV y continúa bajo mi dirección.</p>
 
@@ -193,6 +204,16 @@ $WA = '34624442673';
   conocen. Mientras completo ese proceso, <strong>las operaciones están temporalmente en
   pausa</strong>. Prefiero decírselo con claridad y no darles una fecha hasta que todo esté
   realmente listo.</p>
+<?php else: ?>
+  <p class="lead">Hola, familia JVV. Super Cambios JVV está atravesando una reorganización interna
+  y una renovación completa.</p>
+
+  <p>Como muchos ya intuían por los movimientos de estas últimas semanas, JVV está entrando en una
+  nueva etapa: nueva estructura, nuevas herramientas y una experiencia mucho mejor que la que ya
+  conocen. Mientras completo ese proceso, <strong>las operaciones están temporalmente en pausa</strong>
+  y la atención por WhatsApp está suspendida. Prefiero decírselo con claridad y no darles una fecha
+  hasta que todo esté realmente listo.</p>
+<?php endif; ?>
 
   <figure class="work">
     <img src="images/construyendo.svg" alt="Equipo armando las piezas de la nueva etapa de JVV" width="400" height="350">
@@ -215,6 +236,7 @@ $WA = '34624442673';
     </div>
   </div>
 
+<?php if ($RECUPERADO): ?>
   <div class="numbox">
     <span class="lbl">El número de siempre</span>
     <span class="num">+34 624 44 26 73</span>
@@ -233,7 +255,21 @@ $WA = '34624442673';
   <div class="cta-wrap">
     <a class="cta" href="https://wa.me/<?= $WA ?>">Escríbeme por WhatsApp</a>
   </div>
+<?php else: ?>
+  <div class="channels">
+    <span class="title">Nuestro canal oficial por ahora</span>
+    <a href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Instagram @supercambiosjvv</a>
+    <span class="item">supercambiosjvv.com</span>
+    <p class="verify">Si alguien te contacta en nombre de Super Cambios JVV, verifica siempre por
+    nuestro Instagram antes de enviar cualquier cantidad.</p>
+  </div>
 
+  <div class="cta-wrap">
+    <a class="cta" href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Síguenos en Instagram</a>
+  </div>
+<?php endif; ?>
+
+<?php if ($RECUPERADO): // the communiqué is the Wednesday announcement — not published before recovery ?>
   <details>
     <summary>Leer el comunicado oficial completo</summary>
     <div class="body">
@@ -273,6 +309,7 @@ $WA = '34624442673';
       </div>
     </div>
   </details>
+<?php endif; ?>
 
   <footer>
     Gracias por la confianza de todos estos años.
