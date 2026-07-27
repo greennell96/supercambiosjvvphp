@@ -220,11 +220,20 @@ $META = $RECUPERADO
     margin-top:8px;font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--green-mid);
   }
 
+  /* Reduced motion: drop all translation, but keep an opacity-only staggered loop so
+     the page still reads as "in progress". Fading is not vestibular motion; sliding
+     is. Overriding animation-name only keeps the 7s duration and the --d delays. */
   @media (prefers-reduced-motion:reduce){
-    .work .seg,.work .spark,.teaser .frag{
-      animation:none!important;opacity:1!important;transform:none!important;
-    }
+    .work .seg{animation-name:buildFade!important;transform:none!important}
+    .work .spark{animation:none!important;opacity:1!important}
     .work .cruce{animation:none!important;opacity:0!important}
+    .teaser .frag{animation:none!important;opacity:1!important;transform:none!important}
+  }
+  @keyframes buildFade{
+    0%       {opacity:0}
+    9%       {opacity:1}
+    76%      {opacity:1}
+    88%,100% {opacity:0}
   }
 </style>
 </head>
