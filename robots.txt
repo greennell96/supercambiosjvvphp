@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /supertasa.php
+Disallow: /ajax.php

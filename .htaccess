@@ -15,14 +15,18 @@ AddDefaultCharset UTF-8
 # All public traffic gets transicion.php: the brand-hold landing for the JVV-34/JVV-41
 # gap. It answers 200 and stays indexable, unlike mantenimiento.php (503 + noindex),
 # which is kept as-is for real outages — a prolonged 503 would get the site deindexed.
-# Exempt: the landing itself, the admin panel (supertasa.php + ajax.php, both behind
-# session auth) and the js/ + images/ assets the panel and the landing need.
+# Exempt: the landing itself, the outage page, the admin panel (supertasa.php +
+# ajax.php, both behind session auth), the asset directories, and static/crawler
+# paths. A missing resource must return its own 404 rather than the landing HTML
+# disguised as CSS, text or XML (Codex review R2, 2026-07-27).
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{REQUEST_URI} !^/transicion\.php$
+    RewriteCond %{REQUEST_URI} !^/mantenimiento\.php$
     RewriteCond %{REQUEST_URI} !^/(supertasa|ajax)\.php$
-    RewriteCond %{REQUEST_URI} !^/js/
-    RewriteCond %{REQUEST_URI} !^/images/
+    RewriteCond %{REQUEST_URI} !^/(js|images|css|fonts)/
+    RewriteCond %{REQUEST_URI} !^/\.well-known/
+    RewriteCond %{REQUEST_URI} !\.(css|js|mjs|map|png|jpe?g|gif|svg|webp|avif|ico|woff2?|ttf|otf|eot|txt|xml|json|pdf)$ [NC]
     RewriteRule ^ /transicion.php [L]
 </IfModule>
 # ══ END TRANSITION MODE ══

@@ -39,13 +39,21 @@ $WA = '34624442673';
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Super Cambios JVV — Nueva etapa en preparación</title>
-<meta name="description" content="Super Cambios JVV está preparando una nueva etapa. Nuestros canales oficiales son el 624 44 26 73, @supercambiosjvv y supercambiosjvv.com.">
+<?php
+// The metadata is gated too: search results and link previews must never claim the
+// number before it is recovered. Keep this in sync with $RECUPERADO — the head is
+// as public as the body (Codex review R1, 2026-07-27).
+$META = $RECUPERADO
+  ? 'Super Cambios JVV está preparando una nueva etapa. Nuestros canales oficiales son el 624 44 26 73, @supercambiosjvv y supercambiosjvv.com.'
+  : 'Super Cambios JVV está preparando una nueva etapa. Nuestros canales oficiales son @supercambiosjvv y supercambiosjvv.com.';
+?>
+<meta name="description" content="<?= htmlspecialchars($META, ENT_QUOTES, 'UTF-8') ?>">
 <link rel="canonical" href="https://supercambiosjvv.com/">
 <link rel="icon" href="images/favicon.ico">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Super Cambios JVV">
 <meta property="og:title" content="Super Cambios JVV — Nueva etapa en preparación">
-<meta property="og:description" content="Estamos preparando una nueva etapa. Nuestros canales oficiales son el 624 44 26 73, @supercambiosjvv y supercambiosjvv.com.">
+<meta property="og:description" content="<?= htmlspecialchars($META, ENT_QUOTES, 'UTF-8') ?>">
 <meta property="og:url" content="https://supercambiosjvv.com/">
 <meta property="og:image" content="https://supercambiosjvv.com/images/logo-default-280x113.png">
 <meta name="twitter:card" content="summary">
@@ -111,10 +119,33 @@ $WA = '34624442673';
   }
   .teaser .dots i.on{background:var(--accent)}
 
-  /* ── work illustration ── */
+  /* ── work illustration: a bridge assembling itself ──
+     Deliberately non-representational — no human figures, so it cannot be read as
+     depicting any person. The bridge is the honest motif: it is what JVV does, and
+     it echoes the new company name (Many Bridges). */
   .work{margin:34px 0 8px;text-align:center}
-  .work img{width:100%;max-width:400px;height:auto;animation:float 6s ease-in-out infinite}
-  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+  .work svg{width:100%;max-width:420px;height:auto}
+  .work .seg{
+    transform-box:fill-box;transform-origin:center;
+    animation:build 6s ease-in-out infinite;
+  }
+  .work .seg:nth-of-type(2){animation-delay:.34s}
+  .work .seg:nth-of-type(3){animation-delay:.68s}
+  .work .seg:nth-of-type(4){animation-delay:1.02s}
+  .work .seg:nth-of-type(5){animation-delay:1.36s}
+  @keyframes build{
+    0%   {opacity:0;transform:translateY(-15px)}
+    11%  {opacity:1;transform:translateY(0)}
+    80%  {opacity:1;transform:translateY(0)}
+    100% {opacity:0;transform:translateY(-15px)}
+  }
+  .work .spark{animation:spark 6s ease-in-out infinite;transform-box:fill-box}
+  @keyframes spark{
+    0%,28%{opacity:0}
+    40%{opacity:1}
+    80%{opacity:1}
+    100%{opacity:0}
+  }
   .work figcaption{
     margin-top:10px;font-size:.9rem;color:var(--ink-soft);font-style:italic;
   }
@@ -180,7 +211,9 @@ $WA = '34624442673';
   }
 
   @media (prefers-reduced-motion:reduce){
-    .work img,.teaser .frag{animation:none!important;opacity:1!important;transform:none!important}
+    .work .seg,.work .spark,.teaser .frag{
+      animation:none!important;opacity:1!important;transform:none!important;
+    }
   }
 </style>
 </head>
@@ -216,8 +249,26 @@ $WA = '34624442673';
 <?php endif; ?>
 
   <figure class="work">
-    <img src="images/construyendo.svg" alt="Equipo armando las piezas de la nueva etapa de JVV" width="400" height="350">
-    <figcaption>Trabajando en las piezas de lo que viene.</figcaption>
+    <svg viewBox="0 0 420 172" role="img" aria-label="Un puente en construcción, armándose pieza por pieza">
+      <!-- shores -->
+      <path d="M0 132 H88 V172 H0 Z" fill="#1b4332" opacity=".13"/>
+      <path d="M332 132 H420 V172 H332 Z" fill="#1b4332" opacity=".13"/>
+      <path d="M0 130 H88" stroke="#1b4332" stroke-width="3" opacity=".45"/>
+      <path d="M332 130 H420" stroke="#1b4332" stroke-width="3" opacity=".45"/>
+      <!-- pillars -->
+      <rect x="150" y="96" width="11" height="40" rx="3" fill="#1b4332" opacity=".55"/>
+      <rect x="259" y="96" width="11" height="40" rx="3" fill="#1b4332" opacity=".55"/>
+      <!-- deck segments, assembling in sequence -->
+      <rect class="seg" x="74" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <rect class="seg" x="136" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <rect class="seg" x="198" y="84" width="58" height="12" rx="4" fill="#f4a435"/>
+      <rect class="seg" x="260" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <rect class="seg" x="322" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <!-- accent marks that appear once the span is closed -->
+      <circle class="spark" cx="227" cy="66" r="4.5" fill="#f4a435"/>
+      <path class="spark" d="M212 72 H242" stroke="#f4a435" stroke-width="2.5" opacity=".5"/>
+    </svg>
+    <figcaption>Construyendo, pieza por pieza.</figcaption>
   </figure>
 
   <div class="teaser">
