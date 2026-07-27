@@ -125,26 +125,36 @@ $META = $RECUPERADO
      it echoes the new company name (Many Bridges). */
   .work{margin:34px 0 8px;text-align:center}
   .work svg{width:100%;max-width:420px;height:auto}
+  /* Per-segment delay comes from an inline --d custom property, NOT nth-of-type:
+     the pillars are <rect> siblings too, so nth-of-type would count them and every
+     segment would animate at once — which reads as blinking, not building. */
   .work .seg{
     transform-box:fill-box;transform-origin:center;
-    animation:build 6s ease-in-out infinite;
+    opacity:0;
+    animation:build 7s cubic-bezier(.22,.68,.31,1) infinite backwards;
+    animation-delay:var(--d,0s);
   }
-  .work .seg:nth-of-type(2){animation-delay:.34s}
-  .work .seg:nth-of-type(3){animation-delay:.68s}
-  .work .seg:nth-of-type(4){animation-delay:1.02s}
-  .work .seg:nth-of-type(5){animation-delay:1.36s}
   @keyframes build{
-    0%   {opacity:0;transform:translateY(-15px)}
-    11%  {opacity:1;transform:translateY(0)}
-    80%  {opacity:1;transform:translateY(0)}
-    100% {opacity:0;transform:translateY(-15px)}
+    0%       {opacity:0;transform:translateY(-17px)}
+    9%       {opacity:1;transform:translateY(0)}
+    76%      {opacity:1;transform:translateY(0)}
+    88%,100% {opacity:0;transform:translateY(-17px)}
   }
-  .work .spark{animation:spark 6s ease-in-out infinite;transform-box:fill-box}
+  /* Centre accent lights up only once the span is actually closed. */
+  .work .spark{transform-box:fill-box;opacity:0;animation:spark 7s ease-in-out infinite}
   @keyframes spark{
-    0%,28%{opacity:0}
-    40%{opacity:1}
-    80%{opacity:1}
-    100%{opacity:0}
+    0%,26%   {opacity:0}
+    34%,74%  {opacity:1}
+    84%,100% {opacity:0}
+  }
+  /* A light crossing the finished deck — the payoff of the loop: the bridge connects. */
+  .work .cruce{transform-box:fill-box;opacity:0;animation:cruce 7s ease-in-out infinite}
+  @keyframes cruce{
+    0%,32%  {opacity:0;transform:translateX(0)}
+    38%     {opacity:1;transform:translateX(8px)}
+    72%     {opacity:1;transform:translateX(292px)}
+    80%     {opacity:0;transform:translateX(300px)}
+    100%    {opacity:0;transform:translateX(0)}
   }
   .work figcaption{
     margin-top:10px;font-size:.9rem;color:var(--ink-soft);font-style:italic;
@@ -214,6 +224,7 @@ $META = $RECUPERADO
     .work .seg,.work .spark,.teaser .frag{
       animation:none!important;opacity:1!important;transform:none!important;
     }
+    .work .cruce{animation:none!important;opacity:0!important}
   }
 </style>
 </head>
@@ -258,15 +269,17 @@ $META = $RECUPERADO
       <!-- pillars -->
       <rect x="150" y="96" width="11" height="40" rx="3" fill="#1b4332" opacity=".55"/>
       <rect x="259" y="96" width="11" height="40" rx="3" fill="#1b4332" opacity=".55"/>
-      <!-- deck segments, assembling in sequence -->
-      <rect class="seg" x="74" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
-      <rect class="seg" x="136" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
-      <rect class="seg" x="198" y="84" width="58" height="12" rx="4" fill="#f4a435"/>
-      <rect class="seg" x="260" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
-      <rect class="seg" x="322" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <!-- deck segments, assembling left to right; --d staggers each arrival -->
+      <rect class="seg" style="--d:0s"   x="74"  y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <rect class="seg" style="--d:.3s"  x="136" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <rect class="seg" style="--d:.6s"  x="198" y="84" width="58" height="12" rx="4" fill="#f4a435"/>
+      <rect class="seg" style="--d:.9s"  x="260" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
+      <rect class="seg" style="--d:1.2s" x="322" y="84" width="58" height="12" rx="4" fill="#1b4332"/>
       <!-- accent marks that appear once the span is closed -->
       <circle class="spark" cx="227" cy="66" r="4.5" fill="#f4a435"/>
       <path class="spark" d="M212 72 H242" stroke="#f4a435" stroke-width="2.5" opacity=".5"/>
+      <!-- light travelling across the finished span -->
+      <circle class="cruce" cx="80" cy="90" r="4" fill="#F5EDD9"/>
     </svg>
     <figcaption>Construyendo, pieza por pieza.</figcaption>
   </figure>
