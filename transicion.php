@@ -30,7 +30,7 @@ $ETAPA = 1;
 // true  = the number is recovered: assert it, publish the communiqué.
 //
 // Flip to true in the Wednesday publish window, once control is actually stable.
-$RECUPERADO = false;
+$RECUPERADO = true;
 
 $WA = '34624442673';
 ?><!DOCTYPE html>
