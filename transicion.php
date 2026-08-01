@@ -121,10 +121,8 @@ $META = $RECUPERADO
      Each letter moves with transform only. SUPER keeps its layout width while hidden,
      so CAMBIOS JVV never shifts during the cycle.
   */
-  @media (prefers-reduced-motion:no-preference){
-    .wordmark-super-letter{
-      animation:wordmarkSuperLoop var(--wordmark-cycle) infinite;
-    }
+  .wordmark-super-letter{
+    animation:wordmarkSuperLoop var(--wordmark-cycle) infinite;
   }
   @keyframes wordmarkSuperLoop{
     0%{opacity:1;transform:translate3d(0,0,0)}
