@@ -67,6 +67,7 @@ $META = $RECUPERADO
     --green-mid:#2D6A4F;
     --accent:#f4a435;
     --rule:rgba(27,67,50,.20);
+    --wordmark-cycle:8s;
   }
   /* The cream sheet stays light in any viewer theme so the dark wordmark always reads;
      only the surrounding page darkens. */
@@ -92,7 +93,56 @@ $META = $RECUPERADO
 
   /* ── letterhead ── */
   .head{text-align:center}
-  .head img{height:52px;width:auto;max-width:100%}
+  .wordmark{
+    display:flex;justify-content:center;overflow:visible;
+    color:var(--ink-soft);font-family:Impact,Haettenschweiler,"Arial Narrow Bold","Arial Narrow",sans-serif;
+    font-size:clamp(1.8rem,9.4vw,3.2rem);font-weight:900;letter-spacing:.01em;
+    line-height:1;text-transform:uppercase;white-space:nowrap;
+  }
+  .wordmark-type{
+    display:inline-flex;align-items:baseline;gap:.2em;
+    transform:scaleX(.82);transform-origin:center;
+  }
+  .wordmark-super{display:inline-flex}
+  .wordmark-super-letter{display:inline-block;will-change:opacity,transform}
+  .wordmark-core{display:inline-flex;align-items:baseline;gap:.2em}
+  .wordmark-jvv{
+    display:inline-block;color:var(--ink);transform:skewX(-9deg);transform-origin:center;
+  }
+
+  /*
+     WORDMARK LOOP — 8 seconds, continuous
+       0.0–2.0  full name rests
+       2.0–2.7  SUPER opens, lifts and fades
+       2.7–4.7  CAMBIOS JVV remains fixed
+       4.7–5.1  SUPER returns cleanly
+       5.1–8.0  full name rests before repeating
+
+     Each letter moves with transform only. SUPER keeps its layout width while hidden,
+     so CAMBIOS JVV never shifts during the cycle.
+  */
+  @media (prefers-reduced-motion:no-preference){
+    .wordmark-super-letter{
+      animation:wordmarkSuperLoop var(--wordmark-cycle) infinite;
+    }
+  }
+  @keyframes wordmarkSuperLoop{
+    0%{opacity:1;transform:translate3d(0,0,0)}
+    25%{
+      opacity:1;transform:translate3d(0,0,0);
+      animation-timing-function:cubic-bezier(.4,0,.2,1);
+    }
+    28.75%{
+      opacity:1;transform:translate3d(var(--spread),0,0);
+      animation-timing-function:cubic-bezier(.4,0,1,1);
+    }
+    33.75%{opacity:0;transform:translate3d(var(--spread),-.24em,0)}
+    58.75%{
+      opacity:0;transform:translate3d(var(--spread),-.24em,0);
+      animation-timing-function:cubic-bezier(0,0,.2,1);
+    }
+    63.75%,100%{opacity:1;transform:translate3d(0,0,0)}
+  }
   .head hr{border:0;border-top:1.5px solid var(--rule);margin:22px 0 18px}
   .eyebrow{
     font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
@@ -220,20 +270,13 @@ $META = $RECUPERADO
     margin-top:8px;font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--green-mid);
   }
 
-  /* Reduced motion: drop all translation, but keep an opacity-only staggered loop so
-     the page still reads as "in progress". Fading is not vestibular motion; sliding
-     is. Overriding animation-name only keeps the 7s duration and the --d delays. */
+  /* Reduced motion: keep the current name and the completed bridge fully static. */
   @media (prefers-reduced-motion:reduce){
-    .work .seg{animation-name:buildFade!important;transform:none!important}
+    .wordmark-super-letter{animation:none!important;opacity:1!important;transform:none!important}
+    .work .seg{animation:none!important;opacity:1!important;transform:none!important}
     .work .spark{animation:none!important;opacity:1!important}
     .work .cruce{animation:none!important;opacity:0!important}
     .teaser .frag{animation:none!important;opacity:1!important;transform:none!important}
-  }
-  @keyframes buildFade{
-    0%       {opacity:0}
-    9%       {opacity:1}
-    76%      {opacity:1}
-    88%,100% {opacity:0}
   }
 </style>
 </head>
@@ -241,7 +284,18 @@ $META = $RECUPERADO
 <main class="sheet">
 
   <div class="head">
-    <img src="images/logo-default-280x113.png" alt="Super Cambios JVV">
+    <div class="wordmark" role="img" aria-label="Super Cambios JVV">
+      <span class="wordmark-type" aria-hidden="true">
+        <span class="wordmark-super">
+          <span class="wordmark-super-letter" style="--spread:-.14em">S</span>
+          <span class="wordmark-super-letter" style="--spread:-.07em">U</span>
+          <span class="wordmark-super-letter" style="--spread:0em">P</span>
+          <span class="wordmark-super-letter" style="--spread:.07em">E</span>
+          <span class="wordmark-super-letter" style="--spread:.14em">R</span>
+        </span>
+        <span class="wordmark-core"><span>CAMBIOS</span><span class="wordmark-jvv">JVV</span></span>
+      </span>
+    </div>
     <hr>
     <div class="eyebrow">Nueva etapa en preparación</div>
   </div>
