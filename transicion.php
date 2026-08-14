@@ -286,8 +286,7 @@ $META = $RECUPERADO
     0%,20%,100%{opacity:1;transform:translateX(2px)}
     45%,70%{opacity:.42;transform:translateX(-2px)}
   }
-  /* Deliberate scoped exception: this quiet rate-swap loop remains active under reduced motion. */
-  .rates-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .rates-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
   .rate-item{min-width:0;padding:13px 14px;background:var(--paper);border-radius:10px}
   .rate-direction{
     display:block;margin-bottom:4px;font-size:.7rem;letter-spacing:.09em;
@@ -295,10 +294,24 @@ $META = $RECUPERADO
   }
   .rate-value{
     display:block;color:var(--green);font-size:clamp(1.08rem,4.8vw,1.34rem);
-    line-height:1.2;font-weight:800;white-space:nowrap;
+    line-height:1.2;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
   }
   .rate-basis{display:block;margin-top:3px;color:var(--ink-soft);font-size:.76rem}
-  .rate-updated{margin:12px 0 0;text-align:right;color:var(--ink-soft);font-size:.78rem}
+  .rate-updated{
+    margin:12px 0 0;text-align:right;color:var(--ink-soft);font-size:.78rem;
+    font-variant-numeric:tabular-nums;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+  }
+  .contact-first{margin:28px 0 0;font-size:1.02rem}
+
+  .next-step{margin:34px 0 0;padding-top:26px;border-top:1.5px solid var(--rule)}
+  .next-step .section-label{
+    display:block;margin-bottom:8px;font-size:.72rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--green-mid);font-weight:800;
+  }
+  .next-step h2{margin:0 0 12px;color:var(--green);font-size:1.22rem;line-height:1.35}
+  .next-step p{margin-bottom:0}
 
   .numbox{
     margin:26px 0;padding:20px 18px;text-align:center;
@@ -322,7 +335,10 @@ $META = $RECUPERADO
     color:var(--green-mid);font-weight:800;margin-bottom:10px;
   }
   .channels a,.channels span.item{display:block;color:var(--ink);text-decoration:none;padding:3px 0}
-  .channels a{text-decoration:underline;text-decoration-color:var(--rule)}
+  .channels a{
+    min-height:40px;display:flex;align-items:center;
+    text-decoration:underline;text-decoration-color:var(--rule);
+  }
   .verify{margin-top:12px;font-size:.9rem;color:var(--ink-soft)}
 
   .cta{
@@ -331,18 +347,9 @@ $META = $RECUPERADO
     padding:13px 22px;border-radius:999px;font-weight:700;
   }
   .cta-wrap{text-align:center}
-
-  /* ── official communiqué (layer two) ── */
-  details{margin:32px 0 0;border-top:1.5px solid var(--rule);padding-top:22px}
-  summary{
-    cursor:pointer;font-weight:800;color:var(--green);
-    font-size:.78rem;letter-spacing:.13em;text-transform:uppercase;
+  .channels a:focus-visible,.cta:focus-visible{
+    outline:3px solid var(--accent);outline-offset:3px;
   }
-  details .body{margin-top:16px}
-  details p{color:var(--ink-soft)}
-  .sign{margin-top:22px}
-  .sign .grat{font-style:italic;color:var(--ink-soft)}
-  .sign .name{font-weight:800;color:var(--green)}
 
   footer{
     margin-top:30px;padding-top:18px;border-top:1.5px solid var(--rule);
@@ -352,14 +359,7 @@ $META = $RECUPERADO
     margin-top:8px;font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--green-mid);
   }
 
-  /* Reduced motion: keep the current name and the completed bridge fully static. */
-  @media (prefers-reduced-motion:reduce){
-    .wordmark-super-letter{animation:none!important;opacity:1!important;transform:none!important}
-    .work .seg{animation:none!important;opacity:1!important;transform:none!important}
-    .work .spark{animation:none!important;opacity:1!important}
-    .work .cruce{animation:none!important;opacity:0!important}
-    .teaser .frag{animation:none!important;opacity:1!important;transform:none!important}
-  }
+  /* Deliberate product choice: landing animations keep their normal behavior under reduced motion. */
 </style>
 </head>
 <body>
@@ -382,18 +382,14 @@ $META = $RECUPERADO
     <div class="eyebrow">Nueva etapa en preparación</div>
   </div>
 
-  <h1>Estamos construyendo la mejor etapa de JVV</h1>
+  <h1>JVV sigue adelante</h1>
 
 <?php if ($RECUPERADO): ?>
-  <p class="lead">Hola, familia JVV. Este número, <strong>624 44 26 73</strong>, sigue siendo el
-  número oficial de Super Cambios JVV y continúa bajo mi dirección.</p>
+  <p class="lead">Hola, familia JVV. Lo que por años fue un proyecto de dos hoy continúa bajo una
+  sola dirección: la mía.</p>
 
-  <p>Como muchos ya intuían por los movimientos de estas últimas semanas, JVV está entrando en una
-  nueva etapa: nueva estructura, nuevas herramientas y una experiencia mucho mejor que la que ya
-  conocen. Mientras completo ese proceso, <strong>la atención pública y automática está en
-  pausa</strong>. Si ya me conoces y necesitas algo puntual, escríbeme igual — sigo atendiendo caso
-  por caso mientras preparo todo. Prefiero decírselo con claridad y no darles una fecha hasta que
-  todo esté realmente listo.</p>
+  <p>JVV sigue avanzando y esta nueva etapa ya está en marcha. Aquí puedes consultar nuestras tasas
+  de hoy.</p>
 <?php else: ?>
   <p class="lead">Hola, familia JVV. Super Cambios JVV está atravesando una reorganización interna
   y una renovación completa.</p>
@@ -429,6 +425,51 @@ $META = $RECUPERADO
     <p class="rate-updated">Actualizado: <?= htmlspecialchars($RATE_UPDATED, ENT_QUOTES, 'UTF-8') ?></p>
   </section>
 <?php endif; ?>
+
+<?php if ($RECUPERADO): ?>
+  <p class="contact-first"><strong>Estamos trabajando.</strong> Antes de realizar cualquier
+  operación, contáctame primero por los mismos canales oficiales de siempre para confirmar la tasa
+  y la disponibilidad.</p>
+
+  <div class="numbox">
+    <span class="lbl">El número de siempre</span>
+    <span class="num">+34 624 44 26 73</span>
+    <span class="sub">Guárdalo. Sigue siendo JVV, sigue siendo mío.</span>
+  </div>
+
+  <div class="channels">
+    <span class="title">Nuestros únicos canales oficiales</span>
+    <a href="https://wa.me/<?= $WA ?>">WhatsApp +34 624 44 26 73</a>
+    <a href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Instagram @supercambiosjvv</a>
+    <span class="item">supercambiosjvv.com</span>
+    <p class="verify">Si alguien te contacta desde otro número, verifica siempre conmigo por aquí
+    antes de enviar cualquier cantidad.</p>
+  </div>
+
+  <div class="cta-wrap">
+    <a class="cta" href="https://wa.me/<?= $WA ?>">Escríbeme por WhatsApp</a>
+  </div>
+<?php else: ?>
+  <div class="channels">
+    <span class="title">Nuestro canal oficial por ahora</span>
+    <a href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Instagram @supercambiosjvv</a>
+    <span class="item">supercambiosjvv.com</span>
+    <p class="verify">Si alguien te contacta en nombre de Super Cambios JVV, verifica siempre por
+    nuestro Instagram antes de enviar cualquier cantidad.</p>
+  </div>
+
+  <div class="cta-wrap">
+    <a class="cta" href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Síguenos en Instagram</a>
+  </div>
+<?php endif; ?>
+
+  <section class="next-step" aria-labelledby="next-step-title">
+    <span class="section-label">Lo que viene</span>
+    <h2 id="next-step-title">Lo próximo ya se está construyendo</h2>
+    <p>Estamos renovando JVV por completo: nueva estructura, nuevas herramientas y una experiencia
+    mucho mejor, sin perder la cercanía y la confianza de siempre. Iré mostrando los avances por
+    aquí a medida que estén listos.</p>
+  </section>
 
   <figure class="work">
     <svg viewBox="0 0 420 172" role="img" aria-label="Un puente en construcción, armándose pieza por pieza">
@@ -470,63 +511,6 @@ $META = $RECUPERADO
       <?php for ($i = 1; $i <= 3; $i++): ?><i class="<?= $i <= $ETAPA ? 'on' : '' ?>"></i><?php endfor; ?>
     </div>
   </div>
-
-<?php if ($RECUPERADO): ?>
-  <div class="numbox">
-    <span class="lbl">El número de siempre</span>
-    <span class="num">+34 624 44 26 73</span>
-    <span class="sub">Guárdalo. Sigue siendo JVV, sigue siendo mío.</span>
-  </div>
-
-  <div class="channels">
-    <span class="title">Nuestros únicos canales oficiales</span>
-    <a href="https://wa.me/<?= $WA ?>">WhatsApp +34 624 44 26 73</a>
-    <a href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Instagram @supercambiosjvv</a>
-    <span class="item">supercambiosjvv.com</span>
-    <p class="verify">Si alguien te contacta desde otro número, verifica siempre conmigo por aquí
-    antes de enviar cualquier cantidad.</p>
-  </div>
-
-  <div class="cta-wrap">
-    <a class="cta" href="https://wa.me/<?= $WA ?>">Escríbeme por WhatsApp</a>
-  </div>
-<?php else: ?>
-  <div class="channels">
-    <span class="title">Nuestro canal oficial por ahora</span>
-    <a href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Instagram @supercambiosjvv</a>
-    <span class="item">supercambiosjvv.com</span>
-    <p class="verify">Si alguien te contacta en nombre de Super Cambios JVV, verifica siempre por
-    nuestro Instagram antes de enviar cualquier cantidad.</p>
-  </div>
-
-  <div class="cta-wrap">
-    <a class="cta" href="https://www.instagram.com/supercambiosjvv" target="_blank" rel="noopener">Síguenos en Instagram</a>
-  </div>
-<?php endif; ?>
-
-<?php if ($RECUPERADO): // the communiqué is the Wednesday announcement — not published before recovery ?>
-  <details>
-    <summary>Leer el comunicado oficial completo</summary>
-    <div class="body">
-      <p>Familia JVV, un mensaje breve y directo.</p>
-
-      <p>Lo que por años fue un proyecto de dos, hoy continúa bajo una sola dirección — la mía.
-      Estamos renovando JVV por completo: nueva estructura, nuevas herramientas y una experiencia
-      mucho mejor, mientras termino ese proceso.</p>
-
-      <p>Nuestros únicos canales oficiales siguen siendo este número, nuestro Instagram
-      @supercambiosjvv y supercambiosjvv.com. Iré mostrando avances por aquí a medida que estén
-      listos.</p>
-
-      <p>Gracias por la confianza de todos estos años.</p>
-
-      <div class="sign">
-        <div class="grat">Con gratitud,</div>
-        <div class="name">José — Super Cambios JVV</div>
-      </div>
-    </div>
-  </details>
-<?php endif; ?>
 
   <footer>
     Gracias por la confianza de todos estos años.

@@ -189,3 +189,20 @@ origin. Write `collab/transicion-rates-copy/report.md` per the standard format (
 checks actually run, deviations from this spec with reasoning, assumptions, Friction field —
 `none` if nothing came up). Do not merge or push to `main` — Claude cross-reviews first
 (Sensitivity note above), then José tests live and merges.
+
+---
+
+## 7. José follow-up — 2026-08-14 (supersedes conflicting copy/layout instructions)
+
+- The initial implementation landed on `main` as `ef2efdd`.
+- Remove the expandable “Leer el comunicado oficial completo” block entirely.
+- Reorder the visible page as a cascade: brief neutral explanation of the ownership change → live
+  rates → instruction to contact José first through the same official channels → existing WhatsApp
+  number treatment → remaining forward-looking JVV message → bridge → staged chevron teaser.
+- Keep the phone number in its existing `+34 624 44 26 73` treatment.
+- Keep the teaser at the current `$ETAPA = 2` disclosure ceiling: green + orange chevrons only; no
+  stage-3 tilde and no monogram.
+- Remove the page's `prefers-reduced-motion: reduce` override so the wordmark, bridge, rate swap and
+  chevron cascade retain their normal animation behavior under that device setting.
+- José explicitly authorized this follow-up to be committed and pushed directly to `main` in this
+  repository after the required pricing cross-review.
