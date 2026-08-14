@@ -6,7 +6,8 @@
 // page sends 503 + noindex, which is right for a short outage and wrong for a brand
 // hold (a prolonged 503 gets pages dropped from the index).
 //
-// No DB, no root.php: this page must render even if MySQL is down.
+// No required DB and no root.php: the optional rate widget uses one narrow,
+// read-only query and disappears silently if MySQL is unavailable.
 //
 // ── PROGRESSIVE LOGO REVEAL ───────────────────────────────────────────────────
 // The new marks are secret until relaunch day. This page NEVER contains the full
@@ -31,6 +32,54 @@ $ETAPA = 2;
 //
 // Flip to true in the Wednesday publish window, once control is actually stable.
 $RECUPERADO = true;
+
+$RATES = null;
+$_rateDb = null;
+$_rateDbConfig = isset($_SERVER['DOCUMENT_ROOT'])
+  ? dirname($_SERVER['DOCUMENT_ROOT']) . '/db-config.php'
+  : __DIR__ . '/db-config.php';
+
+try {
+  if (is_file($_rateDbConfig) && extension_loaded('mysqli')) {
+    require_once $_rateDbConfig;
+
+    if (defined('DB_HOST') && defined('DB_USER') && defined('DB_PASS') && defined('DB_NAME')) {
+      $_rateDb = @new MYSQLI(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+
+      if (!$_rateDb->connect_errno) {
+        $_rateResult = @$_rateDb->query(
+          'SELECT fee, ves2eur, status, date_ves FROM config WHERE id = 1'
+        );
+
+        if ($_rateResult instanceof mysqli_result) {
+          $RATES = $_rateResult->fetch_assoc() ?: null;
+          $_rateResult->free();
+        }
+      }
+    }
+  }
+} catch (Throwable $e) {
+  $RATES = null;
+}
+
+if ($_rateDb instanceof mysqli) {
+  @$_rateDb->close();
+}
+
+$RATE_UPDATED = null;
+if ($RATES && !empty($RATES['date_ves'])) {
+  try {
+    $RATE_UPDATED = (new DateTimeImmutable($RATES['date_ves']))->format('d/m/Y');
+  } catch (Throwable $e) {
+    $RATE_UPDATED = null;
+  }
+}
+
+$SHOW_RATES = $RATES
+  && (int) $RATES['status'] === 1
+  && is_numeric($RATES['fee'])
+  && is_numeric($RATES['ves2eur'])
+  && $RATE_UPDATED !== null;
 
 $WA = '34624442673';
 ?><!DOCTYPE html>
@@ -216,6 +265,41 @@ $META = $RECUPERADO
   .lead{font-size:1.06rem}
   strong{color:var(--green)}
 
+  .rates{
+    margin:28px 0 6px;padding:18px;
+    background:rgba(27,67,50,.045);border:1px solid var(--rule);border-radius:14px;
+  }
+  .rates-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+  .rates-title{
+    font-size:.74rem;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--green-mid);font-weight:800;
+  }
+  .rate-swap{width:42px;height:26px;flex:0 0 auto;color:var(--accent)}
+  .rate-swap .forward,.rate-swap .back{transform-box:fill-box}
+  .rate-swap .forward{animation:rateForward 2.8s cubic-bezier(.4,0,.2,1) infinite}
+  .rate-swap .back{animation:rateBack 2.8s cubic-bezier(.4,0,.2,1) infinite}
+  @keyframes rateForward{
+    0%,20%,100%{opacity:.42;transform:translateX(-2px)}
+    45%,70%{opacity:1;transform:translateX(2px)}
+  }
+  @keyframes rateBack{
+    0%,20%,100%{opacity:1;transform:translateX(2px)}
+    45%,70%{opacity:.42;transform:translateX(-2px)}
+  }
+  /* Deliberate scoped exception: this quiet rate-swap loop remains active under reduced motion. */
+  .rates-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .rate-item{min-width:0;padding:13px 14px;background:var(--paper);border-radius:10px}
+  .rate-direction{
+    display:block;margin-bottom:4px;font-size:.7rem;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--green-mid);font-weight:800;
+  }
+  .rate-value{
+    display:block;color:var(--green);font-size:clamp(1.08rem,4.8vw,1.34rem);
+    line-height:1.2;font-weight:800;white-space:nowrap;
+  }
+  .rate-basis{display:block;margin-top:3px;color:var(--ink-soft);font-size:.76rem}
+  .rate-updated{margin:12px 0 0;text-align:right;color:var(--ink-soft);font-size:.78rem}
+
   .numbox{
     margin:26px 0;padding:20px 18px;text-align:center;
     background:var(--green);color:#fff;border-radius:14px;
@@ -321,6 +405,31 @@ $META = $RECUPERADO
   hasta que todo esté realmente listo.</p>
 <?php endif; ?>
 
+<?php if ($SHOW_RATES): ?>
+  <section class="rates" aria-labelledby="rates-title">
+    <div class="rates-head">
+      <span class="rates-title" id="rates-title">Tasas de hoy</span>
+      <svg class="rate-swap" viewBox="0 0 48 28" aria-hidden="true" focusable="false">
+        <path class="forward" d="M4 8h36m-6-5 6 5-6 5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path class="back" d="M44 20H8m6-5-6 5 6 5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="rates-grid">
+      <div class="rate-item">
+        <span class="rate-direction">EUR → Bs</span>
+        <span class="rate-value"><?= number_format((float) $RATES['fee'], 2) ?> Bs</span>
+        <span class="rate-basis">por 1 €</span>
+      </div>
+      <div class="rate-item">
+        <span class="rate-direction">Bs → EUR</span>
+        <span class="rate-value"><?= number_format((float) $RATES['ves2eur'], 2) ?> Bs</span>
+        <span class="rate-basis">por 1 €</span>
+      </div>
+    </div>
+    <p class="rate-updated">Actualizado: <?= htmlspecialchars($RATE_UPDATED, ENT_QUOTES, 'UTF-8') ?></p>
+  </section>
+<?php endif; ?>
+
   <figure class="work">
     <svg viewBox="0 0 420 172" role="img" aria-label="Un puente en construcción, armándose pieza por pieza">
       <!-- shores -->
@@ -399,35 +508,17 @@ $META = $RECUPERADO
   <details>
     <summary>Leer el comunicado oficial completo</summary>
     <div class="body">
-      <p>Familia JVV, les escribo directo y de corazón.</p>
+      <p>Familia JVV, un mensaje breve y directo.</p>
 
-      <p>Como muchos ya intuían por los movimientos de estas últimas semanas, Super Cambios JVV está
-      atravesando un cambio importante: lo que por años fue un proyecto de dos socios, de ahora en
-      adelante continúa bajo una sola dirección — la mía.</p>
+      <p>Lo que por años fue un proyecto de dos, hoy continúa bajo una sola dirección — la mía.
+      Estamos renovando JVV por completo: nueva estructura, nuevas herramientas y una experiencia
+      mucho mejor, mientras termino ese proceso.</p>
 
-      <p>JVV nació en 2017 y desde el primer día su nombre significó algo muy personal para quienes
-      lo levantamos. Con el tiempo, cada uno tomó caminos distintos y hoy estamos en etapas
-      diferentes de la vida. A mi antigua socia le deseo, con total sinceridad, muchísimo éxito en
-      todo lo que emprenda.</p>
+      <p>Nuestros únicos canales oficiales siguen siendo este número, nuestro Instagram
+      @supercambiosjvv y supercambiosjvv.com. Iré mostrando avances por aquí a medida que estén
+      listos.</p>
 
-      <p>Aquí cada quien siempre ha sido libre de elegir con quién mover su dinero — y eso no
-      cambia. Lo único que quiero decirles es que yo voy a seguir aquí, como siempre, para quien
-      quiera seguir contando conmigo.</p>
-
-      <p><strong>Y les tengo una noticia:</strong> esto no es un adiós, es el comienzo de la mejor
-      etapa de JVV. Nos estamos renovando por completo — nueva imagen, nuevas herramientas y varias
-      novedades que van a mejorar muchísimo la experiencia que ya conocían. Ese proceso toma un poco
-      de tiempo, así que durante un tiempo quizás no me vean tan activo como siempre. Es parte de
-      construir algo mejor.</p>
-
-      <p>El número de siempre, 624 44 26 73, sigue siendo mío y sigue siendo JVV. Nuestros únicos
-      canales oficiales son este número, nuestro Instagram @supercambiosjvv y supercambiosjvv.com.
-      Guárdenlo y síganme por aquí, porque de a poco van a empezar a ver lo que se viene. Vamos a
-      volver más fuertes y más completos que nunca, y les aseguro que va a valer totalmente la
-      espera.</p>
-
-      <p>Gracias de corazón a cada persona que ha confiado en nosotros todos estos años. A los que
-      sigan este camino conmigo: nos vemos muy pronto.</p>
+      <p>Gracias por la confianza de todos estos años.</p>
 
       <div class="sign">
         <div class="grat">Con gratitud,</div>
