@@ -206,3 +206,8 @@ checks actually run, deviations from this spec with reasoning, assumptions, Fric
   chevron cascade retain their normal animation behavior under that device setting.
 - José explicitly authorized this follow-up to be committed and pushed directly to `main` in this
   repository after the required pricing cross-review.
+
+## 8. José deployment override — 2026-08-15
+
+- José explicitly deferred Claude's cross-review and authorized Codex to push the completed local
+  `main` implementation directly. Claude is not part of this deployment step.

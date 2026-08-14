@@ -4,8 +4,8 @@
 
 **Builder:** Codex
 
-**Status:** user-directed follow-up committed on local `main`; ready for José to route to Claude for
-the required pricing cross-review; not pushed
+**Status:** user-directed follow-up committed on local `main`; José explicitly authorized direct
+push on 2026-08-15 and deferred Claude's cross-review
 
 ## Files and purpose
 
@@ -15,7 +15,7 @@ the required pricing cross-review; not pushed
 - `collab/transicion-rates-copy/report.md` — records implementation evidence and handoff state.
 - `collab/friction.md` — records the local PHP environment limitation encountered during checks.
 - `collab/transicion-rates-copy/spec.md` — records José's post-merge copy/layout override and his
-  authorization to push this follow-up directly to `main` after cross-review.
+  later authorization to defer cross-review and push this follow-up directly to `main`.
 
 No changes were made to `.htaccess`, `index.php`, `root.php`, `db-config.php`, or any build/tooling
 surface. No React/TSX files or external assets were introduced.
@@ -57,8 +57,8 @@ This is the fail-closed interpretation of the spec's silent-degradation requirem
 - Local PHP lacks the `mysqli` extension, so the branch was not connected to a real local or
   production database. The rendered success and status gates were exercised with the deterministic
   stub described above; Hostinger connectivity remains part of José's live verification.
-- The pricing-sensitive diff still requires Claude's focused cross-review before push; José owns
-  routing this committed handoff to Claude.
+- José explicitly deferred the pricing cross-review for this deployment and authorized the direct
+  push; Claude review is therefore not a deployment blocker for this handoff.
 
 **Friction:** low — local PHP CLI lacks `mysqli`, so DB-open/status paths required an in-memory stub
 harness instead of a real local MySQL render.
@@ -91,8 +91,8 @@ Checks run for the follow-up:
 - Headless Chrome with reduced motion actively emulated reported `wordmarkSuperLoop`, `build`,
   `rateForward`, `rateBack` and `frag` as the computed animation names.
 
-## Review handoff
+## Review and deployment handoff
 
-José routes this committed report and diff to Claude; Codex does not invoke Claude directly. After
-Claude records the focused pricing review, Codex applies any findings and uses José's existing
-authorization to push `main` (which auto-deploys this repository).
+José explicitly deferred Claude's cross-review on 2026-08-15 and authorized Codex to push this
+completed local `main` directly. Codex does not invoke Claude. The repository auto-deploys from
+`main`, so the post-push live render is the deployment check for this handoff.
