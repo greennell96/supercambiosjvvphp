@@ -382,14 +382,9 @@ $META = $RECUPERADO
     <div class="eyebrow">Nueva etapa en preparación</div>
   </div>
 
-  <h1>JVV sigue adelante</h1>
-
 <?php if ($RECUPERADO): ?>
-  <p class="lead">Hola, familia JVV. Lo que por años fue un proyecto de dos hoy continúa bajo una
-  sola dirección: la mía.</p>
+  <p class="lead">Que tal familia? Ya hay cambios disponibles con esta interfaz temporal.</p>
 
-  <p>JVV sigue avanzando y esta nueva etapa ya está en marcha. Aquí puedes consultar nuestras tasas
-  de hoy.</p>
 <?php else: ?>
   <p class="lead">Hola, familia JVV. Super Cambios JVV está atravesando una reorganización interna
   y una renovación completa.</p>
@@ -427,14 +422,14 @@ $META = $RECUPERADO
 <?php endif; ?>
 
 <?php if ($RECUPERADO): ?>
-  <p class="contact-first"><strong>Estamos trabajando.</strong> Antes de realizar cualquier
-  operación, contáctame primero por los mismos canales oficiales de siempre para confirmar la tasa
+  <p class="contact-first">Antes de realizar cualquier
+  operación, contáctame primero, mismos canales oficiales de siempre, para confirmar la tasa
   y la disponibilidad.</p>
 
   <div class="numbox">
-    <span class="lbl">El número de siempre</span>
+    <span class="lbl">El WhatsApp de toda la vida</span>
     <span class="num">+34 624 44 26 73</span>
-    <span class="sub">Guárdalo. Sigue siendo JVV, sigue siendo mío.</span>
+    <span class="sub">Guárdalo. Sigue siendo JVV</span>
   </div>
 
   <div class="channels">
