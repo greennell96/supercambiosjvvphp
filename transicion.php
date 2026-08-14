@@ -20,7 +20,7 @@
 // The identity mark (JvvMonogram) is NOT teased here at any stage — it stays fully
 // unseen until relaunch. Geometry source: repo:supercambiosjvv
 // src/components/brand/marks.tsx (JVV-12). Keep the two in sync by hand.
-$ETAPA = 1;
+$ETAPA = 2;
 
 // ── RECOVERY GATE ────────────────────────────────────────────────────────────
 // false = pre-recovery: the WhatsApp number is not yet back under José's control,
@@ -306,9 +306,10 @@ $META = $RECUPERADO
 
   <p>Como muchos ya intuían por los movimientos de estas últimas semanas, JVV está entrando en una
   nueva etapa: nueva estructura, nuevas herramientas y una experiencia mucho mejor que la que ya
-  conocen. Mientras completo ese proceso, <strong>las operaciones están temporalmente en
-  pausa</strong>. Prefiero decírselo con claridad y no darles una fecha hasta que todo esté
-  realmente listo.</p>
+  conocen. Mientras completo ese proceso, <strong>la atención pública y automática está en
+  pausa</strong>. Si ya me conoces y necesitas algo puntual, escríbeme igual — sigo atendiendo caso
+  por caso mientras preparo todo. Prefiero decírselo con claridad y no darles una fecha hasta que
+  todo esté realmente listo.</p>
 <?php else: ?>
   <p class="lead">Hola, familia JVV. Super Cambios JVV está atravesando una reorganización interna
   y una renovación completa.</p>
