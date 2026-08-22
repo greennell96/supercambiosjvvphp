@@ -1,1 +1,4 @@
-- [2026-08-14] [low] Local PHP 8.3 CLI lacks `mysqli`; rate-widget DB paths needed an in-memory stub harness instead of a real local MySQL render.
+## Recurrence tally
+
+- local PHP mysqli extension missing — 1× (first 2026-08-14, last 2026-08-14) — declined: site is
+  moving off PHP/MySQL entirely (JVV-95, 2026-08-22 Vercel static migration), not worth fixing
