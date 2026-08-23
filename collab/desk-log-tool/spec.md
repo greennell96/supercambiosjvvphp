@@ -75,14 +75,26 @@ math matters far more than polish.
    96/96 tests passing. The one pre-existing `ves_sales` row (opening balance, predates
    `eur_cost`) was hand-backfilled and the leftover "Syaned Cobis" test sending deleted via the
    real reversal code — see `log/scripts/cleanup-2026-08-23.ts` for the exact numbers.
+10. **Client-paid tracking + código value + two-way link (2026-08-23), from José's own testing
+    feedback.** `codigos` had no field for the actual bank code string — added (`codigos.code`,
+    plain text). `sendings.status` only ever meant "did José pay the beneficiary"; there was no
+    field for "did the client pay José" at all. Added `client_paid_at`/`client_payment_method`,
+    independent of `status`, six methods in José's own words (CODIGO/EFECTIVO/CARREFOUR/BIZUM/
+    A_CLIENTE/OTRO — OTRO's free text reuses `client_payment_note` rather than adding a second
+    column). A código can link to a sending from either end, and the two directions behave
+    differently on purpose: from `/codigos`, the open-sendings picker is scoped to that código's
+    own client; from `/envios`, the unlinked-códigos picker shows every client's códigos with this
+    sending's client sorted first (a código is sometimes issued under a relative's name). Deleting
+    a linked código un-marks its sending back to unpaid-by-client; deleting a sending unlinks its
+    código via `on delete set null` rather than blocking. Migration 012. 107/107 tests passing.
 
 ## Current state
 
 - **Code:** committed and pushed to `origin/feat/desk-log-tool`. Not merged to `main` — that's
   José's call, per team convention, once he's tested it for real.
-- **Tests:** 96/96 passing (`npm test` in `log/`), covering the FIFO engine (both pools),
-  the fee rule, the two payment paths, the sale-time cost draw, the delete/reversal logic, and
-  the bank/Caixa-DNI helpers.
+- **Tests:** 107/107 passing (`npm test` in `log/`), covering the FIFO engine (both pools),
+  the fee rule, the two payment paths, the sale-time cost draw, the delete/reversal logic, the
+  código↔envío link pickers, and the bank/Caixa-DNI helpers.
 - **Verified locally** against a throwaway Docker Postgres + the real imported client list
   (661 clients) — all flows clicked through and working, including three live rounds of
   José's own manual testing and correction.
