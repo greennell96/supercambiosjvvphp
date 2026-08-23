@@ -57,13 +57,32 @@ math matters far more than polish.
 8. **Access:** single shared password (`DESK_PASSWORD` env var), HMAC-signed session cookie,
    no per-user accounts. José explicitly decided the app's own password screen is enough — no
    extra Vercel-level Deployment Protection needed for now.
+9. **Fourth correction, after José's own live-data test (2026-08-23):** the pool-paid path was
+   double-charging the USDT pool. José seeded opening balances (1973.89 USDT, 32350.37 Bs) via
+   the app's own forms, logged one test sending paid from the pool, and watched `crypto_purchases`
+   move even though his real Binance balance was already net of every sale he'd made. Root cause:
+   `createVesSale` never drew `crypto_purchases` (a Binance sale registered no USDT cost at all),
+   so `paySendingFromPool` drew it a beat later instead — the same USDT got costed at the wrong
+   moment, not twice in total, but attributed to the wrong event. Fixed by moving cost recognition
+   to the moment USDT actually leaves Binance: `createVesSale` now FIFO-draws `crypto_purchases`
+   for `usdt_sold` and stores the result as `ves_sales.eur_cost` (migration 010,
+   `sale_lot_allocations` audit table); `paySendingFromPool` now costs itself off that stored
+   number and never touches `crypto_purchases`. `paySendingDirect` is unchanged. Also added: delete
+   for all four entities (sendings/códigos/compras/ventas — none existed before), a sending always
+   reversible via its allocation trail, a pool lot only deletable while nothing has drawn from it
+   and it never absorbed a backorder itself (migration 011, `used_to_pay_backorders`) — otherwise
+   refuses and says why. Implemented by two sequential Opus agents, reviewed and pushed by Claude;
+   96/96 tests passing. The one pre-existing `ves_sales` row (opening balance, predates
+   `eur_cost`) was hand-backfilled and the leftover "Syaned Cobis" test sending deleted via the
+   real reversal code — see `log/scripts/cleanup-2026-08-23.ts` for the exact numbers.
 
 ## Current state
 
 - **Code:** committed and pushed to `origin/feat/desk-log-tool`. Not merged to `main` — that's
   José's call, per team convention, once he's tested it for real.
-- **Tests:** 72/72 passing (`npm test` in `log/`), covering the FIFO engine (both pools),
-  the fee rule, the two payment paths, and the bank/Caixa-DNI helpers.
+- **Tests:** 96/96 passing (`npm test` in `log/`), covering the FIFO engine (both pools),
+  the fee rule, the two payment paths, the sale-time cost draw, the delete/reversal logic, and
+  the bank/Caixa-DNI helpers.
 - **Verified locally** against a throwaway Docker Postgres + the real imported client list
   (661 clients) — all flows clicked through and working, including three live rounds of
   José's own manual testing and correction.
