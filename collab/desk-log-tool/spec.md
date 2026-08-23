@@ -67,39 +67,60 @@ math matters far more than polish.
 - **Verified locally** against a throwaway Docker Postgres + the real imported client list
   (661 clients) — all flows clicked through and working, including three live rounds of
   José's own manual testing and correction.
-- **No live deployment yet.** See blocker below.
+- **Deployed and live** at `https://jvv-desk-log.vercel.app` (2026-08-23). Database provisioned
+  (Neon), all 9 migrations applied, 661 clients imported. See "Deployment" below.
 
-## Blocker: Vercel project creation
+## Deployment (resolved 2026-08-23)
 
-`create_git_project` (this session's Vercel MCP tool) reported creating a project named
-`jvv-desk-log`, but it doesn't show up afterward in `list_projects` or
-`get_git_deployment_context` — and that same context call shows this session's Vercel↔GitHub
-connection only has visibility into the `cambiosjvv` repo, not `supercambiosjvvphp`. The GitHub
-App behind the existing `supercambiosjvv-transicion` project (linked to `supercambiosjvvphp`) was
-evidently installed through a different path than whatever this MCP session authenticates as.
-**This needs José** — either grant that repo access to whatever installation the MCP tool uses,
-or (faster) just create the project himself.
+The earlier "Vercel project creation failed" blocker was **wrong**. `create_git_project` had in
+fact created `jvv-desk-log`, correctly linked to `greennell96/supercambiosjvvphp` with Root
+Directory `log` and building from `feat/desk-log-tool`; the build succeeded. It was invisible to
+that session's MCP only because the MCP is scoped to the Vercel team **"GreenNell and claude"**
+(one project: `cambiosjvv`), while `jvv-desk-log` — like `supercambiosjvv-transicion` — lives on
+José's personal account. `list_projects` returning nothing was a **visibility** limit, not a
+creation failure. Probing the hostname directly (`curl`) is what settled it.
 
-There is also no MCP tool in this session's toolset for setting environment variables or changing
-a project's Production Branch after creation — the Vercel CLI isn't installed in this environment
-either. Those steps will need the Vercel dashboard directly, or a session with the CLI installed
-and authenticated.
+The real fault was missing environment variables. Symptom: `/login` served 200 and rendered
+correctly, while every other route returned a bare `500 Internal Server Error`. That split is the
+signature of `proxy.ts` crashing — it lets `/login` through untouched, then calls
+`getSessionSecret()` for everything else, which throws when neither `SESSION_SECRET` nor
+`DESK_PASSWORD` is set (`lib/session.ts`). A throw in the proxy layer 500s before any page renders.
 
-## Next steps, in order, for whoever picks this up
+Completed, in order:
 
-1. **Create the Vercel project** (dashboard: New Project → Import `greennell96/supercambiosjvvphp`
-   → before importing, set **Root Directory** to `log`). If a stray `jvv-desk-log` project already
-   exists unlinked from an earlier attempt, check for it first — don't create a duplicate blindly.
-2. **Set Production Branch** to `feat/desk-log-tool` (Settings → Git) — the code is not on `main`.
-3. **Provision Postgres** — Neon via the Vercel Marketplace (Storage tab), free tier.
-4. **Env vars** (Settings → Environment Variables): `DATABASE_URL` (from step 3),
-   `DESK_PASSWORD` (pick something real — the local test used `jvv2026`, a throwaway, don't reuse
-   it live).
-5. **Migrate + import**, once, against the real database — from a machine with `DATABASE_URL`
-   pointed at it: `npm run migrate` then `npm run import:clients -- --write` (inside `log/`).
-6. **Deploy** (should trigger automatically once Production Branch + env vars are set — or a
-   manual redeploy from the dashboard).
-7. Hand José the resulting `*.vercel.app` URL + the real `DESK_PASSWORD`.
+1. José created the Neon Postgres store (Vercel Storage → Neon, free tier) and set `DESK_PASSWORD`
+   in Production. Connecting the store triggered the redeploy that picked both up.
+2. Verified from outside: `/` and all protected routes now `307 → /login` instead of 500.
+3. `npm run migrate` — 9/9 migrations applied to the Neon database (via the **unpooled** endpoint).
+4. `npm run import:clients -- --write` — 661 clients imported from the `BD` sheet
+   (657 with phone, 503 with ≥1 bank, 9 with >1 bank, 238 with DNI/NIE, 661 with registration
+   date; 1 internal bookkeeping row discarded, matching the dry run).
+5. Verified directly against the database: 9 tables + `_migrations` (9 rows), `clients` = 661 with
+   phone/banks/DNI/date populated, and all five ledger tables (`sendings`, `crypto_purchases`,
+   `ves_sales`, `codigos`, plus the allocation tables) empty — a deliberately fresh start per
+   decision #3.
+
+Still open:
+
+- **José's live test.** Everything past `/login` is behind the shared password, so it has not been
+  exercised against the real database — only against the local Docker Postgres during the three
+  correction rounds.
+- `SESSION_SECRET` is not set; it falls back to `DESK_PASSWORD` by design (`lib/session.ts`).
+  Setting it separately would mean sessions survive a password change. Optional.
+- The project is not merged to `main`, and shouldn't be: `log/` exists only on
+  `feat/desk-log-tool`, and Production Branch points there.
+- **Optional:** transferring `jvv-desk-log` into the "GreenNell and claude" team would give the
+  Vercel MCP visibility into its build logs, runtime errors and env config, instead of forcing
+  black-box `curl` probes from outside.
+
+## Environment notes for whoever picks this up
+
+- No Vercel CLI and no Vercel token on this machine; env vars and storage must be done from the
+  dashboard by José.
+- `log/.env.local` (gitignored) now holds the real Neon `DATABASE_URL` (unpooled endpoint) for
+  re-running migrations. Its `DESK_PASSWORD` there is a **local placeholder**, not the live one.
+- Migrations are not automatic on deploy. Any new `migrations/*.sql` needs `npm run migrate` run
+  by hand against the Neon database.
 
 ## Not in scope / explicitly deferred
 
