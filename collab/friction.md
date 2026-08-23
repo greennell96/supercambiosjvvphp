@@ -1,2 +1,4 @@
-- [2026-08-14] [low] Local PHP 8.3 CLI lacks `mysqli`; rate-widget DB paths needed an in-memory stub harness instead of a real local MySQL render.
-- [2026-08-23] [medium] Vercel MCP sees only team `greennell`; personal-account projects 404 in `list_projects`, so `create_git_project` looked failed when it had worked. No CLI/token either, so env vars need José. Curl the hostname before believing "not created".
+## Recurrence tally
+
+- local PHP mysqli extension missing — 1× (first 2026-08-14, last 2026-08-14) — declined: site is
+  moving off PHP/MySQL entirely (JVV-95, 2026-08-22 Vercel static migration), not worth fixing
