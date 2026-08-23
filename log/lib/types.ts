@@ -41,6 +41,48 @@ export type SendingStatus = 'pending' | 'paid';
 /** How a paid sending was funded. */
 export type PaidVia = 'pool' | 'direct';
 
+/**
+ * How the client handed Jose the money here in Spain. Jose's own six options,
+ * in the order he lists them.
+ *
+ * This is the OTHER side of a sending from `status`, which is only ever about
+ * Jose paying the beneficiary in Venezuela, and the two are independent. Nothing
+ * here feeds the money math — it is status tracking, like client_payment_note.
+ *
+ *   CODIGO — a cash-collection code, which can be linked to the codigos row it
+ *            was issued as (see Codigo.sending_id).
+ *   OTRO   — the free-input one: whatever Jose types goes into
+ *            client_payment_note, which already exists for exactly that.
+ */
+export const CLIENT_PAYMENT_METHODS = [
+  'CODIGO',
+  'EFECTIVO',
+  'CARREFOUR',
+  'BIZUM',
+  'A_CLIENTE',
+  'OTRO',
+] as const;
+
+export type ClientPaymentMethod = (typeof CLIENT_PAYMENT_METHODS)[number];
+
+/**
+ * What each one is called on screen. Kept beside the values, and typed as a
+ * total Record, so a seventh method cannot be added without its label.
+ */
+export const CLIENT_PAYMENT_METHOD_LABELS: Record<ClientPaymentMethod, string> = {
+  CODIGO: 'Código',
+  EFECTIVO: 'Efectivo',
+  CARREFOUR: 'Carrefour',
+  BIZUM: 'Bizum',
+  A_CLIENTE: 'A cliente',
+  OTRO: 'Otro',
+};
+
+/** Guard for the one value that arrives as raw form text. */
+export function isClientPaymentMethod(value: string): value is ClientPaymentMethod {
+  return (CLIENT_PAYMENT_METHODS as readonly string[]).includes(value);
+}
+
 export interface Sending {
   id: number;
   client_id: number;
@@ -60,6 +102,16 @@ export interface Sending {
    */
   client_payment_note: string | null;
 
+  /**
+   * When the CLIENT paid Jose, and with which of the six methods. Null on both
+   * while the client still owes.
+   *
+   * Independent of `status` and `paid_at`, which are about Jose paying the
+   * beneficiary: neither side waits for the other.
+   */
+  client_paid_at: Date | null;
+  client_payment_method: ClientPaymentMethod | null;
+
   // Null until the sending is paid.
   paid_via: PaidVia | null;
   fee_applied: boolean | null;
@@ -75,9 +127,22 @@ export interface Codigo {
   client_id: number;
   client_name: string;
   client_dni_nie: string | null;
+  /** The code itself. '' on rows logged before the column existed. */
+  code: string;
   amount: number;
   bank: string;
   status: CodigoStatus;
   created_at: Date;
   retired_at: Date | null;
+
+  /**
+   * The sending this codigo paid for, when Jose linked one. A linked codigo is
+   * the client's proof of payment for that sending, which is why deleting the
+   * codigo puts the sending back to unpaid-by-client.
+   *
+   * The two joined fields are only there to name the sending on screen.
+   */
+  sending_id: number | null;
+  sending_client_name: string | null;
+  sending_amount_eur: number | null;
 }

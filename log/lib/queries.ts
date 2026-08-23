@@ -24,6 +24,7 @@ import {
 import { compraDeletionBlocker, restoreDrawnAmounts, ventaDeletionBlocker } from './reversal';
 import type {
   Client,
+  ClientPaymentMethod,
   Codigo,
   CryptoPurchase,
   CurrentRates,
@@ -456,6 +457,8 @@ type RawSending = {
   rate_tasa: string;
   amount_ves_to_pay: string;
   client_payment_note: string | null;
+  client_paid_at: Date | null;
+  client_payment_method: ClientPaymentMethod | null;
   paid_via: PaidVia | null;
   fee_applied: boolean | null;
   usdt_used: string | null;
@@ -476,6 +479,8 @@ function toSending(r: RawSending): Sending {
     rate_tasa: num(r.rate_tasa),
     amount_ves_to_pay: num(r.amount_ves_to_pay),
     client_payment_note: r.client_payment_note,
+    client_paid_at: r.client_paid_at,
+    client_payment_method: r.client_payment_method,
     paid_via: r.paid_via,
     fee_applied: r.fee_applied,
     usdt_used: r.usdt_used === null ? null : num(r.usdt_used),
@@ -489,7 +494,8 @@ export async function listSendings(limit = 500): Promise<Sending[]> {
   const rows = await sql<RawSending[]>`
     select s.id, s.client_id, c.name as client_name, s.created_at, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
-           s.client_payment_note, s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
+           s.client_payment_note, s.client_paid_at, s.client_payment_method,
+           s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
     from sendings s
     join clients c on c.id = s.client_id
     order by s.created_at desc, s.id desc
@@ -503,11 +509,35 @@ export async function listPendingSendings(): Promise<Sending[]> {
   const rows = await sql<RawSending[]>`
     select s.id, s.client_id, c.name as client_name, s.created_at, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
-           s.client_payment_note, s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
+           s.client_payment_note, s.client_paid_at, s.client_payment_method,
+           s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
     from sendings s
     join clients c on c.id = s.client_id
     where s.status = 'pending'
     order by s.created_at asc, s.id asc
+  `;
+  return rows.map(toSending);
+}
+
+/**
+ * Sendings the client has not paid for yet, whatever their payout status.
+ *
+ * Feeds the "vincular a un envio abierto" picker on /codigos. Deliberately not
+ * narrowed to pending ones: whether Jose has already paid the beneficiary says
+ * nothing about whether the client has paid him, and a sending settled days ago
+ * is exactly the kind he is still chasing a codigo for.
+ */
+export async function listOpenSendings(): Promise<Sending[]> {
+  const sql = getSql();
+  const rows = await sql<RawSending[]>`
+    select s.id, s.client_id, c.name as client_name, s.created_at, s.amount_eur,
+           s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
+           s.client_payment_note, s.client_paid_at, s.client_payment_method,
+           s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
+    from sendings s
+    join clients c on c.id = s.client_id
+    where s.client_paid_at is null
+    order by s.created_at desc, s.id desc
   `;
   return rows.map(toSending);
 }
@@ -830,6 +860,86 @@ export async function paySendingDirect(
   });
 }
 
+export interface MarkClientPaidInput {
+  method: ClientPaymentMethod;
+  /** Only offered for 'CODIGO', and optional even there. */
+  codigo_id: number | null;
+  /** Only offered for 'OTRO', and never required. Goes into client_payment_note. */
+  note: string | null;
+}
+
+export interface MarkClientPaidResult {
+  id: number;
+  clientName: string;
+  method: ClientPaymentMethod;
+  linkedCodigoId: number | null;
+}
+
+/**
+ * (c) Record that the CLIENT paid Jose for this sending.
+ *
+ * Nothing to do with (a) and (b) above, which settle the other side of the same
+ * row — Jose paying the beneficiary. This one draws no pool, costs nothing and
+ * changes no total; it only says the money arrived here in Spain.
+ *
+ * Both extras are optional, and each belongs to exactly one method:
+ *
+ *   CODIGO — a codigo can be pointed at this sending, or not. It is re-read
+ *            under a lock and refused if something linked it since the page was
+ *            rendered, because a codigo belongs to one sending and silently
+ *            taking it off another would leave that one claiming a proof it no
+ *            longer has.
+ *   OTRO   — the free text, written into client_payment_note. Only written when
+ *            something was typed: a blank box means "nothing to add", never
+ *            "erase the note Jose already left there".
+ */
+export async function markClientPaid(
+  sendingId: number,
+  input: MarkClientPaidInput,
+): Promise<MarkClientPaidResult> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const [sending] = await tx<{ id: number; client_name: string }[]>`
+      select s.id, c.name as client_name
+      from sendings s
+      join clients c on c.id = s.client_id
+      where s.id = ${sendingId} and s.client_paid_at is null
+      for update of s
+    `;
+    if (!sending) throw new Error('Ese envio ya figura como pagado por el cliente.');
+
+    if (input.codigo_id !== null) {
+      const [codigo] = await tx<{ id: number; sending_id: number | null }[]>`
+        select id, sending_id from codigos where id = ${input.codigo_id} for update
+      `;
+      if (!codigo) throw new Error('Ese codigo ya no existe.');
+      if (codigo.sending_id !== null) {
+        throw new Error('Ese codigo ya esta vinculado a otro envio. Actualiza la pagina.');
+      }
+      await tx`update codigos set sending_id = ${sendingId} where id = ${input.codigo_id}`;
+    }
+
+    await tx`
+      update sendings
+      set client_paid_at = now(), client_payment_method = ${input.method}
+      where id = ${sendingId}
+    `;
+
+    if (input.note !== null) {
+      await tx`
+        update sendings set client_payment_note = ${input.note} where id = ${sendingId}
+      `;
+    }
+
+    return {
+      id: sendingId,
+      clientName: sending.client_name,
+      method: input.method,
+      linkedCodigoId: input.codigo_id,
+    };
+  });
+}
+
 /**
  * Delete a sending, and give back whatever it took.
  *
@@ -911,24 +1021,38 @@ type RawCodigo = {
   client_id: number;
   client_name: string;
   client_dni_nie: string | null;
+  code: string;
   amount: string;
   bank: string;
   status: 'pendiente' | 'retirado';
   created_at: Date;
   retired_at: Date | null;
+  sending_id: number | null;
+  sending_client_name: string | null;
+  sending_amount_eur: string | null;
 };
 
 function toCodigo(r: RawCodigo): Codigo {
-  return { ...r, id: id(r.id), client_id: id(r.client_id), amount: num(r.amount) };
+  return {
+    ...r,
+    id: id(r.id),
+    client_id: id(r.client_id),
+    amount: num(r.amount),
+    sending_id: r.sending_id === null ? null : id(r.sending_id),
+    sending_amount_eur: r.sending_amount_eur === null ? null : num(r.sending_amount_eur),
+  };
 }
 
 export async function listCodigos(limit = 500): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
-           g.amount, g.bank, g.status, g.created_at, g.retired_at
+           g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
+           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
     from codigos g
     join clients c on c.id = g.client_id
+    left join sendings s on s.id = g.sending_id
+    left join clients sc on sc.id = s.client_id
     order by g.created_at desc, g.id desc
     limit ${limit}
   `;
@@ -939,27 +1063,100 @@ export async function listPendingCodigos(): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
-           g.amount, g.bank, g.status, g.created_at, g.retired_at
+           g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
+           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
     from codigos g
     join clients c on c.id = g.client_id
+    left join sendings s on s.id = g.sending_id
+    left join clients sc on sc.id = s.client_id
     where g.status = 'pendiente'
     order by g.created_at asc, g.id asc
   `;
   return rows.map(toCodigo);
 }
 
+/**
+ * Codigos not yet pointed at any sending: what the "Cliente pago" picker on
+ * /envios offers, for every client at once.
+ *
+ * Unlike the picker on /codigos this one is deliberately not scoped to a client
+ * — a codigo may well have been issued under a relative's name — so the ordering
+ * is what makes it usable. See codigosForSending in lib/linking.ts.
+ *
+ * Status is not a filter either: a codigo the client already withdrew is still
+ * the proof he paid, and often the reason Jose is settling the sending now.
+ */
+export async function listUnlinkedCodigos(): Promise<Codigo[]> {
+  const sql = getSql();
+  const rows = await sql<RawCodigo[]>`
+    select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
+           g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
+           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
+    from codigos g
+    join clients c on c.id = g.client_id
+    left join sendings s on s.id = g.sending_id
+    left join clients sc on sc.id = s.client_id
+    where g.sending_id is null
+    order by g.created_at desc, g.id desc
+  `;
+  return rows.map(toCodigo);
+}
+
+/**
+ * Register a codigo, and — when Jose linked it to an open sending — settle that
+ * sending's client side in the same breath.
+ *
+ * That link is the whole reason this needs a transaction. A linked codigo IS the
+ * client's proof of payment, so writing the link without writing
+ * client_paid_at, or the other way round, would leave the two halves of one fact
+ * disagreeing.
+ *
+ * The sending is re-read under a lock instead of being trusted from the form:
+ * it may have been settled from /envios since this page was rendered. The client
+ * is checked too, because this end of the link only ever offers that client's
+ * own sendings — the other end, markClientPaid, is the one that may cross
+ * clients, and it is asked in a situation where that is the right answer.
+ */
 export async function createCodigo(input: {
   client_id: number;
+  code: string;
   amount: number;
   bank: string;
+  /** The open sending this codigo pays for, or null to leave it unlinked. */
+  sending_id: number | null;
 }): Promise<number> {
   const sql = getSql();
-  const [row] = await sql<{ id: number }[]>`
-    insert into codigos (client_id, amount, bank)
-    values (${input.client_id}, ${input.amount}, ${input.bank})
-    returning id
-  `;
-  return id(row.id);
+  return sql.begin(async (tx) => {
+    if (input.sending_id !== null) {
+      const [sending] = await tx<{ id: number; client_id: number; client_paid_at: Date | null }[]>`
+        select id, client_id, client_paid_at from sendings where id = ${input.sending_id} for update
+      `;
+      if (!sending) throw new Error('Ese envio ya no existe.');
+      if (id(sending.client_id) !== input.client_id) {
+        throw new Error('Ese envio es de otro cliente. Elige uno del mismo cliente del codigo.');
+      }
+      if (sending.client_paid_at !== null) {
+        throw new Error('Ese envio ya figura como pagado por el cliente.');
+      }
+    }
+
+    const [row] = await tx<{ id: number }[]>`
+      insert into codigos (client_id, code, amount, bank, sending_id)
+      values (${input.client_id}, ${input.code}, ${input.amount}, ${input.bank},
+              ${input.sending_id})
+      returning id
+    `;
+
+    if (input.sending_id !== null) {
+      await tx`
+        update sendings
+        set client_paid_at = now(), client_payment_method = 'CODIGO'
+        where id = ${input.sending_id}
+      `;
+    }
+
+    return id(row.id);
+  });
 }
 
 export async function markCodigoRetirado(codigoId: number): Promise<void> {
@@ -972,14 +1169,37 @@ export async function markCodigoRetirado(codigoId: number): Promise<void> {
 }
 
 /**
- * Delete a codigo. One statement and no transaction, because a codigo touches
- * neither pool and nothing references it: there is nothing to give back and
- * nothing to refuse. If codigos ever start feeding the money math, this is the
- * function that has to grow a reversal.
+ * Delete a codigo, and un-prove whatever it was proving.
+ *
+ * A codigo still touches neither pool, so there is nothing to hand back and
+ * nothing to refuse: no money moves here and this never says no. What a codigo
+ * can be is a client's proof of payment — a linked one is the entire reason its
+ * sending says the client paid. Deleting the proof has to take the claim with
+ * it, so the sending goes back to unpaid-by-client and reappears in both
+ * pickers. Hence the transaction this did not need before.
+ *
+ * client_payment_note is deliberately left alone, whatever the method was. It is
+ * Jose's own free-text reminder, it feeds nothing, and it is not this codigo's
+ * to erase.
  */
 export async function deleteCodigo(codigoId: number): Promise<void> {
   const sql = getSql();
-  await sql`delete from codigos where id = ${codigoId}`;
+  await sql.begin(async (tx) => {
+    const [codigo] = await tx<{ id: number; sending_id: number | null }[]>`
+      select id, sending_id from codigos where id = ${codigoId} for update
+    `;
+    if (!codigo) throw new Error('Codigo no encontrado.');
+
+    if (codigo.sending_id !== null) {
+      await tx`
+        update sendings
+        set client_paid_at = null, client_payment_method = null
+        where id = ${codigo.sending_id}
+      `;
+    }
+
+    await tx`delete from codigos where id = ${codigoId}`;
+  });
 }
 
 /* ---------------------------------------------------------------- dashboard */

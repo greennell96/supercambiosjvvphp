@@ -1,19 +1,22 @@
 import { eliminarEnvioAction } from './actions';
 import NuevoEnvioForm from './nuevo-envio-form';
 import Shell from '../shell';
+import ClientPaidActions from '../components/client-paid-actions';
 import DeleteRowForm from '../components/delete-row-form';
 import EditSendingForm from '../components/edit-sending-form';
 import PaySendingActions from '../components/pay-sending-actions';
 import { fmtDateTime, fmtEur, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
-import { getRates, listClients, listSendings } from '@/lib/queries';
+import { getRates, listClients, listSendings, listUnlinkedCodigos } from '@/lib/queries';
+import { CLIENT_PAYMENT_METHOD_LABELS } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EnviosPage() {
-  const [clients, sendings, rates] = await Promise.all([
+  const [clients, sendings, rates, unlinkedCodigos] = await Promise.all([
     listClients(),
     listSendings(),
     getRates(),
+    listUnlinkedCodigos(),
   ]);
 
   return (
@@ -37,6 +40,7 @@ export default async function EnviosPage() {
                   <th className="num">Tasa</th>
                   <th className="num">Bs a pagar</th>
                   <th>Método</th>
+                  <th>Cobrado</th>
                   <th>Cómo pagó</th>
                   <th>Pagado vía</th>
                   <th className="num">USDT</th>
@@ -55,6 +59,28 @@ export default async function EnviosPage() {
                     <td className="num">{fmtRate(s.rate_tasa)}</td>
                     <td className="num">{fmtVes(s.amount_ves_to_pay)}</td>
                     <td>{s.payout_method}</td>
+                    {/*
+                      The CLIENT's side, and its own words on purpose: "cobrado"
+                      vs "sin cobrar" against the "pagado"/"pendiente" badge
+                      further along the same row, in blue and grey against that
+                      one's amber and green. The two answer different questions
+                      and must never be read for each other at a glance.
+                    */}
+                    <td>
+                      {s.client_paid_at === null ? (
+                        <span className="badge sin-cobrar">sin cobrar</span>
+                      ) : (
+                        <>
+                          <span className="badge cobrado">cobrado</span>
+                          {s.client_payment_method ? (
+                            <span className="muted">
+                              {' '}
+                              {CLIENT_PAYMENT_METHOD_LABELS[s.client_payment_method]}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </td>
                     <td>{s.client_payment_note ?? '—'}</td>
                     <td>
                       {s.paid_via === 'pool' ? 'pool' : s.paid_via === 'direct' ? 'directo' : '—'}
@@ -71,6 +97,13 @@ export default async function EnviosPage() {
                     <td>
                       <div className="row-actions">
                         {s.status === 'pending' ? <PaySendingActions sendingId={s.id} /> : null}
+                        {s.client_paid_at === null ? (
+                          <ClientPaidActions
+                            sendingId={s.id}
+                            clientId={s.client_id}
+                            codigos={unlinkedCodigos}
+                          />
+                        ) : null}
                         <EditSendingForm sending={s} />
                         <DeleteRowForm id={s.id} action={eliminarEnvioAction} />
                       </div>
@@ -86,8 +119,15 @@ export default async function EnviosPage() {
           momento no se sabe con qué bolívares se financió.
         </p>
         <p className="muted">
+          <strong>Cobrado</strong> es el otro lado del envío: si el cliente ya te pagó aquí en
+          España. No tiene nada que ver con <strong>Estado</strong> (pagado/pendiente), que es si tú
+          ya pagaste al beneficiario en Venezuela. Ninguno de los dos espera al otro, y &laquo;
+          Cliente pagó &raquo; no toca el pool ni la ganancia.
+        </p>
+        <p className="muted">
           Al eliminar un envío ya pagado, los bolívares (o los USDT, si fue directo) vuelven a los
-          lotes de donde salieron.
+          lotes de donde salieron. Si tenía un código vinculado, el código queda sin vincular pero
+          no se borra.
         </p>
       </div>
     </Shell>
