@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Secrets — never commit
+.env
+.env.local
+.env*.local
+
+# Never commit the source spreadsheet or any data extracted from it
+*.xlsx
+*.xls
+*.csv

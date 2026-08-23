@@ -1,0 +1,14 @@
+# This folder is a Next.js app that runs on Vercel, not on Hostinger.
+#
+# The repository root is Hostinger's public_html, so if this folder is ever
+# merged to main it lands inside the live document root. Apache must not serve
+# any of it as static files (source, package.json, migrations). Vercel ignores
+# .htaccess completely, so this only affects Hostinger.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
