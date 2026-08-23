@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 
+import type { DeleteState } from '../actions';
 import { parseDecimal, parseId, text } from '@/lib/parse';
-import { createCodigo } from '@/lib/queries';
+import { createCodigo, deleteCodigo } from '@/lib/queries';
 
 export interface NuevoCodigoState {
   error?: string;
@@ -29,5 +30,27 @@ export async function crearCodigoAction(
     return { ok: { amount, bank } };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar el código.' };
+  }
+}
+
+/**
+ * Delete a codigo. Nothing to give back and nothing to refuse: a codigo is
+ * independent of both pools, so only the codigos list and the dashboard count
+ * change.
+ */
+export async function eliminarCodigoAction(
+  _prev: DeleteState,
+  formData: FormData,
+): Promise<DeleteState> {
+  const codigoId = parseId(formData.get('id'));
+  if (!codigoId) return { error: 'Código no válido.' };
+
+  try {
+    await deleteCodigo(codigoId);
+    revalidatePath('/');
+    revalidatePath('/codigos');
+    return {};
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo eliminar el código.' };
   }
 }

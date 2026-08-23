@@ -15,14 +15,20 @@
  *
  *     (a) FROM THE POOL — he pays out of the bolivares already sitting in his
  *         Venezuelan account. Those bolivares came from selling USDT on Binance
- *         (the ves_sales pool), so:
+ *         (the ves_sales pool), and that sale already paid for its USDT, so:
  *
  *             vesToDraw = amountVesToPay, times 1.003 if the fee applies
  *             draw vesToDraw out of ves_sales (FIFO)
- *             usdtUsed  = sum(vesDrawn / thatLotsPrice)   [price = VES per USDT]
- *             draw usdtUsed out of crypto_purchases (FIFO)
- *             costEur   = sum(usdtDrawn * thatLotsPrice)  [price = EUR per USDT]
+ *             costEur   = sum(vesDrawn * thatSalesEurCostPerVes)
  *             profitEur = amountEur - costEur
+ *
+ *         crypto_purchases is NOT touched here. Those USDT left Binance when the
+ *         sale was logged, and that is where they were drawn and costed — see
+ *         costUsdtDraw and createVesSale in lib/queries.ts. Drawing them again
+ *         at payout would spend the same USDT twice.
+ *
+ *         usdtUsed is still worked out, sum(vesDrawn / thatSalesPrice), but only
+ *         as an audit figure: nothing is costed from it.
  *
  *         The 0,3% is Jose's own interbank cost for moving pooled bolivares to
  *         a different destination bank. The beneficiary still receives exactly
@@ -32,8 +38,9 @@
  *     (b) DIRECTLY — on bigger transfers he sells USDT on Binance straight into
  *         the beneficiary's account. The bolivares never touch his pool, so
  *         there is no VES draw and no interbank fee. He supplies the one number
- *         he knows, usdtSold, and that IS usdtUsed. The USDT side is costed
- *         exactly the same way.
+ *         he knows, usdtSold, and that IS usdtUsed. This is the moment those
+ *         USDT leave Binance, so this is where they get costed, through the very
+ *         same costUsdtDraw a Binance sale uses.
  *
  * Everything here is pure. lib/queries.ts reads the lots, calls these, and
  * writes back what comes out.
@@ -98,7 +105,7 @@ export function payoutMethodOptions(current: string | null | undefined): string[
 }
 
 const EMPTY_USDT_POOL =
-  'No hay compras de cripto registradas. Registra una compra antes de pagar este envio.';
+  'No hay compras de cripto registradas. Registra primero la compra de esos USDT.';
 const EMPTY_VES_POOL =
   'No hay ventas de USDT registradas. Registra una venta en Ventas antes de pagar desde el pool.';
 
@@ -150,49 +157,96 @@ export function computeNewSending(input: NewSendingInput): NewSending {
   return { amountVesToPay: computeAmountVesToPay(amountEur, rateTasa) };
 }
 
+/* ------------------------------------------------- USDT leaving Binance */
+
+export interface UsdtCost {
+  usdtAllocations: Allocation[];
+  usdtLotUpdates: LotUpdate[];
+  /** USDT the pool could not cover; booked as a backorder on the newest purchase. */
+  usdtShortfall: number;
+  /** What the drawn USDT cost: sum(usdtDrawn * thatLotsPrice). */
+  costEur: number;
+}
+
+/**
+ * Cost a batch of USDT against the crypto_purchases pool.
+ *
+ * This runs at the two moments USDT actually leaves Binance, and only there:
+ *
+ *   - a P2P sale whose bolivares land in Jose's account (createVesSale in
+ *     lib/queries.ts). The cost is stored on the sale and becomes the cost basis
+ *     of the bolivares it put in the pool.
+ *   - a sale straight into a beneficiary's account (computeDirectPayment).
+ *
+ * Paying a sending out of the pool does NOT come through here: its USDT were
+ * spent, and costed, by the sale that produced those bolivares.
+ */
+export function costUsdtDraw(usdt: number, usdtLots: Lot[]): UsdtCost {
+  const draw = drawFifo(usdtLots, usdt, { emptyPoolMessage: EMPTY_USDT_POOL });
+
+  return {
+    usdtAllocations: draw.allocations,
+    usdtLotUpdates: draw.lotUpdates,
+    usdtShortfall: draw.shortfall,
+    costEur: sumAmountTimesPrice(draw.allocations),
+  };
+}
+
 /* ------------------------------------------------------------------ moment 2 */
 
-/** What paying a sending produces, whichever of the two ways was used. */
-export interface PaymentResult {
+/** What both payment paths end up with, however the sending was funded. */
+interface PaymentOutcome {
   feeApplied: boolean;
+  /** USDT this sending really consumed. Audit figure; nothing is costed from it. */
+  usdtUsed: number;
+  costEur: number;
+  profitEur: number;
+}
 
-  /** Bolivares taken out of ves_sales. Zero on a direct sale. */
+export interface PoolPaymentResult extends PaymentOutcome {
+  /** Bolivares taken out of ves_sales. */
   vesDrawn: number;
   vesAllocations: Allocation[];
   vesLotUpdates: LotUpdate[];
   /** VES the pool could not cover; booked as a backorder on the newest sale. */
   vesShortfall: number;
-
-  usdtUsed: number;
-  usdtAllocations: Allocation[];
-  usdtLotUpdates: LotUpdate[];
-  /** USDT the pool could not cover; booked as a backorder on the newest purchase. */
-  usdtShortfall: number;
-
-  costEur: number;
-  profitEur: number;
 }
 
-/** Second half of both payment paths: cost the USDT and work out the profit. */
-function costUsdtSide(
-  amountEur: number,
-  usdtUsed: number,
-  usdtLots: Lot[],
-): Pick<
-  PaymentResult,
-  'usdtUsed' | 'usdtAllocations' | 'usdtLotUpdates' | 'usdtShortfall' | 'costEur' | 'profitEur'
-> {
-  const draw = drawFifo(usdtLots, usdtUsed, { emptyPoolMessage: EMPTY_USDT_POOL });
-  const costEur = sumAmountTimesPrice(draw.allocations);
+export interface DirectPaymentResult extends PaymentOutcome {
+  usdtAllocations: Allocation[];
+  usdtLotUpdates: LotUpdate[];
+  usdtShortfall: number;
+}
 
-  return {
-    usdtUsed,
-    usdtAllocations: draw.allocations,
-    usdtLotUpdates: draw.lotUpdates,
-    usdtShortfall: draw.shortfall,
-    costEur,
-    profitEur: amountEur - costEur,
-  };
+/**
+ * A ves_sales lot as this module needs it: the FIFO fields, plus the two numbers
+ * that say what its bolivares cost.
+ *
+ * eurCost is the whole sale's EUR cost and vesReceived is the whole sale's size,
+ * so eurCost / vesReceived is the sale's EUR-cost-per-bolivar — the rate at
+ * which any part of it carries cost, whatever is left of it now.
+ */
+export interface VesLot extends Lot {
+  /** What the USDT this sale gave up cost in EUR, fixed when it was logged. */
+  eurCost: number;
+  /** Bolivares the sale received: its original size, not its remaining balance. */
+  vesReceived: number;
+}
+
+/** sum(bolivares drawn * that sale's EUR-cost-per-bolivar). */
+function costVesDraw(allocations: Allocation[], vesLots: VesLot[]): number {
+  const byId = new Map(vesLots.map((lot) => [lot.id, lot]));
+
+  return allocations.reduce((total, allocation) => {
+    const lot = byId.get(allocation.lotId);
+    if (!lot) {
+      throw new Error('Una asignacion apunta a una venta que no esta en el pool.');
+    }
+    if (!(lot.vesReceived > 0)) {
+      throw new Error('Una venta tiene bolivares recibidos cero o negativos; no se puede costear.');
+    }
+    return total + (allocation.amount * lot.eurCost) / lot.vesReceived;
+  }, 0);
 }
 
 export interface PoolPaymentInput {
@@ -201,14 +255,17 @@ export interface PoolPaymentInput {
   amountVesToPay: number;
   payoutMethod: string;
   /** The ves_sales pool. price = VES per USDT. */
-  vesLots: Lot[];
-  /** The crypto_purchases pool. price = EUR per USDT. */
-  usdtLots: Lot[];
+  vesLots: VesLot[];
 }
 
-/** (a) Pay out of the bolivares already in Jose's Venezuelan account. */
-export function computePoolPayment(input: PoolPaymentInput): PaymentResult {
-  const { amountEur, amountVesToPay, payoutMethod, vesLots, usdtLots } = input;
+/**
+ * (a) Pay out of the bolivares already in Jose's Venezuelan account.
+ *
+ * One draw only. The cost comes off the sales that funded the payout, because
+ * each of them already paid for its own USDT.
+ */
+export function computePoolPayment(input: PoolPaymentInput): PoolPaymentResult {
+  const { amountEur, amountVesToPay, payoutMethod, vesLots } = input;
 
   if (!(amountVesToPay > 0)) {
     throw new Error('El envio no tiene bolivares que pagar.');
@@ -219,8 +276,9 @@ export function computePoolPayment(input: PoolPaymentInput): PaymentResult {
 
   const vesDraw = drawFifo(vesLots, vesToDraw, { emptyPoolMessage: EMPTY_VES_POOL });
   // Each VES lot knows what it cost in USDT, so dividing gives the USDT this
-  // payout really consumed.
+  // payout really consumed. Kept for the audit trail only.
   const usdtUsed = sumAmountDividedByPrice(vesDraw.allocations);
+  const costEur = costVesDraw(vesDraw.allocations, vesLots);
 
   return {
     feeApplied,
@@ -228,7 +286,9 @@ export function computePoolPayment(input: PoolPaymentInput): PaymentResult {
     vesAllocations: vesDraw.allocations,
     vesLotUpdates: vesDraw.lotUpdates,
     vesShortfall: vesDraw.shortfall,
-    ...costUsdtSide(amountEur, usdtUsed, usdtLots),
+    usdtUsed,
+    costEur,
+    profitEur: amountEur - costEur,
   };
 }
 
@@ -241,21 +301,22 @@ export interface DirectPaymentInput {
 
 /**
  * (b) Sell straight into the beneficiary's account.
- * No VES pool draw and no interbank fee — Jose is giving the real USDT figure.
+ * No VES pool draw and no interbank fee — Jose is giving the real USDT figure,
+ * and these USDT are leaving Binance right now, so here is where they cost.
  */
-export function computeDirectPayment(input: DirectPaymentInput): PaymentResult {
+export function computeDirectPayment(input: DirectPaymentInput): DirectPaymentResult {
   const { amountEur, usdtSold, usdtLots } = input;
 
   if (!(usdtSold > 0)) {
     throw new Error('Los USDT vendidos deben ser mayores que cero.');
   }
 
+  const cost = costUsdtDraw(usdtSold, usdtLots);
+
   return {
     feeApplied: false, // nothing moved between banks, so no interbank cost
-    vesDrawn: 0,
-    vesAllocations: [],
-    vesLotUpdates: [],
-    vesShortfall: 0,
-    ...costUsdtSide(amountEur, usdtSold, usdtLots),
+    usdtUsed: usdtSold,
+    ...cost,
+    profitEur: amountEur - cost.costEur,
   };
 }

@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { parseDecimal, text, textOrNull } from '@/lib/parse';
-import { createPurchase } from '@/lib/queries';
+import type { DeleteState } from '../actions';
+import { parseDecimal, parseId, text, textOrNull } from '@/lib/parse';
+import { createPurchase, deleteCompra } from '@/lib/queries';
 
 export interface NuevaCompraState {
   error?: string;
@@ -59,5 +60,28 @@ export async function crearCompraAction(
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar la compra.' };
+  }
+}
+
+/**
+ * Delete a purchase typed in by mistake.
+ *
+ * Only while nothing has drawn from it: lib/queries.ts decides that and answers
+ * with the reason, which is shown next to the row.
+ */
+export async function eliminarCompraAction(
+  _prev: DeleteState,
+  formData: FormData,
+): Promise<DeleteState> {
+  const purchaseId = parseId(formData.get('id'));
+  if (!purchaseId) return { error: 'Compra no válida.' };
+
+  try {
+    await deleteCompra(purchaseId);
+    revalidatePath('/');
+    revalidatePath('/compras');
+    return {};
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo eliminar la compra.' };
   }
 }

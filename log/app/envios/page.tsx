@@ -1,5 +1,7 @@
+import { eliminarEnvioAction } from './actions';
 import NuevoEnvioForm from './nuevo-envio-form';
 import Shell from '../shell';
+import DeleteRowForm from '../components/delete-row-form';
 import EditSendingForm from '../components/edit-sending-form';
 import PaySendingActions from '../components/pay-sending-actions';
 import { fmtDateTime, fmtEur, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
@@ -70,6 +72,7 @@ export default async function EnviosPage() {
                       <div className="row-actions">
                         {s.status === 'pending' ? <PaySendingActions sendingId={s.id} /> : null}
                         <EditSendingForm sending={s} />
+                        <DeleteRowForm id={s.id} action={eliminarEnvioAction} />
                       </div>
                     </td>
                   </tr>
@@ -81,6 +84,10 @@ export default async function EnviosPage() {
         <p className="muted">
           Costo y ganancia aparecen en blanco hasta que el envío se marca como pagado: hasta ese
           momento no se sabe con qué bolívares se financió.
+        </p>
+        <p className="muted">
+          Al eliminar un envío ya pagado, los bolívares (o los USDT, si fue directo) vuelven a los
+          lotes de donde salieron.
         </p>
       </div>
     </Shell>

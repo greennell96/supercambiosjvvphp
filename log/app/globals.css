@@ -283,6 +283,13 @@ button.small {
   font-size: 13px;
 }
 
+/* Only ever the second click: the confirm step of a delete. */
+button.danger {
+  background: var(--red-bg);
+  border-color: var(--red-line);
+  color: var(--red-text);
+}
+
 /* --------------------------------------------------- pending sending actions */
 
 /* The last cell of a sending row: pay buttons on top, edit under them. */
@@ -317,6 +324,39 @@ button.small {
   font-size: 12px;
   font-weight: 600;
   color: var(--red-text);
+}
+
+/* --------------------------------------------------------- deleting a row */
+
+/* Sits in the last table cell of every list, so it stays narrow. */
+.delete-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 230px;
+}
+
+.delete-row form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.delete-row .muted {
+  margin: 0;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* A refusal is a whole sentence, so let it wrap instead of stretching the cell. */
+.delete-row .pay-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-text);
+  text-align: left;
+  white-space: normal;
 }
 
 /* ------------------------------------------------- editing a logged sending */

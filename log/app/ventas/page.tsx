@@ -1,5 +1,7 @@
+import { eliminarVentaAction } from './actions';
 import NuevaVentaForm from './nueva-venta-form';
 import Shell from '../shell';
+import DeleteRowForm from '../components/delete-row-form';
 import { isBackordered, isDepleted } from '@/lib/fifo';
 import { fmtDateTime, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
 import { listVesSales } from '@/lib/queries';
@@ -36,6 +38,7 @@ export default async function VentasPage() {
                   <th className="num">Precio Bs/USDT</th>
                   <th className="num">Disponible</th>
                   <th>Estado</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -72,6 +75,9 @@ export default async function VentasPage() {
                           <span className="badge paid">activa</span>
                         )}
                       </td>
+                      <td>
+                        <DeleteRowForm id={s.id} action={eliminarVentaAction} />
+                      </td>
                     </tr>
                   );
                 })}
@@ -82,6 +88,10 @@ export default async function VentasPage() {
         <p className="muted">
           Las ventas agotadas se quedan aquí en gris: son el historial de precios de los envíos
           que ya se pagaron.
+        </p>
+        <p className="muted">
+          Solo se puede eliminar una venta intacta: si ya pagó un envío, hay que eliminar primero
+          ese envío. Al eliminarla, los USDT que entregó vuelven a las compras de donde salieron.
         </p>
       </div>
     </Shell>

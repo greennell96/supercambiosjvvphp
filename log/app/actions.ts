@@ -34,6 +34,17 @@ export interface PayState {
 }
 
 /**
+ * What every row-level delete answers: nothing when the row is gone, or the
+ * reason it is still there.
+ *
+ * One shape for all four lists, because DeleteRowForm is one component. Each
+ * entity's own delete action lives in its own app/<seccion>/actions.ts.
+ */
+export interface DeleteState {
+  error?: string;
+}
+
+/**
  * (a) Pay a pending sending out of the bolivares already in the account.
  * One click: the amount was fixed when the sending was logged.
  */

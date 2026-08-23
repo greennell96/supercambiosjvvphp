@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { parseDecimal, text } from '@/lib/parse';
-import { createVesSale } from '@/lib/queries';
+import type { DeleteState } from '../actions';
+import { parseDecimal, parseId, text } from '@/lib/parse';
+import { createVesSale, deleteVenta } from '@/lib/queries';
 
 export interface NuevaVentaState {
   error?: string;
@@ -53,5 +54,31 @@ export async function crearVentaAction(
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar la venta.' };
+  }
+}
+
+/**
+ * Delete a sale typed in by mistake.
+ *
+ * Only while no sending has been paid out of it: lib/queries.ts decides that and
+ * answers with the reason, which is shown next to the row. When it goes through,
+ * the USDT it gave up go back into the compras pool, so that list is revalidated
+ * too.
+ */
+export async function eliminarVentaAction(
+  _prev: DeleteState,
+  formData: FormData,
+): Promise<DeleteState> {
+  const saleId = parseId(formData.get('id'));
+  if (!saleId) return { error: 'Venta no válida.' };
+
+  try {
+    await deleteVenta(saleId);
+    revalidatePath('/');
+    revalidatePath('/ventas');
+    revalidatePath('/compras');
+    return {};
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo eliminar la venta.' };
   }
 }

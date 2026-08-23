@@ -8,9 +8,11 @@ import {
   computeNewSending,
   computePoolPayment,
   computeVesToDraw,
+  costUsdtDraw,
   isFeeApplied,
   payoutMethodOptions,
   SENDING_PAYOUT_METHODS,
+  type VesLot,
 } from '../lib/pricing';
 
 function lot(id: number, day: number, price: number, remaining: number): Lot {
@@ -18,17 +20,38 @@ function lot(id: number, day: number, price: number, remaining: number): Lot {
 }
 
 /**
+ * A ves_sales lot. On top of the FIFO fields it carries what the USDT this sale
+ * gave up cost in EUR, and how many bolivares that bought — eurCost /
+ * vesReceived is its EUR-cost-per-bolivar. vesReceived defaults to `remaining`,
+ * which is the case of a sale nothing has been paid out of yet.
+ */
+function vesLot(
+  id: number,
+  day: number,
+  price: number,
+  remaining: number,
+  eurCost: number,
+  vesReceived = remaining,
+): VesLot {
+  return { ...lot(id, day, price, remaining), eurCost, vesReceived };
+}
+
+/**
  * The running example: the client hands over 100 EUR at a tasa of 210 Bs/EUR,
  * so the beneficiary must receive 21.000 Bs.
  *
  * The VES pool holds two Binance sales, both at 200 Bs/USDT, so 21.000 Bs is
- * 105 USDT. The crypto pool holds USDT bought at 0,90 EUR.
+ * 105 USDT. Both sold USDT that had been bought at 0,90 EUR — 100 USDT for
+ * 90 EUR and 50 USDT for 45 EUR — so both carry 0,0045 EUR per bolivar.
+ *
+ * The crypto pool holds USDT bought at 0,90 EUR. It is only reachable at the
+ * moment USDT leaves Binance, never when a sending is paid out of the pool.
  */
 const AMOUNT_EUR = 100;
 const RATE_TASA = 210;
 const AMOUNT_VES_TO_PAY = 21000;
 
-const vesPool = () => [lot(1, 1, 200, 20000), lot(2, 2, 200, 10000)];
+const vesPool = () => [vesLot(1, 1, 200, 20000, 90), vesLot(2, 2, 200, 10000, 45)];
 const usdtPool = () => [lot(1, 1, 0.9, 500)];
 
 /* --------------------------------------------------- moment 1: the sending is logged */
@@ -142,6 +165,53 @@ describe('computeVesToDraw', () => {
   });
 });
 
+/* --------------------------------- USDT leaving Binance: where cost is charged */
+
+describe('costUsdtDraw - what the USDT given up in a sale cost', () => {
+  it('walks the crypto pool oldest first and prices what came out', () => {
+    const cost = costUsdtDraw(105, usdtPool());
+
+    expect(cost.usdtAllocations).toEqual([{ lotId: 1, amount: 105, price: 0.9 }]);
+    expect(cost.usdtLotUpdates).toEqual([{ id: 1, remaining: 395 }]);
+    expect(cost.costEur).toBeCloseTo(94.5, 10);
+    expect(cost.usdtShortfall).toBe(0);
+  });
+
+  it('blends two purchase prices into one cost', () => {
+    const cost = costUsdtDraw(105, [lot(1, 1, 0.8, 50), lot(2, 2, 0.9, 100)]);
+
+    expect(cost.usdtAllocations).toEqual([
+      { lotId: 1, amount: 50, price: 0.8 },
+      { lotId: 2, amount: 55, price: 0.9 },
+    ]);
+    expect(cost.usdtLotUpdates).toEqual([
+      { id: 1, remaining: 0 },
+      { id: 2, remaining: 45 },
+    ]);
+    // 50 * 0,80 + 55 * 0,90
+    expect(cost.costEur).toBeCloseTo(89.5, 10);
+    expect(cost.usdtShortfall).toBe(0);
+  });
+
+  it('still costs the sale when the crypto pool is too small, and books the debt', () => {
+    // 105 USDT sold, only 70 covered by purchases. The rest goes on the newest
+    // lot at that lot's price, to be paid down by the next purchase.
+    const cost = costUsdtDraw(105, [lot(1, 1, 0.8, 50), lot(2, 2, 0.95, 20)]);
+
+    expect(cost.usdtShortfall).toBeCloseTo(35, 10);
+    expect(cost.usdtLotUpdates).toEqual([
+      { id: 1, remaining: 0 },
+      { id: 2, remaining: -35 },
+    ]);
+    // 50 * 0,80 + 55 * 0,95 — the 35 uncovered priced like the 20 covered
+    expect(cost.costEur).toBeCloseTo(92.25, 10);
+  });
+
+  it('refuses when no crypto purchase has been logged', () => {
+    expect(() => costUsdtDraw(105, [])).toThrow(/No hay compras de cripto/i);
+  });
+});
+
 /* ------------------------------------------- moment 2a: paid out of the VES pool */
 
 // "Banesco" is not offered any more — the form only writes Provincial/Otro/
@@ -153,7 +223,6 @@ describe('computePoolPayment - a stored bank name (no fee)', () => {
     amountVesToPay: AMOUNT_VES_TO_PAY,
     payoutMethod: 'Banesco',
     vesLots: vesPool(),
-    usdtLots: usdtPool(),
   });
 
   it('charges no fee, so it draws exactly what the beneficiary receives', () => {
@@ -161,7 +230,7 @@ describe('computePoolPayment - a stored bank name (no fee)', () => {
     expect(result.vesDrawn).toBe(21000);
   });
 
-  it('empties the oldest sale first and records both draws', () => {
+  it('empties the oldest sale first and records the draw', () => {
     expect(result.vesAllocations).toEqual([
       { lotId: 1, amount: 20000, price: 200 },
       { lotId: 2, amount: 1000, price: 200 },
@@ -173,17 +242,16 @@ describe('computePoolPayment - a stored bank name (no fee)', () => {
     expect(result.vesShortfall).toBe(0);
   });
 
-  it('turns the bolivares drawn back into the USDT they represented', () => {
-    // 20.000/200 + 1.000/200
+  it('reports the USDT those bolivares stood for, as an audit figure', () => {
+    // 20.000/200 + 1.000/200. Nothing is costed from it: those USDT were drawn
+    // from the crypto pool back when each sale was logged.
     expect(result.usdtUsed).toBeCloseTo(105, 10);
   });
 
-  it('costs that USDT against the crypto pool and leaves 5,50 EUR of profit', () => {
-    expect(result.usdtAllocations).toEqual([{ lotId: 1, amount: 105, price: 0.9 }]);
-    expect(result.usdtLotUpdates).toEqual([{ id: 1, remaining: 395 }]);
+  it('costs the bolivares off the sales that funded them, leaving 5,50 EUR', () => {
+    // 20.000 * 90/20.000 + 1.000 * 45/10.000
     expect(result.costEur).toBeCloseTo(94.5, 10);
     expect(result.profitEur).toBeCloseTo(5.5, 10);
-    expect(result.usdtShortfall).toBe(0);
   });
 });
 
@@ -193,7 +261,6 @@ describe('computePoolPayment - Otro (fee)', () => {
     amountVesToPay: AMOUNT_VES_TO_PAY,
     payoutMethod: 'Otro',
     vesLots: vesPool(),
-    usdtLots: usdtPool(),
   });
 
   it('draws 0,3% more bolivares than the beneficiary receives', () => {
@@ -203,7 +270,7 @@ describe('computePoolPayment - Otro (fee)', () => {
 
   it('costs the extra bolivares too, so the profit is lower', () => {
     expect(result.usdtUsed).toBeCloseTo(105.315, 10);
-    expect(result.costEur).toBeCloseTo(94.7835, 10); // 105.315 * 0.90
+    expect(result.costEur).toBeCloseTo(94.7835, 10); // 21.063 * 0,0045
     expect(result.profitEur).toBeCloseTo(5.2165, 10);
     expect(result.profitEur).toBeLessThan(5.5);
   });
@@ -224,7 +291,6 @@ describe('computePoolPayment - Provincial and Directa (no fee)', () => {
       amountVesToPay: AMOUNT_VES_TO_PAY,
       payoutMethod,
       vesLots: vesPool(),
-      usdtLots: usdtPool(),
     });
 
   it('draws exactly what the beneficiary receives, with no 0,3% on top', () => {
@@ -245,14 +311,14 @@ describe('computePoolPayment - Provincial and Directa (no fee)', () => {
   });
 });
 
-describe('computePoolPayment - blending prices and running short', () => {
+describe('computePoolPayment - blending sales and running short', () => {
   it('blends two different sale prices into one USDT figure', () => {
     const result = computePoolPayment({
       amountEur: AMOUNT_EUR,
       amountVesToPay: AMOUNT_VES_TO_PAY,
       payoutMethod: 'Banesco',
-      vesLots: [lot(1, 1, 200, 20000), lot(2, 2, 210, 10000)],
-      usdtLots: usdtPool(),
+      // The second sale got 10.000 Bs at 210, for USDT that had cost 0,90 EUR.
+      vesLots: [vesLot(1, 1, 200, 20000, 90), vesLot(2, 2, 210, 10000, (10000 / 210) * 0.9)],
     });
 
     // 20.000/200 + 1.000/210
@@ -260,19 +326,35 @@ describe('computePoolPayment - blending prices and running short', () => {
     expect(result.costEur).toBeCloseTo((100 + 1000 / 210) * 0.9, 10);
   });
 
-  it('blends two crypto purchase prices into one cost', () => {
+  it('blends two sales bought at different EUR costs per bolivar', () => {
     const result = computePoolPayment({
       amountEur: AMOUNT_EUR,
       amountVesToPay: AMOUNT_VES_TO_PAY,
       payoutMethod: 'Banesco',
-      vesLots: vesPool(),
-      usdtLots: [lot(1, 1, 0.8, 50), lot(2, 2, 0.9, 100)],
+      // Same 200 Bs/USDT on both, but the second sold dearer USDT:
+      // 0,0045 EUR per bolivar against 0,0050.
+      vesLots: [vesLot(1, 1, 200, 20000, 90), vesLot(2, 2, 200, 10000, 50)],
     });
 
+    // 20.000 * 0,0045 + 1.000 * 0,0050
+    expect(result.costEur).toBeCloseTo(95, 10);
+    expect(result.profitEur).toBeCloseTo(5, 10);
+    // The USDT figure is blind to cost, so it is the same 105 either way.
     expect(result.usdtUsed).toBeCloseTo(105, 10);
-    // 50 * 0.80 + 55 * 0.90
-    expect(result.costEur).toBeCloseTo(89.5, 10);
-    expect(result.profitEur).toBeCloseTo(10.5, 10);
+  });
+
+  it('costs only the part of a sale it drew, not the whole sale', () => {
+    // A sale of 10.000 Bs that cost 45 EUR, already drawn down to 2.000 Bs.
+    const result = computePoolPayment({
+      amountEur: AMOUNT_EUR,
+      amountVesToPay: AMOUNT_VES_TO_PAY,
+      payoutMethod: 'Banesco',
+      vesLots: [vesLot(1, 1, 200, 20000, 90), vesLot(2, 2, 200, 2000, 45, 10000)],
+    });
+
+    // 20.000 * 0,0045 + 1.000 * 45/10.000 — the rate is per bolivar received,
+    // not per bolivar left.
+    expect(result.costEur).toBeCloseTo(94.5, 10);
   });
 
   it('still pays when the VES account is short, and reports it', () => {
@@ -280,28 +362,27 @@ describe('computePoolPayment - blending prices and running short', () => {
       amountEur: AMOUNT_EUR,
       amountVesToPay: AMOUNT_VES_TO_PAY,
       payoutMethod: 'Banesco',
-      vesLots: [lot(1, 1, 200, 20000)],
-      usdtLots: usdtPool(),
+      vesLots: [vesLot(1, 1, 200, 20000, 90)],
     });
 
     expect(result.vesShortfall).toBeCloseTo(1000, 10);
     expect(result.vesLotUpdates).toEqual([{ id: 1, remaining: -1000 }]);
     expect(result.usdtUsed).toBeCloseTo(105, 10); // uncovered Bs priced at the same lot
+    expect(result.costEur).toBeCloseTo(94.5, 10); // and costed at the same lot too
   });
 
-  it('still pays when the crypto pool is short, and reports it', () => {
+  it('costs nothing for bolivares from a sale with no cost basis', () => {
+    // The opening-balance row, logged before sales recorded their cost. It
+    // carries eur_cost = 0, so it shows as pure profit until it is backfilled.
     const result = computePoolPayment({
       amountEur: AMOUNT_EUR,
       amountVesToPay: AMOUNT_VES_TO_PAY,
       payoutMethod: 'Banesco',
-      vesLots: vesPool(),
-      usdtLots: [lot(1, 1, 0.9, 40)],
+      vesLots: [vesLot(1, 1, 200, 30000, 0)],
     });
 
-    expect(result.usdtUsed).toBeCloseTo(105, 10);
-    expect(result.usdtShortfall).toBeCloseTo(65, 10);
-    expect(result.usdtLotUpdates).toEqual([{ id: 1, remaining: -65 }]);
-    expect(result.costEur).toBeCloseTo(94.5, 10);
+    expect(result.costEur).toBe(0);
+    expect(result.profitEur).toBe(AMOUNT_EUR);
   });
 });
 
@@ -313,21 +394,8 @@ describe('computePoolPayment - guards', () => {
         amountVesToPay: AMOUNT_VES_TO_PAY,
         payoutMethod: 'Banesco',
         vesLots: [],
-        usdtLots: usdtPool(),
       }),
     ).toThrow(/No hay ventas de USDT/i);
-  });
-
-  it('refuses when no crypto purchase has been logged', () => {
-    expect(() =>
-      computePoolPayment({
-        amountEur: AMOUNT_EUR,
-        amountVesToPay: AMOUNT_VES_TO_PAY,
-        payoutMethod: 'Banesco',
-        vesLots: vesPool(),
-        usdtLots: [],
-      }),
-    ).toThrow(/No hay compras de cripto/i);
   });
 
   it('refuses a sending with nothing to pay', () => {
@@ -337,7 +405,6 @@ describe('computePoolPayment - guards', () => {
         amountVesToPay: 0,
         payoutMethod: 'Banesco',
         vesLots: vesPool(),
-        usdtLots: usdtPool(),
       }),
     ).toThrow(/bolivares que pagar/i);
   });
@@ -352,11 +419,8 @@ describe('computeDirectPayment', () => {
     usdtLots: usdtPool(),
   });
 
-  it('never touches the VES pool', () => {
-    expect(result.vesDrawn).toBe(0);
-    expect(result.vesAllocations).toEqual([]);
-    expect(result.vesLotUpdates).toEqual([]);
-    expect(result.vesShortfall).toBe(0);
+  it('never touches the VES pool: it has no bolivares side at all', () => {
+    expect(Object.keys(result).filter((key) => key.startsWith('ves'))).toEqual([]);
   });
 
   it('charges no interbank fee, because nothing moved between banks', () => {
@@ -400,13 +464,12 @@ describe('computeDirectPayment', () => {
 /* ---------------------------------------------- the two paths, side by side */
 
 describe('pool vs direct on the same sending', () => {
-  it('both produce a cost and a profit from the same crypto pool', () => {
+  it('costs the same USDT the same, whichever pool it is charged to', () => {
     const pool = computePoolPayment({
       amountEur: AMOUNT_EUR,
       amountVesToPay: AMOUNT_VES_TO_PAY,
       payoutMethod: 'Banesco',
       vesLots: vesPool(),
-      usdtLots: usdtPool(),
     });
     const direct = computeDirectPayment({
       amountEur: AMOUNT_EUR,
@@ -414,12 +477,14 @@ describe('pool vs direct on the same sending', () => {
       usdtLots: usdtPool(),
     });
 
-    // Selling exactly the same USDT either way costs exactly the same.
+    // 105 USDT bought at 0,90 either way: 94,50 EUR. The pool path gets there
+    // through the cost the sales already carry, the direct path by drawing the
+    // crypto pool now.
     expect(direct.usdtUsed).toBeCloseTo(pool.usdtUsed, 10);
     expect(direct.costEur).toBeCloseTo(pool.costEur, 10);
     expect(direct.profitEur).toBeCloseTo(pool.profitEur, 10);
-    // The difference is only where the bolivares came from.
+    // The difference is which pool the draw lands on.
     expect(pool.vesAllocations.length).toBeGreaterThan(0);
-    expect(direct.vesAllocations).toHaveLength(0);
+    expect(direct.usdtAllocations.length).toBeGreaterThan(0);
   });
 });

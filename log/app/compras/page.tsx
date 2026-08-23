@@ -1,5 +1,7 @@
+import { eliminarCompraAction } from './actions';
 import NuevaCompraForm from './nueva-compra-form';
 import Shell from '../shell';
+import DeleteRowForm from '../components/delete-row-form';
 import { isBackordered, isDepleted } from '@/lib/fifo';
 import { fmtDateTime, fmtEur, fmtRate, fmtUsdt } from '@/lib/format';
 import { listPurchases } from '@/lib/queries';
@@ -37,6 +39,7 @@ export default async function ComprasPage() {
                   <th className="num">Precio EUR/USDT</th>
                   <th className="num">Disponible</th>
                   <th>Estado</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -64,6 +67,9 @@ export default async function ComprasPage() {
                           <span className="badge paid">activo</span>
                         )}
                       </td>
+                      <td>
+                        <DeleteRowForm id={p.id} action={eliminarCompraAction} />
+                      </td>
                     </tr>
                   );
                 })}
@@ -74,6 +80,10 @@ export default async function ComprasPage() {
         <p className="muted">
           Los lotes agotados se quedan aquí en gris: son el historial de costos de los envíos que
           ya salieron.
+        </p>
+        <p className="muted">
+          Solo se puede eliminar una compra intacta: en cuanto una venta o un envío directo tomó
+          USDT de ella, hay que eliminar primero eso.
         </p>
       </div>
     </Shell>

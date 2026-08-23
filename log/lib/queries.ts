@@ -5,8 +5,8 @@
  * pure modules (lib/pricing.ts, lib/fifo.ts), and writes back whatever they
  * return. No money rule is decided in this file, and none is decided in SQL.
  *
- * Both pools are locked with `for update` inside their transaction, so two
- * payments can never draw the same lot twice.
+ * Every pool a write touches is locked with `for update` inside its transaction,
+ * so two writers can never draw the same lot twice.
  */
 
 import type { TransactionSql } from 'postgres';
@@ -14,7 +14,14 @@ import type { TransactionSql } from 'postgres';
 import { getSql, id, num } from './db';
 import { applyIncomingToBackorders, type Lot } from './fifo';
 import { purchasePriceEurPerUsdt, salePriceVesPerUsdt } from './pools';
-import { computeDirectPayment, computeNewSending, computePoolPayment } from './pricing';
+import {
+  computeDirectPayment,
+  computeNewSending,
+  computePoolPayment,
+  costUsdtDraw,
+  type VesLot,
+} from './pricing';
+import { compraDeletionBlocker, restoreDrawnAmounts, ventaDeletionBlocker } from './reversal';
 import type {
   Client,
   Codigo,
@@ -146,21 +153,35 @@ async function lockUsdtLots(tx: TransactionSql) {
   }));
 }
 
-/** The VES pool, shaped for lib/fifo.ts. price = VES per USDT. */
+/**
+ * The VES pool, shaped for lib/fifo.ts. price = VES per USDT.
+ *
+ * ves_received and eur_cost travel with each lot because a payout is costed off
+ * the sales it draws from, not off crypto_purchases. See computePoolPayment.
+ */
 async function lockVesLots(tx: TransactionSql) {
   const rows = await tx<
-    { id: number; sold_at: Date; price_ves_per_usdt: string; remaining_ves: string }[]
+    {
+      id: number;
+      sold_at: Date;
+      price_ves_per_usdt: string;
+      remaining_ves: string;
+      ves_received: string;
+      eur_cost: string;
+    }[]
   >`
-    select id, sold_at, price_ves_per_usdt, remaining_ves
+    select id, sold_at, price_ves_per_usdt, remaining_ves, ves_received, eur_cost
     from ves_sales
     order by sold_at, id
     for update
   `;
-  return rows.map<Lot>((r) => ({
+  return rows.map<VesLot>((r) => ({
     id: id(r.id),
     orderMs: r.sold_at.getTime(),
     price: num(r.price_ves_per_usdt),
     remaining: num(r.remaining_ves),
+    vesReceived: num(r.ves_received),
+    eurCost: num(r.eur_cost),
   }));
 }
 
@@ -199,10 +220,11 @@ export async function createPurchase(input: {
 
     const [row] = await tx<{ id: number }[]>`
       insert into crypto_purchases
-        (purchased_at, eur_paid, usdt_received, price_eur_per_usdt, provider, remaining_usdt)
+        (purchased_at, eur_paid, usdt_received, price_eur_per_usdt, provider, remaining_usdt,
+         used_to_pay_backorders)
       values
         (${input.purchased_at}, ${input.eur_paid}, ${input.usdt_received}, ${price},
-         ${input.provider}, ${applied.remainingForNewLot})
+         ${input.provider}, ${applied.remainingForNewLot}, ${applied.usedToPayBackorders})
       returning id
     `;
 
@@ -212,6 +234,51 @@ export async function createPurchase(input: {
       usedToPayBackorders: applied.usedToPayBackorders,
       remainingForNewLot: applied.remainingForNewLot,
     };
+  });
+}
+
+/**
+ * Delete a purchase typed in by mistake.
+ *
+ * A purchase is the root of the whole chain, so there is nothing upstream to
+ * hand anything back to: either it is still exactly as it arrived, and it can
+ * just go, or something downstream already lives off it and it cannot. The
+ * "already drawn from" test is the allocation trail on both sides — a directly
+ * paid sending and a Binance sale each draw this pool — and the refusal names
+ * which one to delete first. See compraDeletionBlocker in lib/reversal.ts.
+ */
+export async function deleteCompra(purchaseId: number): Promise<void> {
+  const sql = getSql();
+  await sql.begin(async (tx) => {
+    const [purchase] = await tx<
+      { remaining_usdt: string; usdt_received: string; used_to_pay_backorders: string }[]
+    >`
+      select remaining_usdt, usdt_received, used_to_pay_backorders
+      from crypto_purchases
+      where id = ${purchaseId}
+      for update
+    `;
+    if (!purchase) throw new Error('Compra no encontrada.');
+
+    const [sendingDraws] = await tx<{ count: string }[]>`
+      select count(*) as count from sending_lot_allocations
+      where crypto_purchase_id = ${purchaseId}
+    `;
+    const [saleDraws] = await tx<{ count: string }[]>`
+      select count(*) as count from sale_lot_allocations
+      where crypto_purchase_id = ${purchaseId}
+    `;
+
+    const blocker = compraDeletionBlocker({
+      sendingAllocations: Number(sendingDraws.count),
+      saleAllocations: Number(saleDraws.count),
+      remainingUsdt: num(purchase.remaining_usdt),
+      usdtReceived: num(purchase.usdt_received),
+      usedToPayBackorders: num(purchase.used_to_pay_backorders),
+    });
+    if (blocker) throw new Error(blocker);
+
+    await tx`delete from crypto_purchases where id = ${purchaseId}`;
   });
 }
 
@@ -245,38 +312,133 @@ export async function listVesSales(): Promise<VesSale[]> {
 
 /**
  * Log a Binance sale whose bolivares landed in Jose's own account.
- * Exactly the same backorder rule as createPurchase, on the other pool.
+ *
+ * Two independent things happen here, in one transaction:
+ *
+ *   - the bolivares arrive in the VES pool, under exactly the same backorder
+ *     rule as createPurchase, on the other pool;
+ *   - the USDT leave Binance, so crypto_purchases is drawn for usdt_sold and
+ *     what that draw cost is stored on the sale as its cost basis. That is the
+ *     only place the USDT pool is charged for pooled bolivares: paying a sending
+ *     out of the pool later costs itself off this number.
  */
 export async function createVesSale(input: {
   usdt_sold: number;
   ves_received: number;
   sold_at: Date;
-}): Promise<{ id: number; usedToPayBackorders: number; remainingForNewLot: number }> {
+}): Promise<{
+  id: number;
+  usedToPayBackorders: number;
+  remainingForNewLot: number;
+  eurCost: number;
+  usdtShortfall: number;
+}> {
   const sql = getSql();
   const price = salePriceVesPerUsdt(input.usdt_sold, input.ves_received);
 
   return sql.begin(async (tx) => {
-    const lots = await lockVesLots(tx);
-    const applied = applyIncomingToBackorders(lots, input.ves_received);
+    const vesLots = await lockVesLots(tx);
+    const usdtLots = await lockUsdtLots(tx);
+
+    const applied = applyIncomingToBackorders(vesLots, input.ves_received);
+    const cost = costUsdtDraw(input.usdt_sold, usdtLots);
 
     for (const update of applied.lotUpdates) {
       await tx`update ves_sales set remaining_ves = ${update.remaining} where id = ${update.id}`;
     }
+    for (const update of cost.usdtLotUpdates) {
+      await tx`
+        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
+      `;
+    }
 
     const [row] = await tx<{ id: number }[]>`
       insert into ves_sales
-        (sold_at, usdt_sold, ves_received, price_ves_per_usdt, remaining_ves)
+        (sold_at, usdt_sold, ves_received, price_ves_per_usdt, remaining_ves, eur_cost,
+         used_to_pay_backorders)
       values
         (${input.sold_at}, ${input.usdt_sold}, ${input.ves_received}, ${price},
-         ${applied.remainingForNewLot})
+         ${applied.remainingForNewLot}, ${cost.costEur}, ${applied.usedToPayBackorders})
       returning id
     `;
+    const saleId = id(row.id);
+
+    // After the insert: these rows point at the sale that was just created.
+    for (const allocation of cost.usdtAllocations) {
+      await tx`
+        insert into sale_lot_allocations
+          (ves_sale_id, crypto_purchase_id, usdt_amount, price_eur_per_usdt)
+        values (${saleId}, ${allocation.lotId}, ${allocation.amount}, ${allocation.price})
+      `;
+    }
 
     return {
-      id: id(row.id),
+      id: saleId,
       usedToPayBackorders: applied.usedToPayBackorders,
       remainingForNewLot: applied.remainingForNewLot,
+      eurCost: cost.costEur,
+      usdtShortfall: cost.usdtShortfall,
     };
+  });
+}
+
+/**
+ * Delete a sale typed in by mistake.
+ *
+ * A sale sits in the middle of the chain, so deleting one has a side it must
+ * refuse and a side it must undo:
+ *
+ *   refuse — if any sending was paid out of these bolivares, or if they are not
+ *            all still here, or if the sale itself arrived into a hole and paid
+ *            an older sale's debt. See ventaDeletionBlocker in lib/reversal.ts.
+ *   undo   — the USDT this sale gave up. They left Binance when the sale was
+ *            logged and were drawn out of crypto_purchases right then (see
+ *            createVesSale), so they go straight back onto the very lots
+ *            sale_lot_allocations says they came from.
+ *
+ * The sale's own allocation rows go with it: sale_lot_allocations cascades.
+ */
+export async function deleteVenta(saleId: number): Promise<void> {
+  const sql = getSql();
+  await sql.begin(async (tx) => {
+    const [sale] = await tx<
+      { remaining_ves: string; ves_received: string; used_to_pay_backorders: string }[]
+    >`
+      select remaining_ves, ves_received, used_to_pay_backorders
+      from ves_sales
+      where id = ${saleId}
+      for update
+    `;
+    if (!sale) throw new Error('Venta no encontrada.');
+
+    const [sendingDraws] = await tx<{ count: string }[]>`
+      select count(*) as count from sending_ves_allocations where ves_sale_id = ${saleId}
+    `;
+
+    const blocker = ventaDeletionBlocker({
+      sendingAllocations: Number(sendingDraws.count),
+      remainingVes: num(sale.remaining_ves),
+      vesReceived: num(sale.ves_received),
+      usedToPayBackorders: num(sale.used_to_pay_backorders),
+    });
+    if (blocker) throw new Error(blocker);
+
+    const drawn = await tx<{ crypto_purchase_id: number; usdt_amount: string }[]>`
+      select crypto_purchase_id, usdt_amount from sale_lot_allocations where ves_sale_id = ${saleId}
+    `;
+    // Locked after the sale itself, the same order createVesSale takes them in.
+    const usdtLots = await lockUsdtLots(tx);
+    const updates = restoreDrawnAmounts(
+      usdtLots,
+      drawn.map((r) => ({ lotId: id(r.crypto_purchase_id), amount: num(r.usdt_amount) })),
+    );
+    for (const update of updates) {
+      await tx`
+        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
+      `;
+    }
+
+    await tx`delete from ves_sales where id = ${saleId}`;
   });
 }
 
@@ -510,6 +672,7 @@ export interface PaySendingResult {
   vesDrawn: number;
   vesShortfall: number;
   usdtUsed: number;
+  /** Only a direct payment can run the USDT pool short; the pool path reports 0. */
   usdtShortfall: number;
   costEur: number;
   profitEur: number;
@@ -542,9 +705,10 @@ async function lockPendingSending(
 /**
  * (a) Pay a pending sending out of the VES pool.
  *
- * Draws bolivares from ves_sales, converts what was drawn into the USDT it
- * really represented, then draws that USDT from crypto_purchases for the cost.
- * Both allocation trails are written.
+ * One pool only. The bolivares come out of ves_sales, and the cost comes off
+ * those same sales: each already drew crypto_purchases for its USDT when it was
+ * logged (see createVesSale), so drawing the USDT pool here too would spend the
+ * same USDT twice.
  */
 export async function paySendingFromPool(sendingId: number): Promise<PaySendingResult> {
   const sql = getSql();
@@ -552,14 +716,12 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
     const sending = await lockPendingSending(tx, sendingId);
 
     const vesLots = await lockVesLots(tx);
-    const usdtLots = await lockUsdtLots(tx);
 
     const payment = computePoolPayment({
       amountEur: num(sending.amount_eur),
       amountVesToPay: num(sending.amount_ves_to_pay),
       payoutMethod: sending.payout_method,
       vesLots,
-      usdtLots,
     });
 
     for (const allocation of payment.vesAllocations) {
@@ -571,19 +733,6 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
     }
     for (const update of payment.vesLotUpdates) {
       await tx`update ves_sales set remaining_ves = ${update.remaining} where id = ${update.id}`;
-    }
-
-    for (const allocation of payment.usdtAllocations) {
-      await tx`
-        insert into sending_lot_allocations
-          (sending_id, crypto_purchase_id, usdt_amount, price_eur_per_usdt)
-        values (${sendingId}, ${allocation.lotId}, ${allocation.amount}, ${allocation.price})
-      `;
-    }
-    for (const update of payment.usdtLotUpdates) {
-      await tx`
-        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
-      `;
     }
 
     await tx`
@@ -608,7 +757,7 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
       vesDrawn: payment.vesDrawn,
       vesShortfall: payment.vesShortfall,
       usdtUsed: payment.usdtUsed,
-      usdtShortfall: payment.usdtShortfall,
+      usdtShortfall: 0, // never short here: this path does not draw the USDT pool
       costEur: payment.costEur,
       profitEur: payment.profitEur,
     };
@@ -619,6 +768,10 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
  * (b) Pay a pending sending by selling USDT straight into the beneficiary's
  * account. The bolivares never enter the pool, so nothing is drawn from
  * ves_sales and no row is added to it.
+ *
+ * These USDT leave Binance here, so this is the one payment path that still
+ * draws crypto_purchases — and therefore the only one that writes
+ * sending_lot_allocations.
  */
 export async function paySendingDirect(
   sendingId: number,
@@ -675,6 +828,80 @@ export async function paySendingDirect(
       profitEur: payment.profitEur,
     };
   });
+}
+
+/**
+ * Delete a sending, and give back whatever it took.
+ *
+ * A sending is a leaf: nothing in the schema points at it except its own two
+ * allocation trails, which cascade. So this never refuses. What it has to get
+ * right is the give-back.
+ *
+ * Which pool that is, is read off the trails and NOT off paid_via. Today the two
+ * line up exactly — 'pool' writes sending_ves_allocations, 'direct' writes
+ * sending_lot_allocations, pending writes neither — but a sending paid out of
+ * the pool before migration 010 also drew crypto_purchases, and its rows are
+ * still sitting in sending_lot_allocations. Handing back exactly what each trail
+ * records is right for both, and needs no special case for either. A trail with
+ * no rows costs one select and does not lock its pool.
+ *
+ * One consequence is worth naming: if this sending had pushed a lot negative and
+ * a later purchase or sale has since paid that backorder down, the amount handed
+ * back lands on the old lot even though what covered it came from the newer one.
+ * The pool total comes out exactly right either way; only the FIFO age of that
+ * one leftover drifts. Refusing instead would mean a real payout could never be
+ * corrected once the pool caught up, which is the worse of the two.
+ *
+ * Split from deleteSending so the one-off cleanup script can run it inside its
+ * own transaction, alongside other corrections. The app always calls
+ * deleteSending.
+ */
+export async function deleteSendingInTx(tx: TransactionSql, sendingId: number): Promise<void> {
+  const [sending] = await tx<{ id: number }[]>`
+    select id from sendings where id = ${sendingId} for update
+  `;
+  if (!sending) throw new Error('Envio no encontrado.');
+
+  const vesDrawn = await tx<{ ves_sale_id: number; ves_amount: string }[]>`
+    select ves_sale_id, ves_amount from sending_ves_allocations where sending_id = ${sendingId}
+  `;
+  if (vesDrawn.length > 0) {
+    const vesLots = await lockVesLots(tx);
+    const updates = restoreDrawnAmounts(
+      vesLots,
+      vesDrawn.map((r) => ({ lotId: id(r.ves_sale_id), amount: num(r.ves_amount) })),
+    );
+    for (const update of updates) {
+      await tx`update ves_sales set remaining_ves = ${update.remaining} where id = ${update.id}`;
+    }
+  }
+
+  const usdtDrawn = await tx<{ crypto_purchase_id: number; usdt_amount: string }[]>`
+    select crypto_purchase_id, usdt_amount
+    from sending_lot_allocations
+    where sending_id = ${sendingId}
+  `;
+  if (usdtDrawn.length > 0) {
+    // Locked after the VES pool, the same order createVesSale takes them in.
+    const usdtLots = await lockUsdtLots(tx);
+    const updates = restoreDrawnAmounts(
+      usdtLots,
+      usdtDrawn.map((r) => ({ lotId: id(r.crypto_purchase_id), amount: num(r.usdt_amount) })),
+    );
+    for (const update of updates) {
+      await tx`
+        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
+      `;
+    }
+  }
+
+  // sending_ves_allocations and sending_lot_allocations both cascade from here.
+  await tx`delete from sendings where id = ${sendingId}`;
+}
+
+export async function deleteSending(sendingId: number): Promise<void> {
+  const sql = getSql();
+  await sql.begin((tx) => deleteSendingInTx(tx, sendingId));
 }
 
 /* ------------------------------------------------------------------ codigos */
@@ -742,6 +969,17 @@ export async function markCodigoRetirado(codigoId: number): Promise<void> {
     set status = 'retirado', retired_at = now()
     where id = ${codigoId} and status = 'pendiente'
   `;
+}
+
+/**
+ * Delete a codigo. One statement and no transaction, because a codigo touches
+ * neither pool and nothing references it: there is nothing to give back and
+ * nothing to refuse. If codigos ever start feeding the money math, this is the
+ * function that has to grow a reversal.
+ */
+export async function deleteCodigo(codigoId: number): Promise<void> {
+  const sql = getSql();
+  await sql`delete from codigos where id = ${codigoId}`;
 }
 
 /* ---------------------------------------------------------------- dashboard */

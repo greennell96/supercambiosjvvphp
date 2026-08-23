@@ -2,8 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 
+import type { DeleteState } from '../actions';
 import { parseDecimal, parseId, text } from '@/lib/parse';
-import { createSending, type CreateSendingResult } from '@/lib/queries';
+import { createSending, deleteSending, type CreateSendingResult } from '@/lib/queries';
 
 export interface NuevoEnvioState {
   error?: string;
@@ -40,5 +41,31 @@ export async function crearEnvioAction(
     return { result };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar el envío.' };
+  }
+}
+
+/**
+ * Delete a sending and give back whatever it drew.
+ *
+ * This never refuses on business grounds — a sending is a leaf — but it does
+ * move a pool whenever the sending was already paid, so the compras and ventas
+ * lists are revalidated too.
+ */
+export async function eliminarEnvioAction(
+  _prev: DeleteState,
+  formData: FormData,
+): Promise<DeleteState> {
+  const sendingId = parseId(formData.get('id'));
+  if (!sendingId) return { error: 'Envío no válido.' };
+
+  try {
+    await deleteSending(sendingId);
+    revalidatePath('/');
+    revalidatePath('/envios');
+    revalidatePath('/compras');
+    revalidatePath('/ventas');
+    return {};
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo eliminar el envío.' };
   }
 }

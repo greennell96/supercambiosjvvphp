@@ -1,6 +1,8 @@
+import { eliminarCodigoAction } from './actions';
 import NuevoCodigoForm from './nuevo-codigo-form';
 import { markCodigoRetiradoAction } from '../actions';
 import Shell from '../shell';
+import DeleteRowForm from '../components/delete-row-form';
 import { requiresDniReminder } from '@/lib/banks';
 import { fmtDateTime, fmtEur } from '@/lib/format';
 import { listClients, listCodigos } from '@/lib/queries';
@@ -32,6 +34,7 @@ export default async function CodigosPage() {
                   <th>DNI</th>
                   <th>Estado</th>
                   <th />
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -56,6 +59,9 @@ export default async function CodigosPage() {
                       ) : (
                         <span className="muted">{fmtDateTime(c.retired_at)}</span>
                       )}
+                    </td>
+                    <td>
+                      <DeleteRowForm id={c.id} action={eliminarCodigoAction} />
                     </td>
                   </tr>
                 ))}
