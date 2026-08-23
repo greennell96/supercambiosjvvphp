@@ -1,1 +1,2 @@
 - [2026-08-14] [low] Local PHP 8.3 CLI lacks `mysqli`; rate-widget DB paths needed an in-memory stub harness instead of a real local MySQL render.
+- [2026-08-23] [medium] Vercel MCP's GitHub connection only sees `cambiosjvv` repo, not `supercambiosjvvphp` — `create_git_project` silently fails to link; blocks creating a Vercel project here without José's dashboard action.
