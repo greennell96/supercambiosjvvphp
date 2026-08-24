@@ -96,13 +96,6 @@ export default function NuevoEnvioForm({
             </button>
           </div>
         </div>
-        <p className="muted">
-          La tasa viene rellenada con la última que usaste, pero se puede cambiar en cada envío.
-          Método: <strong>Provincial</strong> paga desde tu cuenta (sin comisión),{' '}
-          <strong>Otro</strong> es a otro banco y lleva 0,3%, <strong>Directa</strong> es vender
-          directo a la cuenta del beneficiario. El costo y la ganancia se calculan después, al
-          marcar el envío como pagado.
-        </p>
       </form>
     </>
   );
@@ -117,9 +110,6 @@ function Confirmation({ result }: { result: NonNullable<NuevoEnvioState['result'
       </div>
       <div style={{ marginTop: 6 }}>Bolívares a pagar</div>
       <div className="big-number">{fmtVes(result.amountVesToPay)}</div>
-      <div className="muted" style={{ color: 'inherit' }}>
-        Queda pendiente. Cuando lo pagues, márcalo desde Inicio (pool o directo).
-      </div>
     </div>
   );
 }

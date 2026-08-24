@@ -53,12 +53,20 @@ export default async function EnviosPage() {
               <tbody>
                 {sendings.map((s) => (
                   <tr key={s.id} className={`row-${s.status}`}>
-                    <td>{fmtDateTime(s.created_at)}</td>
-                    <td>{s.client_name}</td>
-                    <td className="num">{fmtEur(s.amount_eur)}</td>
-                    <td className="num">{fmtRate(s.rate_tasa)}</td>
-                    <td className="num">{fmtVes(s.amount_ves_to_pay)}</td>
-                    <td>{s.payout_method}</td>
+                    <td data-label="Fecha">{fmtDateTime(s.created_at)}</td>
+                    <td data-label="Cliente" data-wide>
+                      {s.client_name}
+                    </td>
+                    <td className="num" data-label="EUR">
+                      {fmtEur(s.amount_eur)}
+                    </td>
+                    <td className="num" data-label="Tasa">
+                      {fmtRate(s.rate_tasa)}
+                    </td>
+                    <td className="num" data-label="Bs a pagar">
+                      {fmtVes(s.amount_ves_to_pay)}
+                    </td>
+                    <td data-label="Método">{s.payout_method}</td>
                     {/*
                       The CLIENT's side, and its own words on purpose: "cobrado"
                       vs "sin cobrar" against the "pagado"/"pendiente" badge
@@ -66,7 +74,7 @@ export default async function EnviosPage() {
                       one's amber and green. The two answer different questions
                       and must never be read for each other at a glance.
                     */}
-                    <td>
+                    <td data-label="Cobrado">
                       {s.client_paid_at === null ? (
                         <span className="badge sin-cobrar">sin cobrar</span>
                       ) : (
@@ -81,20 +89,26 @@ export default async function EnviosPage() {
                         </>
                       )}
                     </td>
-                    <td>{s.client_payment_note ?? '—'}</td>
-                    <td>
+                    <td data-label="Cómo pagó">{s.client_payment_note ?? '—'}</td>
+                    <td data-label="Pagado vía">
                       {s.paid_via === 'pool' ? 'pool' : s.paid_via === 'direct' ? 'directo' : '—'}
                       {s.fee_applied ? <span className="muted"> +0,3%</span> : null}
                     </td>
-                    <td className="num">{s.usdt_used === null ? '—' : fmtUsdt(s.usdt_used)}</td>
-                    <td className="num">{s.cost_eur === null ? '—' : fmtEur(s.cost_eur)}</td>
-                    <td className="num">{s.profit_eur === null ? '—' : fmtEur(s.profit_eur)}</td>
-                    <td>
+                    <td className="num" data-label="USDT">
+                      {s.usdt_used === null ? '—' : fmtUsdt(s.usdt_used)}
+                    </td>
+                    <td className="num" data-label="Costo">
+                      {s.cost_eur === null ? '—' : fmtEur(s.cost_eur)}
+                    </td>
+                    <td className="num" data-label="Ganancia">
+                      {s.profit_eur === null ? '—' : fmtEur(s.profit_eur)}
+                    </td>
+                    <td data-label="Estado">
                       <span className={`badge ${s.status}`}>
                         {s.status === 'paid' ? 'pagado' : 'pendiente'}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Acciones" data-wide>
                       <div className="row-actions">
                         {s.status === 'pending' ? <PaySendingActions sendingId={s.id} /> : null}
                         {s.client_paid_at === null ? (
@@ -114,21 +128,6 @@ export default async function EnviosPage() {
             </table>
           </div>
         )}
-        <p className="muted">
-          Costo y ganancia aparecen en blanco hasta que el envío se marca como pagado: hasta ese
-          momento no se sabe con qué bolívares se financió.
-        </p>
-        <p className="muted">
-          <strong>Cobrado</strong> es el otro lado del envío: si el cliente ya te pagó aquí en
-          España. No tiene nada que ver con <strong>Estado</strong> (pagado/pendiente), que es si tú
-          ya pagaste al beneficiario en Venezuela. Ninguno de los dos espera al otro, y &laquo;
-          Cliente pagó &raquo; no toca el pool ni la ganancia.
-        </p>
-        <p className="muted">
-          Al eliminar un envío ya pagado, los bolívares (o los USDT, si fue directo) vuelven a los
-          lotes de donde salieron. Si tenía un código vinculado, el código queda sin vincular pero
-          no se borra.
-        </p>
       </div>
     </Shell>
   );

@@ -60,11 +60,24 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
         <div className="form-row">
           <div>
             <label htmlFor="name">Nombre</label>
-            <input id="name" name="name" type="text" defaultValue={editing?.name ?? ''} />
+            <input
+              id="name"
+              name="name"
+              type="text"
+              autoComplete="name"
+              defaultValue={editing?.name ?? ''}
+            />
           </div>
           <div>
             <label htmlFor="phone">Teléfono</label>
-            <input id="phone" name="phone" type="text" defaultValue={editing?.phone ?? ''} />
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              defaultValue={editing?.phone ?? ''}
+            />
           </div>
           <div>
             <label htmlFor="banks">Bancos (separados por coma)</label>
@@ -123,11 +136,13 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id}>
-                  <td>{c.name}</td>
-                  <td>{c.phone ?? '—'}</td>
-                  <td>{c.banks.length ? c.banks.join(', ') : '—'}</td>
-                  <td>{c.dni_nie ?? '—'}</td>
-                  <td className="num">
+                  <td data-label="Nombre" data-wide>
+                    {c.name}
+                  </td>
+                  <td data-label="Teléfono">{c.phone ?? '—'}</td>
+                  <td data-label="Bancos">{c.banks.length ? c.banks.join(', ') : '—'}</td>
+                  <td data-label="DNI / NIE">{c.dni_nie ?? '—'}</td>
+                  <td className="num" data-label="Acción" data-wide>
                     <button
                       className="small"
                       type="button"

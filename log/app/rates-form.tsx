@@ -34,10 +34,7 @@ export default function RatesForm({ tasa, updatedAt }: { tasa: number; updatedAt
           </button>
         </div>
       </div>
-      <p className="muted">
-        Solo rellena la casilla de tasa en un envío nuevo; ahí se puede cambiar. Última
-        actualización: {fmtDateTime(updatedAt)}
-      </p>
+      <p className="muted">Actualizada {fmtDateTime(updatedAt)}</p>
     </form>
   );
 }

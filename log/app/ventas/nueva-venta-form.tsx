@@ -73,10 +73,7 @@ export default function NuevaVentaForm() {
           </button>
         </div>
       </div>
-      <p className="muted">
-        El precio (Bs/USDT) se calcula solo. Solo registra aquí las ventas cuyos bolívares
-        entraron en tu cuenta.
-      </p>
+      <p className="muted">Solo ventas recibidas en tu cuenta.</p>
     </form>
   );
 }

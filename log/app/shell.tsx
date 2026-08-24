@@ -8,9 +8,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     <div className="shell">
       <header className="topbar">
         <span className="brand">JVV Log</span>
-        <nav>
+        <nav aria-label="Navegación principal">
           <Link href="/">Inicio</Link>
-          <Link href="/envios">Nuevo envío</Link>
+          <Link href="/envios">Envíos</Link>
           <Link href="/codigos">Códigos</Link>
           <Link href="/ventas">Ventas</Link>
           <Link href="/compras">Compras</Link>
@@ -23,7 +23,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </button>
         </form>
       </header>
-      {children}
+      <main>{children}</main>
     </div>
   );
 }

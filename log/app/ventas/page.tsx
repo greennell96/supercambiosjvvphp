@@ -47,26 +47,25 @@ export default async function VentasPage() {
                   const backorder = isBackordered(s.remaining_ves);
                   return (
                     <tr key={s.id} className={depleted && !backorder ? 'depleted' : undefined}>
-                      <td>{fmtDateTime(s.sold_at)}</td>
-                      <td className="num">{fmtUsdt(s.usdt_sold)}</td>
-                      <td className="num">{fmtVes(s.ves_received)}</td>
-                      <td className="num">{fmtRate(s.price_ves_per_usdt)}</td>
+                      <td data-label="Fecha">{fmtDateTime(s.sold_at)}</td>
+                      <td className="num" data-label="USDT vendidos">
+                        {fmtUsdt(s.usdt_sold)}
+                      </td>
+                      <td className="num" data-label="Bs recibidos">
+                        {fmtVes(s.ves_received)}
+                      </td>
+                      <td className="num" data-label="Precio Bs/USDT">
+                        {fmtRate(s.price_ves_per_usdt)}
+                      </td>
                       <td
-                        className="num"
-                        style={backorder ? { color: '#8a1c1c', fontWeight: 700 } : undefined}
+                        className={backorder ? 'num backorder' : 'num'}
+                        data-label="Disponible"
                       >
                         {fmtVes(s.remaining_ves)}
                       </td>
-                      <td>
+                      <td data-label="Estado">
                         {backorder ? (
-                          <span
-                            className="badge"
-                            style={{
-                              background: '#fde7e7',
-                              borderColor: '#c94b4b',
-                              color: '#8a1c1c',
-                            }}
-                          >
+                          <span className="badge negative">
                             en negativo
                           </span>
                         ) : depleted ? (
@@ -75,7 +74,7 @@ export default async function VentasPage() {
                           <span className="badge paid">activa</span>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Acciones" data-wide>
                         <DeleteRowForm id={s.id} action={eliminarVentaAction} />
                       </td>
                     </tr>
@@ -85,14 +84,6 @@ export default async function VentasPage() {
             </table>
           </div>
         )}
-        <p className="muted">
-          Las ventas agotadas se quedan aquí en gris: son el historial de precios de los envíos
-          que ya se pagaron.
-        </p>
-        <p className="muted">
-          Solo se puede eliminar una venta intacta: si ya pagó un envío, hay que eliminar primero
-          ese envío. Al eliminarla, los USDT que entregó vuelven a las compras de donde salieron.
-        </p>
       </div>
     </Shell>
   );

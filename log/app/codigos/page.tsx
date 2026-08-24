@@ -44,9 +44,11 @@ export default async function CodigosPage() {
               <tbody>
                 {codigos.map((c) => (
                   <tr key={c.id} className={`row-${c.status}`}>
-                    <td>{fmtDateTimeShort(c.created_at)}</td>
-                    <td>{c.client_name}</td>
-                    <td>
+                    <td data-label="Fecha">{fmtDateTimeShort(c.created_at)}</td>
+                    <td data-label="Cliente" data-wide>
+                      {c.client_name}
+                    </td>
+                    <td data-label="Datos" data-wide>
                       {/*
                         Caixa withdrawals ask phone -> código -> DNI, in that order; every other
                         bank asks código -> phone -> amount and never needs the DNI on screen.
@@ -63,8 +65,8 @@ export default async function CodigosPage() {
                         </>
                       )}
                     </td>
-                    <td>{c.bank}</td>
-                    <td>
+                    <td data-label="Banco">{c.bank}</td>
+                    <td data-label="Envío" data-wide>
                       {/*
                         The sending this codigo paid for, when there is one. The
                         client is named even though it is usually the same one:
@@ -84,10 +86,10 @@ export default async function CodigosPage() {
                         </>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Estado">
                       <span className={`badge ${c.status}`}>{c.status}</span>
                     </td>
-                    <td className="num">
+                    <td className="num" data-label="Retiro">
                       {c.status === 'pendiente' ? (
                         <form action={markCodigoRetiradoAction}>
                           <input type="hidden" name="id" value={c.id} />
@@ -99,7 +101,7 @@ export default async function CodigosPage() {
                         <span className="muted">{fmtDateTimeShort(c.retired_at)}</span>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Acciones" data-wide>
                       <DeleteRowForm id={c.id} action={eliminarCodigoAction} />
                     </td>
                   </tr>
@@ -108,10 +110,6 @@ export default async function CodigosPage() {
             </table>
           </div>
         )}
-        <p className="muted">
-          Un código vinculado a un envío es la prueba de que el cliente pagó ese envío. Si lo
-          eliminas, ese envío vuelve a quedar sin cobrar.
-        </p>
       </div>
     </Shell>
   );

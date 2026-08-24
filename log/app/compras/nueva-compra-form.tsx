@@ -81,7 +81,6 @@ export default function NuevaCompraForm() {
           </button>
         </div>
       </div>
-      <p className="muted">El precio (EUR/USDT) se calcula solo a partir de esos dos números.</p>
     </form>
   );
 }

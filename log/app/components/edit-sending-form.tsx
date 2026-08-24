@@ -115,10 +115,7 @@ export default function EditSendingForm({ sending }: { sending: EditableSending 
       </div>
 
       {editMoney ? null : (
-        <p className="muted">
-          Envío ya pagado: monto, tasa y método quedan fijos porque el costo y la ganancia ya se
-          calcularon con ellos. Solo se puede cambiar la nota.
-        </p>
+        <p className="muted">Envío pagado: solo puedes editar la nota.</p>
       )}
 
       <div className="edit-field">

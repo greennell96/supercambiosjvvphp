@@ -159,13 +159,6 @@ export default function NuevoCodigoForm({
         </div>
       </div>
 
-      {sendingId ? (
-        <p className="muted">
-          Ese envío quedará marcado como cobrado al cliente (código). Si borras el código después,
-          vuelve a quedar sin cobrar.
-        </p>
-      ) : null}
-
       {showDni ? (
         <div className="notice warn">
           <label htmlFor="dni-reminder">CaixaBank — recuerda el DNI/NIE del cliente</label>

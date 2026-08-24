@@ -26,7 +26,7 @@ export default async function ClientesPage({
       <h1>Clientes</h1>
       {backTo ? (
         <p className="notice warn">
-          <Link href={backTo.href}>{backTo.label}</Link> cuando termines de añadir el cliente.
+          <Link href={backTo.href}>{backTo.label}</Link>
         </p>
       ) : null}
       <ClientesPanel clients={clients} />

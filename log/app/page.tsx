@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { markCodigoRetiradoAction } from './actions';
 import RatesForm from './rates-form';
 import Shell from './shell';
@@ -64,11 +62,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="panel" style={{ marginTop: 18 }}>
-        <h2>Tasa sugerida</h2>
-        <RatesForm tasa={rates.tasa_eur_ves} updatedAt={rates.updated_at} />
-      </div>
-
       <div className="panel">
         <h2>Envíos pendientes ({pendingSendings.length})</h2>
         {pendingSendings.length === 0 ? (
@@ -91,16 +84,22 @@ export default async function DashboardPage() {
               <tbody>
                 {pendingSendings.map((s) => (
                   <tr key={s.id} className="row-pending">
-                    <td>{s.client_name}</td>
-                    <td className="num">{fmtEur(s.amount_eur)}</td>
-                    <td className="num">{fmtRate(s.rate_tasa)}</td>
-                    <td className="num">
+                    <td data-label="Cliente" data-wide>
+                      {s.client_name}
+                    </td>
+                    <td className="num" data-label="EUR">
+                      {fmtEur(s.amount_eur)}
+                    </td>
+                    <td className="num" data-label="Tasa">
+                      {fmtRate(s.rate_tasa)}
+                    </td>
+                    <td className="num" data-label="Bs a pagar">
                       <strong>{fmtVes(s.amount_ves_to_pay)}</strong>
                     </td>
-                    <td>{s.payout_method}</td>
-                    <td>{s.client_payment_note ?? '—'}</td>
-                    <td>{fmtDateTime(s.created_at)}</td>
-                    <td>
+                    <td data-label="Método">{s.payout_method}</td>
+                    <td data-label="Cómo pagó">{s.client_payment_note ?? '—'}</td>
+                    <td data-label="Fecha">{fmtDateTime(s.created_at)}</td>
+                    <td data-label="Acciones" data-wide>
                       <div className="row-actions">
                         <PaySendingActions sendingId={s.id} />
                         <EditSendingForm sending={s} />
@@ -133,16 +132,18 @@ export default async function DashboardPage() {
               <tbody>
                 {pendingCodigos.map((c) => (
                   <tr key={c.id} className="row-pendiente">
-                    <td>
+                    <td data-label="Cliente" data-wide>
                       {c.client_name}
                       {requiresDniReminder(c.bank) && c.client_dni_nie ? (
                         <span className="muted"> · DNI {c.client_dni_nie}</span>
                       ) : null}
                     </td>
-                    <td className="num">{fmtEur(c.amount)}</td>
-                    <td>{c.bank}</td>
-                    <td>{fmtDateTime(c.created_at)}</td>
-                    <td className="num">
+                    <td className="num" data-label="Monto">
+                      {fmtEur(c.amount)}
+                    </td>
+                    <td data-label="Banco">{c.bank}</td>
+                    <td data-label="Fecha">{fmtDateTime(c.created_at)}</td>
+                    <td className="num" data-label="Acción" data-wide>
                       <form action={markCodigoRetiradoAction}>
                         <input type="hidden" name="id" value={c.id} />
                         <button className="small" type="submit">
@@ -158,11 +159,10 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <p className="muted">
-        <Link href="/envios">Nuevo envío</Link> · <Link href="/codigos">Nuevo código</Link> ·{' '}
-        <Link href="/ventas">Registrar venta en Binance</Link> ·{' '}
-        <Link href="/compras">Registrar compra de cripto</Link>
-      </p>
+      <div className="panel">
+        <h2>Tasa sugerida</h2>
+        <RatesForm tasa={rates.tasa_eur_ves} updatedAt={rates.updated_at} />
+      </div>
     </Shell>
   );
 }
