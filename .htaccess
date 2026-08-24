@@ -1,3 +1,14 @@
+# Deny repository-only documentation if the legacy PHP root is served again.
+# KB-34: the removable transition rewrite can mask these paths but is not a security boundary.
+<FilesMatch "(?i)\.(?:md|markdown)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^collab(?:/|$) - [F,L,NC]
+</IfModule>
+
 # Allow access to PHP files
 <FilesMatch "\.php$">
     Allow from all
