@@ -1,0 +1,541 @@
+/* Plain, dense, glance-and-understand. No animations, no transitions. */
+
+:root {
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --line: #d8dbe0;
+  --text: #1c1f23;
+  --muted: #6b7280;
+
+  --amber-bg: #fff4d6;
+  --amber-line: #e0b44a;
+  --amber-text: #7a5300;
+
+  --green-bg: #e3f5e6;
+  --green-line: #5aa96a;
+  --green-text: #14532d;
+
+  --red-bg: #fde7e7;
+  --red-line: #c94b4b;
+  --red-text: #8a1c1c;
+
+  /* Only ever the client's side of a sending — never a pool, never a total. */
+  --blue-bg: #e6edf7;
+  --blue-line: #7d9fcb;
+  --blue-text: #1c3f6e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+a {
+  color: #14539a;
+}
+
+/* ------------------------------------------------------------------ layout */
+
+.shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+}
+
+.topbar .brand {
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.topbar nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.topbar nav a {
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.topbar .spacer {
+  flex: 1;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 14px;
+}
+
+h2 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------- cards */
+
+.stat {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 14px;
+}
+
+.stat .label {
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat .value {
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat.negative {
+  background: var(--red-bg);
+  border-color: var(--red-line);
+}
+
+.stat.negative .value,
+.stat.negative .label {
+  color: var(--red-text);
+}
+
+.big-number {
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  border-bottom: 2px solid var(--line);
+}
+
+td.num,
+th.num {
+  text-align: right;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+tr.depleted td {
+  color: #9aa0a6;
+}
+
+/* Status colouring: amber = waiting on him, green = done, red = trouble. */
+tr.row-pending,
+tr.row-pendiente {
+  background: var(--amber-bg);
+}
+
+tr.row-paid,
+tr.row-retirado {
+  background: var(--green-bg);
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.pending,
+.badge.pendiente {
+  background: var(--amber-bg);
+  border-color: var(--amber-line);
+  color: var(--amber-text);
+}
+
+.badge.paid,
+.badge.retirado {
+  background: var(--green-bg);
+  border-color: var(--green-line);
+  color: var(--green-text);
+}
+
+/*
+  The CLIENT's side of a sending: did he pay Jose here in Spain. Blue and grey on
+  purpose — amber and green already mean "has Jose paid the beneficiary", and the
+  two questions sit four columns apart in the same row. Same shape, different
+  colours, different words.
+*/
+.badge.cobrado {
+  background: var(--blue-bg);
+  border-color: var(--blue-line);
+  color: var(--blue-text);
+}
+
+.badge.sin-cobrar {
+  background: #eef0f2;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------- forms */
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="search"],
+input[type="datetime-local"],
+select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+}
+
+input:disabled,
+input[readonly] {
+  background: #eef0f2;
+  color: var(--muted);
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  background: #e9ebef;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button.primary {
+  background: #1c3f6e;
+  border-color: #1c3f6e;
+  color: #fff;
+}
+
+button.link {
+  background: none;
+  border: none;
+  color: #14539a;
+  text-decoration: underline;
+  padding: 0;
+}
+
+button.small {
+  padding: 2px 8px;
+  font-size: 13px;
+}
+
+/* Only ever the second click: the confirm step of a delete. */
+button.danger {
+  background: var(--red-bg);
+  border-color: var(--red-line);
+  color: var(--red-text);
+}
+
+/* --------------------------------------------------- pending sending actions */
+
+/* The last cell of a sending row: pay buttons on top, edit under them. */
+.row-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pay-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.pay-actions form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pay-actions .pay-direct input[type="text"] {
+  width: 120px;
+  padding: 2px 6px;
+}
+
+.pay-actions .pay-error,
+.edit-sending .pay-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-text);
+}
+
+/* ------------------------------------------------------ the client's payment */
+
+/*
+  "Cliente pagó": the same reveal-a-confirm shape as the two above, and stacked
+  under them in the same cell — but it settles the OTHER side of the row and
+  moves no money, so it never gets the primary colour until the confirm step.
+  Wraps instead of widening: the método picker plus a código picker is more than
+  a table cell has room for.
+*/
+.client-paid {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 260px;
+}
+
+.client-paid.open {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.client-paid select,
+.client-paid input[type="text"] {
+  width: auto;
+  max-width: 240px;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+
+.client-paid .muted,
+.client-paid .pay-error {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.client-paid .pay-error {
+  font-weight: 600;
+  color: var(--red-text);
+}
+
+/* --------------------------------------------------------- deleting a row */
+
+/* Sits in the last table cell of every list, so it stays narrow. */
+.delete-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 230px;
+}
+
+.delete-row form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.delete-row .muted {
+  margin: 0;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* A refusal is a whole sentence, so let it wrap instead of stretching the cell. */
+.delete-row .pay-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-text);
+  text-align: left;
+  white-space: normal;
+}
+
+/* ------------------------------------------------- editing a logged sending */
+
+/* Sits in the last table cell, so it stays narrow and stacks its fields. */
+.edit-sending.open {
+  display: block;
+  min-width: 190px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 8px;
+}
+
+.edit-sending .edit-field {
+  margin-bottom: 6px;
+}
+
+.edit-sending .edit-field label {
+  font-size: 12px;
+}
+
+.edit-sending input[type="text"],
+.edit-sending select {
+  padding: 2px 6px;
+  font-size: 13px;
+}
+
+.edit-sending .muted {
+  margin: 0 0 6px;
+}
+
+/* A paid sending shows its money fields frozen rather than hiding them. */
+.edit-sending select:disabled {
+  background: #eef0f2;
+  color: var(--muted);
+}
+
+.edit-sending .edit-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+/* ----------------------------------------------------------------- notices */
+
+.notice {
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.notice.ok {
+  background: var(--green-bg);
+  border-color: var(--green-line);
+  color: var(--green-text);
+}
+
+.notice.warn {
+  background: var(--amber-bg);
+  border-color: var(--amber-line);
+  color: var(--amber-text);
+}
+
+.notice.error {
+  background: var(--red-bg);
+  border-color: var(--red-line);
+  color: var(--red-text);
+}
+
+/* ------------------------------------------------------------ client picker */
+
+.picker {
+  position: relative;
+}
+
+.picker .results {
+  border: 1px solid var(--line);
+  border-top: none;
+  background: #fff;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.picker .results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  padding: 6px 8px;
+  font-weight: 400;
+}
+
+.picker .results button:hover {
+  background: #eef2f7;
+}
+
+.picker .chosen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 6px 8px;
+}
+
+.picker .chosen .name {
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- login page */
+
+.login-wrap {
+  max-width: 320px;
+  margin: 80px auto;
+}
