@@ -49,6 +49,7 @@ export async function crearCompraAction(
     });
     revalidatePath('/');
     revalidatePath('/compras');
+    revalidatePath('/stats');
     return {
       ok: {
         eurPaid,
@@ -80,6 +81,7 @@ export async function eliminarCompraAction(
     await deleteCompra(purchaseId);
     revalidatePath('/');
     revalidatePath('/compras');
+    revalidatePath('/stats');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo eliminar la compra.' };

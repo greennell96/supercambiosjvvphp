@@ -34,6 +34,7 @@ import type {
   CurrentRates,
   PaidVia,
   Sending,
+  StatsSnapshot,
   VesSale,
 } from './types';
 
@@ -1341,4 +1342,313 @@ export async function getDashboardTotals(): Promise<DashboardTotals> {
     pendingSendingsCount: Number(pending.count),
     pendingCodigosCount: Number(codigos.count),
   };
+}
+
+/* -------------------------------------------------------------------- stats */
+
+type RawStatsPeriod = {
+  period: string;
+  paid_count: string;
+  revenue_eur: string;
+  cost_eur: string;
+  profit_eur: string;
+  ves_paid: string;
+  usdt_used: string;
+  pool_count: string;
+  direct_count: string;
+};
+
+function toStatsPeriod(row: RawStatsPeriod) {
+  return {
+    period: row.period,
+    paid_count: Number(row.paid_count),
+    revenue_eur: num(row.revenue_eur),
+    cost_eur: num(row.cost_eur),
+    profit_eur: num(row.profit_eur),
+    ves_paid: num(row.ves_paid),
+    usdt_used: num(row.usdt_used),
+    pool_count: Number(row.pool_count),
+    direct_count: Number(row.direct_count),
+  };
+}
+
+/**
+ * A read-only financial and operational snapshot.
+ *
+ * Profit is realized only from paid sendings and grouped by paid_at in Jose's
+ * Europe/Madrid business day. Client receivables, pending beneficiary payouts,
+ * codigos and direct-EUR inventory liabilities remain separate: none of them is
+ * silently added to or subtracted from realized earnings.
+ */
+export async function getStats(): Promise<StatsSnapshot> {
+  const sql = getSql();
+
+  return sql.begin('isolation level repeatable read read only', async (tx) => {
+    const [
+      [current],
+      [earnings],
+      monthlyRows,
+      dailyRows,
+      fundingRows,
+      [inventory],
+      clientRows,
+      codeBankRows,
+      [warning],
+    ] = await Promise.all([
+      tx<
+        {
+          crypto_balance_usdt: string;
+          ves_pool_balance: string;
+          pending_payout_ves: string;
+          pending_payout_count: string;
+          uncollected_eur: string;
+          uncollected_count: string;
+          pending_codes_eur: string;
+          pending_codes_count: string;
+          unsettled_ves_eur: string;
+          unsettled_ves_eur_count: string;
+        }[]
+      >`
+      select
+        coalesce((select sum(remaining_usdt) from crypto_purchases), 0)
+          as crypto_balance_usdt,
+        coalesce((select sum(remaining_ves) from ves_sales), 0)
+          as ves_pool_balance,
+        coalesce((select sum(amount_ves_to_pay) from sendings where status = 'pending'), 0)
+          as pending_payout_ves,
+        (select count(*) from sendings where status = 'pending')
+          as pending_payout_count,
+        coalesce((select sum(amount_eur) from sendings where client_paid_at is null), 0)
+          as uncollected_eur,
+        (select count(*) from sendings where client_paid_at is null)
+          as uncollected_count,
+        coalesce((select sum(amount) from codigos where status = 'pendiente'), 0)
+          as pending_codes_eur,
+        (select count(*) from codigos where status = 'pendiente')
+          as pending_codes_count,
+        coalesce((
+          select sum(eur_amount) from ves_sales
+          where source_type = 'ves_to_eur' and eur_settled_at is null
+        ), 0) as unsettled_ves_eur,
+        (select count(*) from ves_sales
+          where source_type = 'ves_to_eur' and eur_settled_at is null)
+          as unsettled_ves_eur_count
+    `,
+      tx<
+        {
+          revenue_eur: string;
+          cost_eur: string;
+          profit_eur: string;
+          paid_count: string;
+          today_profit_eur: string;
+          month_profit_eur: string;
+          negative_profit_count: string;
+        }[]
+      >`
+      select
+        coalesce(sum(amount_eur), 0) as revenue_eur,
+        coalesce(sum(cost_eur), 0) as cost_eur,
+        coalesce(sum(profit_eur), 0) as profit_eur,
+        count(*) as paid_count,
+        coalesce(sum(profit_eur) filter (
+          where (paid_at at time zone 'Europe/Madrid')::date =
+                (now() at time zone 'Europe/Madrid')::date
+        ), 0) as today_profit_eur,
+        coalesce(sum(profit_eur) filter (
+          where date_trunc('month', paid_at at time zone 'Europe/Madrid') =
+                date_trunc('month', now() at time zone 'Europe/Madrid')
+        ), 0) as month_profit_eur,
+        count(*) filter (where profit_eur < 0) as negative_profit_count
+      from sendings
+      where status = 'paid' and paid_at is not null and profit_eur is not null
+    `,
+      tx<RawStatsPeriod[]>`
+      select
+        to_char(paid_at at time zone 'Europe/Madrid', 'YYYY-MM') as period,
+        count(*) as paid_count,
+        coalesce(sum(amount_eur), 0) as revenue_eur,
+        coalesce(sum(cost_eur), 0) as cost_eur,
+        coalesce(sum(profit_eur), 0) as profit_eur,
+        coalesce(sum(amount_ves_to_pay), 0) as ves_paid,
+        coalesce(sum(usdt_used), 0) as usdt_used,
+        count(*) filter (where paid_via = 'pool') as pool_count,
+        count(*) filter (where paid_via = 'direct') as direct_count
+      from sendings
+      where status = 'paid' and paid_at is not null and profit_eur is not null
+      group by 1
+      order by 1 desc
+      limit 12
+    `,
+      tx<RawStatsPeriod[]>`
+      select
+        to_char(paid_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') as period,
+        count(*) as paid_count,
+        coalesce(sum(amount_eur), 0) as revenue_eur,
+        coalesce(sum(cost_eur), 0) as cost_eur,
+        coalesce(sum(profit_eur), 0) as profit_eur,
+        coalesce(sum(amount_ves_to_pay), 0) as ves_paid,
+        coalesce(sum(usdt_used), 0) as usdt_used,
+        count(*) filter (where paid_via = 'pool') as pool_count,
+        count(*) filter (where paid_via = 'direct') as direct_count
+      from sendings
+      where status = 'paid' and paid_at is not null and profit_eur is not null
+      group by 1
+      order by 1 desc
+      limit 14
+    `,
+      tx<
+        {
+          paid_via: PaidVia;
+          paid_count: string;
+          revenue_eur: string;
+          cost_eur: string;
+          profit_eur: string;
+        }[]
+      >`
+      select paid_via, count(*) as paid_count,
+             coalesce(sum(amount_eur), 0) as revenue_eur,
+             coalesce(sum(cost_eur), 0) as cost_eur,
+             coalesce(sum(profit_eur), 0) as profit_eur
+      from sendings
+      where status = 'paid' and paid_via is not null and profit_eur is not null
+      group by paid_via
+      order by paid_via
+    `,
+      tx<
+        {
+          purchase_eur: string;
+          purchased_usdt: string;
+          weighted_purchase_price: string | null;
+          binance_ves: string;
+          binance_usdt: string;
+          binance_eur_cost: string;
+          direct_ves: string;
+          direct_eur_cost: string;
+          active_usdt_lots: string;
+          active_ves_lots: string;
+          backordered_usdt_lots: string;
+          backordered_ves_lots: string;
+        }[]
+      >`
+      select
+        coalesce((select sum(eur_paid) from crypto_purchases), 0) as purchase_eur,
+        coalesce((select sum(usdt_received) from crypto_purchases), 0) as purchased_usdt,
+        (select case when sum(usdt_received) > 0
+          then sum(eur_paid) / sum(usdt_received) else null end from crypto_purchases)
+          as weighted_purchase_price,
+        coalesce((select sum(ves_received) from ves_sales where source_type = 'binance'), 0)
+          as binance_ves,
+        coalesce((select sum(usdt_sold) from ves_sales where source_type = 'binance'), 0)
+          as binance_usdt,
+        coalesce((select sum(eur_cost) from ves_sales where source_type = 'binance'), 0)
+          as binance_eur_cost,
+        coalesce((select sum(ves_received) from ves_sales where source_type = 'ves_to_eur'), 0)
+          as direct_ves,
+        coalesce((select sum(eur_amount) from ves_sales where source_type = 'ves_to_eur'), 0)
+          as direct_eur_cost,
+        (select count(*) from crypto_purchases where remaining_usdt > 0) as active_usdt_lots,
+        (select count(*) from ves_sales where remaining_ves > 0) as active_ves_lots,
+        (select count(*) from crypto_purchases where remaining_usdt < 0)
+          as backordered_usdt_lots,
+        (select count(*) from ves_sales where remaining_ves < 0)
+          as backordered_ves_lots
+    `,
+      tx<
+        {
+          client_id: number;
+          client_name: string;
+          paid_count: string;
+          revenue_eur: string;
+          profit_eur: string;
+        }[]
+      >`
+      select c.id as client_id, c.name as client_name, count(*) as paid_count,
+             coalesce(sum(s.amount_eur), 0) as revenue_eur,
+             coalesce(sum(s.profit_eur), 0) as profit_eur
+      from sendings s
+      join clients c on c.id = s.client_id
+      where s.status = 'paid' and s.profit_eur is not null
+      group by c.id, c.name
+      order by profit_eur desc, revenue_eur desc, lower(c.name)
+      limit 8
+    `,
+      tx<{ bank: string; pending_count: string; amount_eur: string }[]>`
+      select bank, count(*) as pending_count, coalesce(sum(amount), 0) as amount_eur
+      from codigos
+      where status = 'pendiente'
+      group by bank
+      order by amount_eur desc, lower(bank)
+    `,
+      tx<{ count: string }[]>`
+      select count(distinct a.sending_id) as count
+      from sending_ves_allocations a
+      join ves_sales v on v.id = a.ves_sale_id
+      join sendings s on s.id = a.sending_id
+      where s.status = 'paid' and v.eur_cost = 0
+    `,
+    ]);
+
+    return {
+      current: {
+        crypto_balance_usdt: num(current.crypto_balance_usdt),
+        ves_pool_balance: num(current.ves_pool_balance),
+        pending_payout_ves: num(current.pending_payout_ves),
+        pending_payout_count: Number(current.pending_payout_count),
+        uncollected_eur: num(current.uncollected_eur),
+        uncollected_count: Number(current.uncollected_count),
+        pending_codes_eur: num(current.pending_codes_eur),
+        pending_codes_count: Number(current.pending_codes_count),
+        unsettled_ves_eur: num(current.unsettled_ves_eur),
+        unsettled_ves_eur_count: Number(current.unsettled_ves_eur_count),
+      },
+      earnings: {
+        revenue_eur: num(earnings.revenue_eur),
+        cost_eur: num(earnings.cost_eur),
+        profit_eur: num(earnings.profit_eur),
+        paid_count: Number(earnings.paid_count),
+        today_profit_eur: num(earnings.today_profit_eur),
+        month_profit_eur: num(earnings.month_profit_eur),
+        negative_profit_count: Number(earnings.negative_profit_count),
+      },
+      inventory: {
+        purchase_eur: num(inventory.purchase_eur),
+        purchased_usdt: num(inventory.purchased_usdt),
+        weighted_purchase_price:
+          inventory.weighted_purchase_price === null
+            ? null
+            : num(inventory.weighted_purchase_price),
+        binance_ves: num(inventory.binance_ves),
+        binance_usdt: num(inventory.binance_usdt),
+        binance_eur_cost: num(inventory.binance_eur_cost),
+        direct_ves: num(inventory.direct_ves),
+        direct_eur_cost: num(inventory.direct_eur_cost),
+        active_usdt_lots: Number(inventory.active_usdt_lots),
+        active_ves_lots: Number(inventory.active_ves_lots),
+        backordered_usdt_lots: Number(inventory.backordered_usdt_lots),
+        backordered_ves_lots: Number(inventory.backordered_ves_lots),
+      },
+      monthly: monthlyRows.map(toStatsPeriod),
+      daily: dailyRows.map(toStatsPeriod),
+      funding: fundingRows.map((row) => ({
+        paid_via: row.paid_via,
+        paid_count: Number(row.paid_count),
+        revenue_eur: num(row.revenue_eur),
+        cost_eur: num(row.cost_eur),
+        profit_eur: num(row.profit_eur),
+      })),
+      top_clients: clientRows.map((row) => ({
+        client_id: id(row.client_id),
+        client_name: row.client_name,
+        paid_count: Number(row.paid_count),
+        revenue_eur: num(row.revenue_eur),
+        profit_eur: num(row.profit_eur),
+      })),
+      pending_codes_by_bank: codeBankRows.map((row) => ({
+        bank: row.bank,
+        pending_count: Number(row.pending_count),
+        amount_eur: num(row.amount_eur),
+      })),
+      zero_cost_paid_sendings: Number(warning.count),
+    };
+  });
 }

@@ -27,6 +27,7 @@ function revalidateEverything(): void {
   revalidatePath('/codigos');
   revalidatePath('/compras');
   revalidatePath('/ventas');
+  revalidatePath('/stats');
 }
 
 export interface PayState {
@@ -150,6 +151,7 @@ export async function markCodigoRetiradoAction(formData: FormData): Promise<void
   await markCodigoRetirado(codigoId);
   revalidatePath('/');
   revalidatePath('/codigos');
+  revalidatePath('/stats');
 }
 
 export interface RatesState {

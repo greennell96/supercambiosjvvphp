@@ -27,8 +27,8 @@ export default function PaySendingActions({ sendingId }: { sendingId: number }) 
     <div className="pay-actions">
       <form action={poolAction}>
         <input type="hidden" name="id" value={sendingId} />
-        <button className="small" type="submit" disabled={poolPending}>
-          Marcar pagado (pool)
+        <button className="small action-primary" type="submit" disabled={poolPending}>
+          {poolPending ? 'Pagando…' : 'Pagar desde pool'}
         </button>
       </form>
 
@@ -42,16 +42,16 @@ export default function PaySendingActions({ sendingId }: { sendingId: number }) 
             placeholder="USDT vendidos"
             autoFocus
           />
-          <button className="small primary" type="submit" disabled={directPending}>
-            Pagar directo
+          <button className="small action-primary" type="submit" disabled={directPending}>
+            {directPending ? 'Pagando…' : 'Confirmar directo'}
           </button>
-          <button className="small" type="button" onClick={() => setShowDirect(false)}>
+          <button className="small quiet" type="button" onClick={() => setShowDirect(false)}>
             Cancelar
           </button>
         </form>
       ) : (
-        <button className="small" type="button" onClick={() => setShowDirect(true)}>
-          Marcar pagado (directo)
+        <button className="small secondary" type="button" onClick={() => setShowDirect(true)}>
+          Pagar directo
         </button>
       )}
 

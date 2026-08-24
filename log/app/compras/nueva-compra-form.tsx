@@ -30,7 +30,7 @@ export default function NuevaCompraForm() {
   }, [state.ok]);
 
   return (
-    <form ref={formRef} action={formAction} className="panel">
+    <form ref={formRef} action={formAction} className="panel" aria-busy={pending}>
       <h2>Registrar compra de cripto</h2>
       {state.error ? <p className="notice error">{state.error}</p> : null}
       {state.ok ? (
@@ -75,9 +75,9 @@ export default function NuevaCompraForm() {
             onChange={(event) => setDefaultDate(event.target.value)}
           />
         </div>
-        <div>
+        <div className="form-actions">
           <button className="primary" type="submit" disabled={pending}>
-            Registrar compra
+            {pending ? 'Registrando…' : 'Registrar compra'}
           </button>
         </div>
       </div>

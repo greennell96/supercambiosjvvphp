@@ -32,6 +32,7 @@ export async function guardarClienteAction(
     revalidatePath('/clientes');
     revalidatePath('/envios');
     revalidatePath('/codigos');
+    revalidatePath('/stats');
     return { ok: { name, created: !id } };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo guardar el cliente.' };

@@ -74,6 +74,7 @@ export async function crearVentaAction(
       });
       revalidatePath('/');
       revalidatePath('/ventas');
+      revalidatePath('/stats');
       return {
         ok: {
           sourceType,
@@ -98,6 +99,7 @@ export async function crearVentaAction(
     });
     revalidatePath('/');
     revalidatePath('/ventas');
+    revalidatePath('/stats');
     return {
       ok: {
         sourceType,
@@ -122,6 +124,7 @@ export async function marcarEurPagadoAction(
   try {
     await markVesToEurSettled(saleId);
     revalidatePath('/ventas');
+    revalidatePath('/stats');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo marcar como pagado.' };
@@ -148,6 +151,7 @@ export async function eliminarVentaAction(
     revalidatePath('/');
     revalidatePath('/ventas');
     revalidatePath('/compras');
+    revalidatePath('/stats');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo eliminar la venta.' };

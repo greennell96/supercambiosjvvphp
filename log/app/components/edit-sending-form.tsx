@@ -51,7 +51,7 @@ export default function EditSendingForm({ sending }: { sending: EditableSending 
   if (!open) {
     return (
       <div className="edit-sending">
-        <button className="small" type="button" onClick={() => setOpen(true)}>
+        <button className="small secondary" type="button" onClick={() => setOpen(true)}>
           Editar
         </button>
         {state.error ? <p className="pay-error">{state.error}</p> : null}
@@ -131,9 +131,9 @@ export default function EditSendingForm({ sending }: { sending: EditableSending 
 
       <div className="edit-buttons">
         <button className="small primary" type="submit" disabled={pending}>
-          Guardar
+          {pending ? 'Guardando…' : 'Guardar'}
         </button>
-        <button className="small" type="button" onClick={() => setOpen(false)}>
+        <button className="small quiet" type="button" onClick={() => setOpen(false)}>
           Cancelar
         </button>
       </div>

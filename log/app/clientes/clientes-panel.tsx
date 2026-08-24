@@ -46,7 +46,13 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
 
   return (
     <>
-      <form ref={formRef} action={formAction} className="panel" key={editing?.id ?? 'new'}>
+      <form
+        ref={formRef}
+        action={formAction}
+        className="panel"
+        key={editing?.id ?? 'new'}
+        aria-busy={pending}
+      >
         <h2>{editing ? `Editar: ${editing.name}` : 'Añadir cliente'}</h2>
         {state.error ? <p className="notice error">{state.error}</p> : null}
         {state.ok ? (
@@ -93,12 +99,12 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
             <label htmlFor="dni_nie">DNI / NIE</label>
             <input id="dni_nie" name="dni_nie" type="text" defaultValue={editing?.dni_nie ?? ''} />
           </div>
-          <div>
+          <div className="form-actions">
             <button className="primary" type="submit" disabled={pending}>
-              {editing ? 'Guardar cambios' : 'Añadir cliente'}
+              {pending ? 'Guardando…' : editing ? 'Guardar cambios' : 'Añadir cliente'}
             </button>{' '}
             {editing ? (
-              <button type="button" onClick={() => setEditing(null)}>
+              <button className="quiet" type="button" onClick={() => setEditing(null)}>
                 Cancelar
               </button>
             ) : null}
@@ -130,7 +136,7 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
                 <th>Teléfono</th>
                 <th>Bancos</th>
                 <th>DNI / NIE</th>
-                <th />
+                <th className="actions-heading">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -144,7 +150,7 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
                   <td data-label="DNI / NIE">{c.dni_nie ?? '—'}</td>
                   <td className="num" data-label="Acción" data-wide>
                     <button
-                      className="small"
+                      className="small secondary"
                       type="button"
                       onClick={() => {
                         setEditing(c);

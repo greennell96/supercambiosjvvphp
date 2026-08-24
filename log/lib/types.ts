@@ -156,3 +156,82 @@ export interface Codigo {
   sending_client_name: string | null;
   sending_amount_eur: number | null;
 }
+
+/** One realized earnings bucket, grouped by paid_at in Europe/Madrid. */
+export interface StatsPeriod {
+  period: string;
+  paid_count: number;
+  revenue_eur: number;
+  cost_eur: number;
+  profit_eur: number;
+  ves_paid: number;
+  usdt_used: number;
+  pool_count: number;
+  direct_count: number;
+}
+
+export interface StatsFunding {
+  paid_via: PaidVia;
+  paid_count: number;
+  revenue_eur: number;
+  cost_eur: number;
+  profit_eur: number;
+}
+
+export interface StatsClient {
+  client_id: number;
+  client_name: string;
+  paid_count: number;
+  revenue_eur: number;
+  profit_eur: number;
+}
+
+export interface StatsCodeBank {
+  bank: string;
+  pending_count: number;
+  amount_eur: number;
+}
+
+export interface StatsSnapshot {
+  current: {
+    crypto_balance_usdt: number;
+    ves_pool_balance: number;
+    pending_payout_ves: number;
+    pending_payout_count: number;
+    uncollected_eur: number;
+    uncollected_count: number;
+    pending_codes_eur: number;
+    pending_codes_count: number;
+    unsettled_ves_eur: number;
+    unsettled_ves_eur_count: number;
+  };
+  earnings: {
+    revenue_eur: number;
+    cost_eur: number;
+    profit_eur: number;
+    paid_count: number;
+    today_profit_eur: number;
+    month_profit_eur: number;
+    negative_profit_count: number;
+  };
+  inventory: {
+    purchase_eur: number;
+    purchased_usdt: number;
+    weighted_purchase_price: number | null;
+    binance_ves: number;
+    binance_usdt: number;
+    binance_eur_cost: number;
+    direct_ves: number;
+    direct_eur_cost: number;
+    active_usdt_lots: number;
+    active_ves_lots: number;
+    backordered_usdt_lots: number;
+    backordered_ves_lots: number;
+  };
+  monthly: StatsPeriod[];
+  daily: StatsPeriod[];
+  funding: StatsFunding[];
+  top_clients: StatsClient[];
+  pending_codes_by_bank: StatsCodeBank[];
+  zero_cost_paid_sendings: number;
+}

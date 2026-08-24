@@ -47,7 +47,7 @@ export default async function EnviosPage() {
                   <th className="num">Costo</th>
                   <th className="num">Ganancia</th>
                   <th>Estado</th>
-                  <th />
+                  <th className="actions-heading">Acciones</th>
                 </tr>
               </thead>
               <tbody>

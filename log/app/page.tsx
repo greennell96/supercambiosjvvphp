@@ -78,7 +78,7 @@ export default async function DashboardPage() {
                   <th>Método</th>
                   <th>Cómo pagó</th>
                   <th>Fecha</th>
-                  <th />
+                  <th className="actions-heading">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
                   <th className="num">Monto</th>
                   <th>Banco</th>
                   <th>Fecha</th>
-                  <th />
+                  <th className="actions-heading">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,7 +146,7 @@ export default async function DashboardPage() {
                     <td className="num" data-label="Acción" data-wide>
                       <form action={markCodigoRetiradoAction}>
                         <input type="hidden" name="id" value={c.id} />
-                        <button className="small" type="submit">
+                        <button className="small action-success" type="submit">
                           Marcar retirado
                         </button>
                       </form>

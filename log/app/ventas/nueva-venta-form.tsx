@@ -31,7 +31,7 @@ export default function NuevaVentaForm() {
   }, [state.ok]);
 
   return (
-    <form ref={formRef} action={formAction} className="panel">
+    <form ref={formRef} action={formAction} className="panel" aria-busy={pending}>
       <h2>Registrar entrada de bolívares</h2>
       {state.error ? <p className="notice error">{state.error}</p> : null}
       {state.ok ? (
@@ -125,7 +125,7 @@ export default function NuevaVentaForm() {
             onChange={(event) => setDefaultDate(event.target.value)}
           />
         </div>
-        <div>
+        <div className="form-actions">
           <button className="primary" type="submit" disabled={pending}>
             {pending ? 'Guardando…' : 'Registrar entrada'}
           </button>

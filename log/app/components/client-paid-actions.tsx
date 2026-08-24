@@ -67,7 +67,7 @@ export default function ClientPaidActions({
   if (!open) {
     return (
       <div className="client-paid">
-        <button className="small" type="button" onClick={() => setOpen(true)}>
+        <button className="small action-info" type="button" onClick={() => setOpen(true)}>
           Cliente pagó
         </button>
         {state.error ? <p className="pay-error">{state.error}</p> : null}
@@ -115,10 +115,10 @@ export default function ClientPaidActions({
         />
       ) : null}
 
-      <button className="small primary" type="submit" disabled={pending || !method}>
-        Confirmar cobro
+      <button className="small action-info" type="submit" disabled={pending || !method}>
+        {pending ? 'Guardando…' : 'Confirmar cobro'}
       </button>
-      <button className="small" type="button" onClick={() => setOpen(false)}>
+      <button className="small quiet" type="button" onClick={() => setOpen(false)}>
         Cancelar
       </button>
 

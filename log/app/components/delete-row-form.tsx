@@ -42,12 +42,12 @@ export default function DeleteRowForm({
           <button className="small danger" type="submit" disabled={pending}>
             Confirmar
           </button>
-          <button className="small" type="button" onClick={() => setConfirming(false)}>
+          <button className="small quiet" type="button" onClick={() => setConfirming(false)}>
             Cancelar
           </button>
         </form>
       ) : (
-        <button className="small" type="button" onClick={() => setConfirming(true)}>
+        <button className="small danger-trigger" type="button" onClick={() => setConfirming(true)}>
           {label}
         </button>
       )}

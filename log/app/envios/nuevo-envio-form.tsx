@@ -52,7 +52,7 @@ export default function NuevoEnvioForm({
     <>
       {state.result ? <Confirmation result={state.result} /> : null}
 
-      <form ref={formRef} action={formAction} className="panel">
+      <form ref={formRef} action={formAction} className="panel" aria-busy={pending}>
         <h2>Nuevo envío</h2>
         {state.error ? <p className="notice error">{state.error}</p> : null}
 
@@ -90,9 +90,9 @@ export default function NuevoEnvioForm({
               ))}
             </select>
           </div>
-          <div>
+          <div className="form-actions">
             <button className="primary" type="submit" disabled={pending || !client}>
-              Registrar envío
+              {pending ? 'Registrando…' : 'Registrar envío'}
             </button>
           </div>
         </div>

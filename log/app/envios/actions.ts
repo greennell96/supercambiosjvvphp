@@ -44,6 +44,7 @@ export async function crearEnvioAction(
     });
     revalidatePath('/');
     revalidatePath('/envios');
+    revalidatePath('/stats');
     return { result };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar el envío.' };
@@ -92,6 +93,7 @@ export async function clientePagoAction(
     revalidatePath('/envios');
     // A linked codigo now points at this sending, so its list changes too.
     revalidatePath('/codigos');
+    revalidatePath('/stats');
     return { savedAt: Date.now() };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo guardar el cobro.' };
@@ -120,6 +122,7 @@ export async function eliminarEnvioAction(
     revalidatePath('/codigos');
     revalidatePath('/compras');
     revalidatePath('/ventas');
+    revalidatePath('/stats');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo eliminar el envío.' };

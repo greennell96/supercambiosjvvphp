@@ -37,8 +37,8 @@ export default async function CodigosPage() {
                   <th>Banco</th>
                   <th>Envío</th>
                   <th>Estado</th>
-                  <th />
-                  <th />
+                  <th className="actions-heading">Retiro</th>
+                  <th className="actions-heading">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -93,7 +93,7 @@ export default async function CodigosPage() {
                       {c.status === 'pendiente' ? (
                         <form action={markCodigoRetiradoAction}>
                           <input type="hidden" name="id" value={c.id} />
-                          <button className="small" type="submit">
+                          <button className="small action-success" type="submit">
                             Marcar retirado
                           </button>
                         </form>

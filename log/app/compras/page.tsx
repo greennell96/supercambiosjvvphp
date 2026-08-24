@@ -39,7 +39,7 @@ export default async function ComprasPage() {
                   <th className="num">Precio EUR/USDT</th>
                   <th className="num">Disponible</th>
                   <th>Estado</th>
-                  <th />
+                  <th className="actions-heading">Acciones</th>
                 </tr>
               </thead>
               <tbody>

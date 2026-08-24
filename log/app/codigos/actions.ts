@@ -42,6 +42,7 @@ export async function crearCodigoAction(
     revalidatePath('/codigos');
     // The linked sending now says the client paid, so its list changes too.
     revalidatePath('/envios');
+    revalidatePath('/stats');
     return { ok: { code, amount, bank, linked: sendingId !== null } };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar el código.' };
@@ -68,6 +69,7 @@ export async function eliminarCodigoAction(
     revalidatePath('/');
     revalidatePath('/codigos');
     revalidatePath('/envios');
+    revalidatePath('/stats');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo eliminar el código.' };

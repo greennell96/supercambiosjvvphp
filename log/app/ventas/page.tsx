@@ -41,7 +41,7 @@ export default async function VentasPage() {
                   <th>Cliente / comentario</th>
                   <th>Pago EUR</th>
                   <th className="num">Disponible</th>
-                  <th />
+                  <th className="actions-heading">Acciones</th>
                 </tr>
               </thead>
               <tbody>

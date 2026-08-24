@@ -63,7 +63,7 @@ export default function NuevoCodigoForm({
   const linkable = openSendingsForClient(openSendings, client?.id ?? null);
 
   return (
-    <form ref={formRef} action={formAction} className="panel">
+    <form ref={formRef} action={formAction} className="panel" aria-busy={pending}>
       <h2>Nuevo código</h2>
       {state.error ? <p className="notice error">{state.error}</p> : null}
       {state.ok ? (
@@ -152,9 +152,9 @@ export default function NuevoCodigoForm({
           </div>
         ) : null}
 
-        <div>
+        <div className="form-actions">
           <button className="primary" type="submit" disabled={pending || !client}>
-            Registrar código
+            {pending ? 'Registrando…' : 'Registrar código'}
           </button>
         </div>
       </div>

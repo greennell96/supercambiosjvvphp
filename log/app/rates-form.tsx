@@ -14,7 +14,7 @@ export default function RatesForm({ tasa, updatedAt }: { tasa: number; updatedAt
   const [state, formAction, pending] = useActionState<RatesState, FormData>(updateRatesAction, {});
 
   return (
-    <form action={formAction}>
+    <form action={formAction} aria-busy={pending}>
       {state.error ? <p className="notice error">{state.error}</p> : null}
       {state.ok ? <p className="notice ok">Tasa sugerida actualizada.</p> : null}
       <div className="form-row">
@@ -28,9 +28,9 @@ export default function RatesForm({ tasa, updatedAt }: { tasa: number; updatedAt
             defaultValue={tasa || ''}
           />
         </div>
-        <div>
+        <div className="form-actions">
           <button className="primary" type="submit" disabled={pending}>
-            Guardar sugerencia
+            {pending ? 'Guardando…' : 'Guardar sugerencia'}
           </button>
         </div>
       </div>
