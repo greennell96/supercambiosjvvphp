@@ -14,8 +14,8 @@
  *     known. There are two ways it can happen:
  *
  *     (a) FROM THE POOL — he pays out of the bolivares already sitting in his
- *         Venezuelan account. Those bolivares came from selling USDT on Binance
- *         (the ves_sales pool), and that sale already paid for its USDT, so:
+ *         Venezuelan account. Those bolivares came from either a Binance sale
+ *         or a direct VES -> EUR exchange (the shared ves_sales pool), so:
  *
  *             vesToDraw = amountVesToPay, times 1.003 if the fee applies
  *             draw vesToDraw out of ves_sales (FIFO)
@@ -27,8 +27,9 @@
  *         costUsdtDraw and createVesSale in lib/queries.ts. Drawing them again
  *         at payout would spend the same USDT twice.
  *
- *         usdtUsed is still worked out, sum(vesDrawn / thatSalesPrice), but only
- *         as an audit figure: nothing is costed from it.
+ *         usdtUsed attributes only the share that came from Binance lots. VES
+ *         drawn from direct-EUR lots contributes zero. It remains an audit
+ *         figure only: nothing is costed from it.
  *
  *         The 0,3% is Jose's own interbank cost for moving pooled bolivares to
  *         a different destination bank. The beneficiary still receives exactly
@@ -48,7 +49,6 @@
 
 import {
   drawFifo,
-  sumAmountDividedByPrice,
   sumAmountTimesPrice,
   type Allocation,
   type Lot,
@@ -107,7 +107,7 @@ export function payoutMethodOptions(current: string | null | undefined): string[
 const EMPTY_USDT_POOL =
   'No hay compras de cripto registradas. Registra primero la compra de esos USDT.';
 const EMPTY_VES_POOL =
-  'No hay ventas de USDT registradas. Registra una venta en Ventas antes de pagar desde el pool.';
+  'No hay bolivares registrados. Registra una entrada en Ventas antes de pagar desde el pool.';
 
 /**
  * The 0,3% applies only to "Otro", and only when the sending is actually paid
@@ -227,10 +227,35 @@ export interface DirectPaymentResult extends PaymentOutcome {
  * which any part of it carries cost, whatever is left of it now.
  */
 export interface VesLot extends Lot {
-  /** What the USDT this sale gave up cost in EUR, fixed when it was logged. */
+  /** Binance lots contribute USDT to the audit figure; direct-EUR lots do not. */
+  sourceType: 'binance' | 'ves_to_eur';
+  /** Original Binance amount, or zero for a direct VES -> EUR lot. */
+  usdtSold: number;
+  /** Real Binance rate, or null when USDT was not involved. */
+  priceVesPerUsdt: number | null;
+  /** The complete EUR cost basis, fixed when the lot was logged. */
   eurCost: number;
   /** Bolivares the sale received: its original size, not its remaining balance. */
   vesReceived: number;
+}
+
+/**
+ * Attribute only the USDT that really created the drawn bolivares.
+ * Direct VES -> EUR lots contribute zero; mixed FIFO draws remain auditable.
+ */
+function usdtForVesDraw(allocations: Allocation[], vesLots: VesLot[]): number {
+  const byId = new Map(vesLots.map((lot) => [lot.id, lot]));
+
+  return allocations.reduce((total, allocation) => {
+    const lot = byId.get(allocation.lotId);
+    if (!lot) {
+      throw new Error('Una asignacion apunta a una venta que no esta en el pool.');
+    }
+    if (!(lot.vesReceived > 0)) {
+      throw new Error('Una venta tiene bolivares recibidos cero o negativos; no se puede auditar.');
+    }
+    return total + (allocation.amount * lot.usdtSold) / lot.vesReceived;
+  }, 0);
 }
 
 /** sum(bolivares drawn * that sale's EUR-cost-per-bolivar). */
@@ -254,7 +279,7 @@ export interface PoolPaymentInput {
   /** Snapshot already stored on the sending at creation time. */
   amountVesToPay: number;
   payoutMethod: string;
-  /** The ves_sales pool. price = VES per USDT. */
+  /** The shared VES FIFO pool, from Binance and direct VES -> EUR entries. */
   vesLots: VesLot[];
 }
 
@@ -262,7 +287,7 @@ export interface PoolPaymentInput {
  * (a) Pay out of the bolivares already in Jose's Venezuelan account.
  *
  * One draw only. The cost comes off the sales that funded the payout, because
- * each of them already paid for its own USDT.
+ * each source row already carries its complete EUR cost basis.
  */
 export function computePoolPayment(input: PoolPaymentInput): PoolPaymentResult {
   const { amountEur, amountVesToPay, payoutMethod, vesLots } = input;
@@ -275,9 +300,9 @@ export function computePoolPayment(input: PoolPaymentInput): PoolPaymentResult {
   const vesToDraw = computeVesToDraw(amountVesToPay, feeApplied);
 
   const vesDraw = drawFifo(vesLots, vesToDraw, { emptyPoolMessage: EMPTY_VES_POOL });
-  // Each VES lot knows what it cost in USDT, so dividing gives the USDT this
-  // payout really consumed. Kept for the audit trail only.
-  const usdtUsed = sumAmountDividedByPrice(vesDraw.allocations);
+  // Only Binance-sourced bolivares stand for USDT. A direct VES -> EUR lot
+  // contributes zero, including when one sending crosses both source types.
+  const usdtUsed = usdtForVesDraw(vesDraw.allocations, vesLots);
   const costEur = costVesDraw(vesDraw.allocations, vesLots);
 
   return {

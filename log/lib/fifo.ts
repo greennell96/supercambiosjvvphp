@@ -5,18 +5,21 @@
  * this one engine:
  *
  *   1. crypto_purchases — USDT bought. price = EUR per USDT ("precio izquierda")
- *   2. ves_sales        — VES received from selling USDT on Binance P2P.
- *                         price = VES per USDT ("precio derecha")
+ *   2. ves_sales        — VES received from Binance or a VES -> EUR exchange.
+ *                         price is the lot's source-native rate; VES cost and
+ *                         attribution are decided from source metadata by the
+ *                         caller rather than from this generic field.
  *
  * That is why nothing here is named after USDT, VES or EUR. A `Lot` is just
  * "some amount left, bought/received at some price, at some moment", and a draw
  * is "take this much out, oldest lot first".
  *
- * Because the two pools measure price in opposite directions, this module does
- * NOT decide what a draw costs. It hands back the allocations and lets the
- * caller pick:
+ * Because pools can measure price in different directions and units, this
+ * module does NOT decide what a draw costs. It hands back the allocations and
+ * lets the caller pick:
  *   - sumAmountTimesPrice     when price is "cost per unit drawn"  (USDT pool)
- *   - sumAmountDividedByPrice when price is "units drawn per unit" (VES pool)
+ *   - sumAmountDividedByPrice when price is "units drawn per unit" (legacy or
+ *                             single-source VES calculations)
  *
  * Everything here is pure: plain numbers in, plain numbers out. No database.
  */
@@ -34,7 +37,7 @@ export interface Lot {
   orderMs: number;
   /**
    * The lot's price. Its unit depends on the pool:
-   * EUR per USDT for crypto_purchases, VES per USDT for ves_sales.
+   * EUR per USDT for crypto_purchases; source-native for ves_sales.
    */
   price: number;
   /** How much of this lot is unspent. May be negative — see drawFifo. */

@@ -13,7 +13,11 @@ import type { TransactionSql } from 'postgres';
 
 import { getSql, id, num } from './db';
 import { applyIncomingToBackorders, type Lot } from './fifo';
-import { purchasePriceEurPerUsdt, salePriceVesPerUsdt } from './pools';
+import {
+  purchasePriceEurPerUsdt,
+  salePriceVesPerUsdt,
+  vesToEurPriceVesPerEur,
+} from './pools';
 import {
   computeDirectPayment,
   computeNewSending,
@@ -155,23 +159,29 @@ async function lockUsdtLots(tx: TransactionSql) {
 }
 
 /**
- * The VES pool, shaped for lib/fifo.ts. price = VES per USDT.
+ * The shared VES pool, shaped for lib/fifo.ts.
  *
  * ves_received and eur_cost travel with each lot because a payout is costed off
- * the sales it draws from, not off crypto_purchases. See computePoolPayment.
+ * the source rows it draws from, not off crypto_purchases. Binance rows also
+ * carry their original USDT amount for audit attribution; direct VES -> EUR
+ * rows carry zero and therefore never appear as USDT consumed by a sending.
  */
 async function lockVesLots(tx: TransactionSql) {
   const rows = await tx<
     {
       id: number;
       sold_at: Date;
-      price_ves_per_usdt: string;
+      source_type: 'binance' | 'ves_to_eur';
+      usdt_sold: string | null;
+      price_ves_per_usdt: string | null;
+      eur_amount: string | null;
       remaining_ves: string;
       ves_received: string;
       eur_cost: string;
     }[]
   >`
-    select id, sold_at, price_ves_per_usdt, remaining_ves, ves_received, eur_cost
+    select id, sold_at, source_type, usdt_sold, price_ves_per_usdt, eur_amount,
+           remaining_ves, ves_received, eur_cost
     from ves_sales
     order by sold_at, id
     for update
@@ -179,8 +189,19 @@ async function lockVesLots(tx: TransactionSql) {
   return rows.map<VesLot>((r) => ({
     id: id(r.id),
     orderMs: r.sold_at.getTime(),
-    price: num(r.price_ves_per_usdt),
+    // drawFifo carries the lot's own source-native rate through its generic
+    // Allocation: VES/USDT for Binance, VES/EUR for a direct exchange. The VES
+    // payout path does not mix those units; cost and USDT attribution below use
+    // the explicit source fields.
+    price:
+      r.source_type === 'binance'
+        ? num(r.price_ves_per_usdt)
+        : num(r.ves_received) / num(r.eur_amount),
     remaining: num(r.remaining_ves),
+    sourceType: r.source_type,
+    usdtSold: num(r.usdt_sold),
+    priceVesPerUsdt:
+      r.price_ves_per_usdt === null ? null : num(r.price_ves_per_usdt),
     vesReceived: num(r.ves_received),
     eurCost: num(r.eur_cost),
   }));
@@ -291,22 +312,32 @@ export async function listVesSales(): Promise<VesSale[]> {
     {
       id: number;
       sold_at: Date;
-      usdt_sold: string;
+      source_type: 'binance' | 'ves_to_eur';
+      usdt_sold: string | null;
       ves_received: string;
-      price_ves_per_usdt: string;
+      price_ves_per_usdt: string | null;
+      eur_amount: string | null;
+      note: string;
+      eur_settled_at: Date | null;
       remaining_ves: string;
     }[]
   >`
-    select id, sold_at, usdt_sold, ves_received, price_ves_per_usdt, remaining_ves
+    select id, sold_at, source_type, usdt_sold, ves_received, price_ves_per_usdt,
+           eur_amount, note, eur_settled_at, remaining_ves
     from ves_sales
     order by sold_at desc, id desc
   `;
   return rows.map((r) => ({
     id: id(r.id),
     sold_at: r.sold_at,
-    usdt_sold: num(r.usdt_sold),
+    source_type: r.source_type,
+    usdt_sold: r.usdt_sold === null ? null : num(r.usdt_sold),
     ves_received: num(r.ves_received),
-    price_ves_per_usdt: num(r.price_ves_per_usdt),
+    price_ves_per_usdt:
+      r.price_ves_per_usdt === null ? null : num(r.price_ves_per_usdt),
+    eur_amount: r.eur_amount === null ? null : num(r.eur_amount),
+    note: r.note,
+    eur_settled_at: r.eur_settled_at,
     remaining_ves: num(r.remaining_ves),
   }));
 }
@@ -355,10 +386,10 @@ export async function createVesSale(input: {
 
     const [row] = await tx<{ id: number }[]>`
       insert into ves_sales
-        (sold_at, usdt_sold, ves_received, price_ves_per_usdt, remaining_ves, eur_cost,
-         used_to_pay_backorders)
+        (sold_at, source_type, usdt_sold, ves_received, price_ves_per_usdt,
+         remaining_ves, eur_cost, used_to_pay_backorders)
       values
-        (${input.sold_at}, ${input.usdt_sold}, ${input.ves_received}, ${price},
+        (${input.sold_at}, 'binance', ${input.usdt_sold}, ${input.ves_received}, ${price},
          ${applied.remainingForNewLot}, ${cost.costEur}, ${applied.usedToPayBackorders})
       returning id
     `;
@@ -384,6 +415,69 @@ export async function createVesSale(input: {
 }
 
 /**
+ * Receive VES in exchange for an agreed EUR amount.
+ *
+ * The VES joins the same FIFO pool immediately, even when the EUR reminder is
+ * still pending. The full agreed EUR amount is its immutable cost basis. No
+ * USDT lot is locked, drawn or allocated anywhere in this transaction.
+ */
+export async function createVesToEur(input: {
+  eur_amount: number;
+  ves_received: number;
+  note: string;
+  eur_paid: boolean;
+  sold_at: Date;
+}): Promise<{
+  id: number;
+  priceVesPerEur: number;
+  usedToPayBackorders: number;
+  remainingForNewLot: number;
+}> {
+  const sql = getSql();
+  const price = vesToEurPriceVesPerEur(input.eur_amount, input.ves_received);
+
+  return sql.begin(async (tx) => {
+    const vesLots = await lockVesLots(tx);
+    const applied = applyIncomingToBackorders(vesLots, input.ves_received);
+
+    for (const update of applied.lotUpdates) {
+      await tx`update ves_sales set remaining_ves = ${update.remaining} where id = ${update.id}`;
+    }
+
+    const settledAt = input.eur_paid ? input.sold_at : null;
+    const [row] = await tx<{ id: number }[]>`
+      insert into ves_sales
+        (sold_at, source_type, usdt_sold, ves_received, price_ves_per_usdt,
+         remaining_ves, eur_cost, used_to_pay_backorders, eur_amount, note, eur_settled_at)
+      values
+        (${input.sold_at}, 'ves_to_eur', null, ${input.ves_received}, null,
+         ${applied.remainingForNewLot}, ${input.eur_amount}, ${applied.usedToPayBackorders},
+         ${input.eur_amount}, ${input.note}, ${settledAt})
+      returning id
+    `;
+
+    return {
+      id: id(row.id),
+      priceVesPerEur: price,
+      usedToPayBackorders: applied.usedToPayBackorders,
+      remainingForNewLot: applied.remainingForNewLot,
+    };
+  });
+}
+
+/** Settle only the personal EUR reminder. Inventory and cost never change. */
+export async function markVesToEurSettled(saleId: number): Promise<void> {
+  const sql = getSql();
+  const rows = await sql<{ id: number }[]>`
+    update ves_sales
+    set eur_settled_at = coalesce(eur_settled_at, now())
+    where id = ${saleId} and source_type = 'ves_to_eur'
+    returning id
+  `;
+  if (rows.length === 0) throw new Error('Entrada VES -> EUR no encontrada.');
+}
+
+/**
  * Delete a sale typed in by mistake.
  *
  * A sale sits in the middle of the chain, so deleting one has a side it must
@@ -392,10 +486,8 @@ export async function createVesSale(input: {
  *   refuse — if any sending was paid out of these bolivares, or if they are not
  *            all still here, or if the sale itself arrived into a hole and paid
  *            an older sale's debt. See ventaDeletionBlocker in lib/reversal.ts.
- *   undo   — the USDT this sale gave up. They left Binance when the sale was
- *            logged and were drawn out of crypto_purchases right then (see
- *            createVesSale), so they go straight back onto the very lots
- *            sale_lot_allocations says they came from.
+ *   undo   — for Binance rows, the USDT this sale gave up. A direct VES -> EUR
+ *            row has no USDT allocation and therefore restores none.
  *
  * The sale's own allocation rows go with it: sale_lot_allocations cascades.
  */
@@ -427,16 +519,18 @@ export async function deleteVenta(saleId: number): Promise<void> {
     const drawn = await tx<{ crypto_purchase_id: number; usdt_amount: string }[]>`
       select crypto_purchase_id, usdt_amount from sale_lot_allocations where ves_sale_id = ${saleId}
     `;
-    // Locked after the sale itself, the same order createVesSale takes them in.
-    const usdtLots = await lockUsdtLots(tx);
-    const updates = restoreDrawnAmounts(
-      usdtLots,
-      drawn.map((r) => ({ lotId: id(r.crypto_purchase_id), amount: num(r.usdt_amount) })),
-    );
-    for (const update of updates) {
-      await tx`
-        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
-      `;
+    if (drawn.length > 0) {
+      // Locked only for Binance rows, after the sale itself, matching creation.
+      const usdtLots = await lockUsdtLots(tx);
+      const updates = restoreDrawnAmounts(
+        usdtLots,
+        drawn.map((r) => ({ lotId: id(r.crypto_purchase_id), amount: num(r.usdt_amount) })),
+      );
+      for (const update of updates) {
+        await tx`
+          update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
+        `;
+      }
     }
 
     await tx`delete from ves_sales where id = ${saleId}`;
@@ -754,11 +848,17 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
       vesLots,
     });
 
+    const vesLotsById = new Map(vesLots.map((lot) => [lot.id, lot]));
+
     for (const allocation of payment.vesAllocations) {
+      const sourceLot = vesLotsById.get(allocation.lotId);
+      if (!sourceLot) throw new Error('No se encontro el origen de una asignacion VES.');
       await tx`
         insert into sending_ves_allocations
           (sending_id, ves_sale_id, ves_amount, price_ves_per_usdt)
-        values (${sendingId}, ${allocation.lotId}, ${allocation.amount}, ${allocation.price})
+        values
+          (${sendingId}, ${allocation.lotId}, ${allocation.amount},
+           ${sourceLot.priceVesPerUsdt})
       `;
     }
     for (const update of payment.vesLotUpdates) {

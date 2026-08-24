@@ -33,7 +33,31 @@ function vesLot(
   eurCost: number,
   vesReceived = remaining,
 ): VesLot {
-  return { ...lot(id, day, price, remaining), eurCost, vesReceived };
+  return {
+    ...lot(id, day, price, remaining),
+    sourceType: 'binance',
+    usdtSold: vesReceived / price,
+    priceVesPerUsdt: price,
+    eurCost,
+    vesReceived,
+  };
+}
+
+function directVesLot(
+  id: number,
+  day: number,
+  remaining: number,
+  eurCost: number,
+  vesReceived = remaining,
+): VesLot {
+  return {
+    ...lot(id, day, vesReceived / eurCost, remaining),
+    sourceType: 'ves_to_eur',
+    usdtSold: 0,
+    priceVesPerUsdt: null,
+    eurCost,
+    vesReceived,
+  };
 }
 
 /**
@@ -386,8 +410,42 @@ describe('computePoolPayment - blending sales and running short', () => {
   });
 });
 
+describe('computePoolPayment - direct VES -> EUR inventory', () => {
+  it('uses the agreed EUR amount as cost and attributes zero USDT', () => {
+    const result = computePoolPayment({
+      amountEur: 100,
+      amountVesToPay: 21000,
+      payoutMethod: 'Provincial',
+      vesLots: [directVesLot(1, 1, 100000, 100)],
+    });
+
+    // 21% of a 100 EUR / 100.000 VES lot.
+    expect(result.costEur).toBeCloseTo(21, 10);
+    expect(result.profitEur).toBeCloseTo(79, 10);
+    expect(result.usdtUsed).toBe(0);
+    expect(result.vesLotUpdates).toEqual([{ id: 1, remaining: 79000 }]);
+  });
+
+  it('keeps Binance USDT attribution separate across a mixed FIFO draw', () => {
+    const result = computePoolPayment({
+      amountEur: 100,
+      amountVesToPay: 21000,
+      payoutMethod: 'Provincial',
+      vesLots: [
+        vesLot(1, 1, 200, 10000, 45),
+        directVesLot(2, 2, 11000, 11),
+      ],
+    });
+
+    // The first 10.000 VES represent 50 USDT; the direct 11.000 represent none.
+    expect(result.usdtUsed).toBeCloseTo(50, 10);
+    expect(result.costEur).toBeCloseTo(56, 10);
+    expect(result.profitEur).toBeCloseTo(44, 10);
+  });
+});
+
 describe('computePoolPayment - guards', () => {
-  it('refuses when no Binance sale has been logged', () => {
+  it('refuses when no VES entry has been logged', () => {
     expect(() =>
       computePoolPayment({
         amountEur: AMOUNT_EUR,
@@ -395,7 +453,7 @@ describe('computePoolPayment - guards', () => {
         payoutMethod: 'Banesco',
         vesLots: [],
       }),
-    ).toThrow(/No hay ventas de USDT/i);
+    ).toThrow(/No hay bolivares registrados/i);
   });
 
   it('refuses a sending with nothing to pay', () => {

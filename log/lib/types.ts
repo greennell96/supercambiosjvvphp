@@ -20,13 +20,22 @@ export interface CryptoPurchase {
   remaining_usdt: number;
 }
 
-/** A lot in the VES pool. price = VES per USDT. */
+export type VesSaleSource = 'binance' | 'ves_to_eur';
+
+/**
+ * A lot in the VES pool. Binance rows came from USDT; VES -> EUR rows carry
+ * their agreed EUR cost directly and never touch the USDT pool.
+ */
 export interface VesSale {
   id: number;
   sold_at: Date;
-  usdt_sold: number;
+  source_type: VesSaleSource;
+  usdt_sold: number | null;
   ves_received: number;
-  price_ves_per_usdt: number;
+  price_ves_per_usdt: number | null;
+  eur_amount: number | null;
+  note: string;
+  eur_settled_at: Date | null;
   remaining_ves: number;
 }
 

@@ -6,6 +6,7 @@
  *
  *   crypto purchase  paid  X EUR  -> got Y USDT   => X / Y  EUR per USDT
  *   binance sale     sold X USDT  -> got Y VES    => Y / X  VES per USDT
+ *   VES -> EUR        owes X EUR   -> got Y VES    => Y / X  VES per EUR
  *
  * Both raw numbers and the derived price are stored on the lot, so a lot can
  * always be audited back to the trade it came from.
@@ -35,4 +36,15 @@ export function salePriceVesPerUsdt(usdtSold: number, vesReceived: number): numb
     throw new Error('Los bolivares recibidos deben ser mayores que cero.');
   }
   return vesReceived / usdtSold;
+}
+
+/** VES per EUR for a direct VES -> EUR exchange. */
+export function vesToEurPriceVesPerEur(eurAmount: number, vesReceived: number): number {
+  if (!(eurAmount > 0)) {
+    throw new Error('Los EUR acordados deben ser mayores que cero.');
+  }
+  if (!(vesReceived > 0)) {
+    throw new Error('Los bolivares recibidos deben ser mayores que cero.');
+  }
+  return vesReceived / eurAmount;
 }
