@@ -4,7 +4,7 @@ import { markCodigoRetiradoAction } from '../actions';
 import Shell from '../shell';
 import DeleteRowForm from '../components/delete-row-form';
 import { requiresDniReminder } from '@/lib/banks';
-import { fmtDateTime, fmtEur } from '@/lib/format';
+import { fmtDateTimeShort, fmtEur } from '@/lib/format';
 import { listClients, listCodigos, listOpenSendings } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
@@ -33,10 +33,8 @@ export default async function CodigosPage() {
                 <tr>
                   <th>Fecha</th>
                   <th>Cliente</th>
-                  <th>Código</th>
-                  <th className="num">Monto</th>
+                  <th>Datos</th>
                   <th>Banco</th>
-                  <th>DNI</th>
                   <th>Envío</th>
                   <th>Estado</th>
                   <th />
@@ -46,12 +44,26 @@ export default async function CodigosPage() {
               <tbody>
                 {codigos.map((c) => (
                   <tr key={c.id} className={`row-${c.status}`}>
-                    <td>{fmtDateTime(c.created_at)}</td>
+                    <td>{fmtDateTimeShort(c.created_at)}</td>
                     <td>{c.client_name}</td>
-                    <td>{c.code || '—'}</td>
-                    <td className="num">{fmtEur(c.amount)}</td>
+                    <td>
+                      {/*
+                        Caixa withdrawals ask phone -> código -> DNI, in that order; every other
+                        bank asks código -> phone -> amount and never needs the DNI on screen.
+                      */}
+                      {requiresDniReminder(c.bank) ? (
+                        <>
+                          Tel {c.client_phone ?? '—'} · Cód {c.code || '—'} · DNI{' '}
+                          {c.client_dni_nie ?? '—'}
+                          <span className="muted"> · {fmtEur(c.amount)}</span>
+                        </>
+                      ) : (
+                        <>
+                          Cód {c.code || '—'} · Tel {c.client_phone ?? '—'} · {fmtEur(c.amount)}
+                        </>
+                      )}
+                    </td>
                     <td>{c.bank}</td>
-                    <td>{requiresDniReminder(c.bank) ? (c.client_dni_nie ?? '—') : ''}</td>
                     <td>
                       {/*
                         The sending this codigo paid for, when there is one. The
@@ -84,7 +96,7 @@ export default async function CodigosPage() {
                           </button>
                         </form>
                       ) : (
-                        <span className="muted">{fmtDateTime(c.retired_at)}</span>
+                        <span className="muted">{fmtDateTimeShort(c.retired_at)}</span>
                       )}
                     </td>
                     <td>
