@@ -1,1 +1,0 @@
-- [2026-08-14] [low] Local PHP 8.3 CLI lacks `mysqli`; rate-widget DB paths needed an in-memory stub harness instead of a real local MySQL render.
