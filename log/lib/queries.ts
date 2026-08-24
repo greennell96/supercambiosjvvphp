@@ -1021,6 +1021,7 @@ type RawCodigo = {
   client_id: number;
   client_name: string;
   client_dni_nie: string | null;
+  client_phone: string | null;
   code: string;
   amount: string;
   bank: string;
@@ -1047,6 +1048,7 @@ export async function listCodigos(limit = 500): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
+           c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
     from codigos g
@@ -1063,6 +1065,7 @@ export async function listPendingCodigos(): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
+           c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
     from codigos g
@@ -1090,6 +1093,7 @@ export async function listUnlinkedCodigos(): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
+           c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
     from codigos g

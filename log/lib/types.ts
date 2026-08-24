@@ -127,6 +127,7 @@ export interface Codigo {
   client_id: number;
   client_name: string;
   client_dni_nie: string | null;
+  client_phone: string | null;
   /** The code itself. '' on rows logged before the column existed. */
   code: string;
   amount: number;
