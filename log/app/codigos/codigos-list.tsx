@@ -26,25 +26,67 @@ const HEAD = (
   </tr>
 );
 
+/**
+ * Every código, with the ones still waiting on a retiro pinned above the log.
+ *
+ * The day compression underneath is right for a record of what happened: today
+ * in full, one older day folded up, the rest behind a search. A pendiente
+ * código is not a record, it is an open task — and the day it was issued says
+ * nothing about whether Jose still has to do something about it. Left in the
+ * buckets, a código from three days ago disappears into the archive while the
+ * money is still sitting in the bank, so pendientes come out of the buckets
+ * entirely and are shown in full, oldest first, the same order and for the same
+ * reason as listPendingCodigos on the dashboard.
+ *
+ * The split is what stops a código appearing twice: LedgerList only ever sees
+ * the retirados.
+ */
 export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
+  const pending = codigos
+    .filter((c) => c.status === 'pendiente')
+    .sort((a, b) => a.created_at.getTime() - b.created_at.getTime() || a.id - b.id);
+  const resolved = codigos.filter((c) => c.status !== 'pendiente');
+
   return (
-    <LedgerList
-      items={codigos}
-      getId={(c) => c.id}
-      getDate={(c) => c.created_at}
-      getSearchText={(c) => `${c.client_name} ${c.code} ${c.bank} ${c.sending_client_name ?? ''}`}
-      getTerse={(c) => ({
-        time: fmtDateTimeShort(c.created_at),
-        title: c.client_name,
-        value: fmtEur(c.amount),
-        meta: c.bank,
-        badge: <span className={`badge ${c.status}`}>{c.status}</span>,
-      })}
-      rowClass={(c) => `row-${c.status}`}
-      head={HEAD}
-      renderFull={(c) => <CodigoRow codigo={c} />}
-      searchLabel="Cliente o código"
-    />
+    <>
+      {pending.length > 0 ? (
+        <div className="ledger">
+          <section className="ledger-day">
+            <h3 className="ledger-day-heading">
+              Pendientes de retiro <span className="ledger-day-count">{pending.length}</span>
+            </h3>
+            <div className="table-wrap">
+              <table>
+                <thead>{HEAD}</thead>
+                <tbody>
+                  {pending.map((c) => (
+                    <CodigoRow key={c.id} codigo={c} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      <LedgerList
+        items={resolved}
+        getId={(c) => c.id}
+        getDate={(c) => c.created_at}
+        getSearchText={(c) => `${c.client_name} ${c.code} ${c.bank} ${c.sending_client_name ?? ''}`}
+        getTerse={(c) => ({
+          time: fmtDateTimeShort(c.created_at),
+          title: c.client_name,
+          value: fmtEur(c.amount),
+          meta: c.bank,
+          badge: <span className={`badge ${c.status}`}>{c.status}</span>,
+        })}
+        rowClass={(c) => `row-${c.status}`}
+        head={HEAD}
+        renderFull={(c) => <CodigoRow codigo={c} />}
+        searchLabel="Cliente o código"
+      />
+    </>
   );
 }
 

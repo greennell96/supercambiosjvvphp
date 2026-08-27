@@ -1108,6 +1108,15 @@ button.danger {
   margin-top: 18px;
 }
 
+/*
+  Same spacing one level up: /codigos pins its pendientes in a ledger of their
+  own, above the day-compressed log, and the two blocks are siblings rather than
+  two sections inside one ledger.
+*/
+.ledger + .ledger {
+  margin-top: 18px;
+}
+
 .ledger-day-heading {
   display: flex;
   align-items: baseline;
