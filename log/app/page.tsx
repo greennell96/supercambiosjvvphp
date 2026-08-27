@@ -76,15 +76,15 @@ export default async function DashboardPage() {
                   <th className="num">Tasa</th>
                   <th className="num">Bs a pagar</th>
                   <th>Método</th>
-                  <th>Cómo pagó</th>
                   <th>Fecha</th>
+                  <th>Cómo pagó</th>
                   <th className="actions-heading">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {pendingSendings.map((s) => (
                   <tr key={s.id} className="row-pending">
-                    <td data-label="Cliente" data-wide>
+                    <td data-label="Cliente" data-lead>
                       {s.client_name}
                     </td>
                     <td className="num" data-label="EUR">
@@ -93,13 +93,19 @@ export default async function DashboardPage() {
                     <td className="num" data-label="Tasa">
                       {fmtRate(s.rate_tasa)}
                     </td>
-                    <td className="num" data-label="Bs a pagar">
+                    <td className="num" data-label="Bs a pagar" data-wide data-money>
                       <strong>{fmtVes(s.amount_ves_to_pay)}</strong>
                     </td>
                     <td data-label="Método">{s.payout_method}</td>
-                    <td data-label="Cómo pagó">{s.client_payment_note ?? '—'}</td>
                     <td data-label="Fecha">{fmtDateTime(s.created_at)}</td>
-                    <td data-label="Acciones" data-wide>
+                    <td
+                      data-label="Cómo pagó"
+                      data-wide
+                      data-empty={s.client_payment_note ? undefined : true}
+                    >
+                      {s.client_payment_note ?? '—'}
+                    </td>
+                    <td data-label="Acciones" data-wide data-actions>
                       <div className="row-actions">
                         <PaySendingActions sendingId={s.id} />
                         <EditSendingForm sending={s} />
@@ -132,18 +138,18 @@ export default async function DashboardPage() {
               <tbody>
                 {pendingCodigos.map((c) => (
                   <tr key={c.id} className="row-pendiente">
-                    <td data-label="Cliente" data-wide>
+                    <td data-label="Cliente" data-lead>
                       {c.client_name}
                       {requiresDniReminder(c.bank) && c.client_dni_nie ? (
                         <span className="muted"> · DNI {c.client_dni_nie}</span>
                       ) : null}
                     </td>
-                    <td className="num" data-label="Monto">
+                    <td className="num" data-label="Monto" data-money>
                       {fmtEur(c.amount)}
                     </td>
                     <td data-label="Banco">{c.bank}</td>
                     <td data-label="Fecha">{fmtDateTime(c.created_at)}</td>
-                    <td className="num" data-label="Acción" data-wide>
+                    <td className="num" data-label="Acción" data-wide data-actions>
                       <form action={markCodigoRetiradoAction}>
                         <input type="hidden" name="id" value={c.id} />
                         <button className="small action-success" type="submit">

@@ -1132,8 +1132,17 @@ type RawCodigo = {
   sending_id: number | null;
   sending_client_name: string | null;
   sending_amount_eur: string | null;
+  sending_rate_tasa: string | null;
+  sending_amount_ves_to_pay: string | null;
+  sending_payout_method: string | null;
+  sending_status: 'pending' | 'paid' | null;
 };
 
+/*
+  The joined sending columns the three queries below all select are display only:
+  /codigos shows the linked sending inline instead of naming its client twice,
+  and nothing is calculated from them.
+*/
 function toCodigo(r: RawCodigo): Codigo {
   return {
     ...r,
@@ -1142,6 +1151,9 @@ function toCodigo(r: RawCodigo): Codigo {
     amount: num(r.amount),
     sending_id: r.sending_id === null ? null : id(r.sending_id),
     sending_amount_eur: r.sending_amount_eur === null ? null : num(r.sending_amount_eur),
+    sending_rate_tasa: r.sending_rate_tasa === null ? null : num(r.sending_rate_tasa),
+    sending_amount_ves_to_pay:
+      r.sending_amount_ves_to_pay === null ? null : num(r.sending_amount_ves_to_pay),
   };
 }
 
@@ -1151,7 +1163,9 @@ export async function listCodigos(limit = 500): Promise<Codigo[]> {
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
            c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
-           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
+           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
+           s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
+           s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
     join clients c on c.id = g.client_id
     left join sendings s on s.id = g.sending_id
@@ -1168,7 +1182,9 @@ export async function listPendingCodigos(): Promise<Codigo[]> {
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
            c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
-           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
+           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
+           s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
+           s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
     join clients c on c.id = g.client_id
     left join sendings s on s.id = g.sending_id
@@ -1196,7 +1212,9 @@ export async function listUnlinkedCodigos(): Promise<Codigo[]> {
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
            c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
-           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur
+           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
+           s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
+           s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
     join clients c on c.id = g.client_id
     left join sendings s on s.id = g.sending_id

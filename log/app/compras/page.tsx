@@ -49,7 +49,8 @@ export default async function ComprasPage() {
                   return (
                     <tr key={p.id} className={depleted && !backorder ? 'depleted' : undefined}>
                       <td data-label="Fecha">{fmtDateTime(p.purchased_at)}</td>
-                      <td data-label="Proveedor" data-wide>
+                      {/* Optional free text: on a phone an unnamed provider is no field at all. */}
+                      <td data-label="Proveedor" data-wide data-empty={p.provider ? undefined : true}>
                         {p.provider ?? '—'}
                       </td>
                       <td className="num" data-label="EUR pagados">
@@ -78,7 +79,7 @@ export default async function ComprasPage() {
                           <span className="badge paid">activo</span>
                         )}
                       </td>
-                      <td data-label="Acciones" data-wide>
+                      <td data-label="Acciones" data-wide data-actions>
                         <DeleteRowForm id={p.id} action={eliminarCompraAction} />
                       </td>
                     </tr>

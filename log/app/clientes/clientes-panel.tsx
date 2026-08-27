@@ -142,13 +142,21 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id}>
-                  <td data-label="Nombre" data-wide>
+                  <td data-label="Nombre" data-lead>
                     {c.name}
                   </td>
+                  {/*
+                    Teléfono and DNI keep their dash on purpose: a client without
+                    one is a withdrawal Jose cannot complete, and that gap is
+                    worth seeing. The bank list is only a convenience and says
+                    nothing when it is empty.
+                  */}
                   <td data-label="Teléfono">{c.phone ?? '—'}</td>
-                  <td data-label="Bancos">{c.banks.length ? c.banks.join(', ') : '—'}</td>
+                  <td data-label="Bancos" data-empty={c.banks.length ? undefined : true}>
+                    {c.banks.length ? c.banks.join(', ') : '—'}
+                  </td>
                   <td data-label="DNI / NIE">{c.dni_nie ?? '—'}</td>
-                  <td className="num" data-label="Acción" data-wide>
+                  <td className="num" data-label="Acción" data-wide data-actions>
                     <button
                       className="small secondary"
                       type="button"

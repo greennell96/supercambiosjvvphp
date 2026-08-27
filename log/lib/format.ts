@@ -61,6 +61,16 @@ export function fmtDayBucket(value: string): string {
   }).format(date);
 }
 
+/*
+  Every timestamp on screen is read in Europe/Madrid, named explicitly rather
+  than left to whatever the machine happens to be set to. Two reasons, and both
+  are visible: the server renders in UTC while the phone renders in Madrid, so
+  a row would otherwise change its time on hydration; and the day headings in
+  lib/day-buckets.ts group by the Madrid day, so a 01:30 row has to say 01:30
+  under its own heading and not 23:30 under the day before.
+*/
+const MADRID = 'Europe/Madrid';
+
 export function fmtDateTime(value: Date | string | null): string {
   if (!value) return '—';
   const d = value instanceof Date ? value : new Date(value);
@@ -70,6 +80,7 @@ export function fmtDateTime(value: Date | string | null): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: MADRID,
   }).format(d);
 }
 
@@ -77,8 +88,16 @@ export function fmtDateTime(value: Date | string | null): string {
 export function fmtDateTimeShort(value: Date | string | null): string {
   if (!value) return '—';
   const d = value instanceof Date ? value : new Date(value);
-  const day = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: '2-digit' }).format(d);
-  const time = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(d);
+  const day = new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: MADRID,
+  }).format(d);
+  const time = new Intl.DateTimeFormat('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: MADRID,
+  }).format(d);
   return `${day}, ${time}`;
 }
 
@@ -89,6 +108,7 @@ export function fmtDate(value: Date | string | null): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    timeZone: MADRID,
   }).format(d);
 }
 

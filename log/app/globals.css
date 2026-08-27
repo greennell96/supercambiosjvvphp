@@ -371,6 +371,7 @@ input[type="number"],
 input[type="password"],
 input[type="search"],
 input[type="tel"],
+input[type="date"],
 input[type="datetime-local"],
 select {
   width: 100%;
@@ -1094,6 +1095,217 @@ button.danger {
   height: 310px;
 }
 
+/* ------------------------------------------------ day-grouped running logs */
+
+/*
+  Envíos, ventas and códigos are all the same shape: today in full, one older
+  day as one-line rows you can open, and the archive behind a search. The full
+  card is the same <table> markup it always was — a compressed row just holds
+  one of those tables folded up inside it.
+*/
+
+.ledger-day + .ledger-day {
+  margin-top: 18px;
+}
+
+.ledger-day-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.ledger-day-count {
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+.terse-list {
+  display: grid;
+  gap: 8px;
+}
+
+.terse-row {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+}
+
+.terse-row.row-pending,
+.terse-row.row-pendiente {
+  border-color: var(--amber-line);
+  background: var(--amber-bg);
+}
+
+.terse-row.row-paid,
+.terse-row.row-retirado {
+  border-color: var(--green-line);
+  background: var(--green-bg);
+}
+
+.terse-row.depleted {
+  color: var(--muted);
+}
+
+/* Title and amount on the first line, time and status under them, always. */
+.terse-summary {
+  display: grid;
+  width: 100%;
+  min-height: 52px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 1px;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.terse-title {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terse-value {
+  grid-area: 1 / 2;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.terse-meta {
+  grid-area: 2 / 1;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terse-status {
+  grid-area: 2 / 2;
+  justify-self: end;
+}
+
+.terse-toggle {
+  grid-area: 1 / 3 / 3 / 4;
+  align-self: center;
+  width: 20px;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.terse-summary:active:not(:disabled) {
+  transform: none;
+}
+
+.terse-detail .table-wrap {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+
+@media (hover: hover) {
+  /* Tinted rows keep their tint: darken whatever is under the row, not repaint it. */
+  .terse-summary:hover:not(:disabled) {
+    background: rgb(23 27 32 / 5%);
+  }
+}
+
+.ledger-search {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.ledger-filter {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.ledger-filter .filter-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.ledger-filter .field {
+  margin-bottom: 0;
+}
+
+.ledger-filter .filter-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ledger-filter .filter-foot p {
+  margin: 0;
+}
+
+.ledger-search .terse-list,
+.ledger-search .empty-state {
+  margin-top: 10px;
+}
+
+/* --------------------------------------------- the sending a código paid for */
+
+/* Icon only: the client's name is already the first field of the card above it. */
+button.sending-link {
+  font-size: 16px;
+  line-height: 1;
+}
+
+tr.linked-sending td {
+  background: var(--surface-muted);
+}
+
+.linked-sending-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 9px 18px;
+  margin: 0;
+}
+
+.linked-sending-fields > div {
+  min-width: 0;
+}
+
+.linked-sending-fields dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.linked-sending-fields dd {
+  margin: 2px 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
 /* ------------------------------------------------------------ client picker */
 
 .picker {
@@ -1312,11 +1524,23 @@ button.danger {
     gap: 10px;
   }
 
+  /*
+    One row, one card. The grid is two columns of labelled fields; which fields
+    land where is the source order, so the cell order in each page's table IS the
+    card layout. A handful of attributes tune it:
+
+      data-lead    the field that names the record — full width, read first
+      data-money   the number the card is about
+      data-wide    needs the whole width to be readable
+      data-sep     starts a new block, with a rule above it
+      data-actions the buttons, always last and always fenced off
+      data-empty   nothing to say: gone from the card entirely, not shown as "—"
+  */
   tr {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 14px;
-    padding: 10px 12px;
+    padding: 11px 13px 12px;
     border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--panel);
@@ -1340,40 +1564,109 @@ button.danger {
     min-width: 0;
     flex-direction: column;
     align-items: flex-start;
-    padding: 7px 0;
+    padding: 6px 0;
     border: 0;
+    font-size: 15px;
+    line-height: 1.3;
     overflow-wrap: anywhere;
     text-align: left;
   }
 
   td.num {
+    font-variant-numeric: tabular-nums;
     overflow-wrap: normal;
   }
 
   td::before {
     content: attr(data-label);
-    margin-bottom: 2px;
+    margin-bottom: 1px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.05em;
-    line-height: 1.2;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
     text-transform: uppercase;
   }
 
-  td[data-wide] {
+  td[data-wide],
+  td[data-lead],
+  td[data-sep],
+  td[data-actions] {
     grid-column: 1 / -1;
   }
 
-  td[data-label="Acciones"],
-  td[data-label="Acción"] {
-    margin-top: 4px;
+  td[data-lead] {
+    padding-bottom: 2px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  td[data-money] {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  td[data-sep],
+  td[data-actions] {
+    margin-top: 5px;
     padding-top: 10px;
     border-top: 1px solid var(--line);
   }
 
+  /* An action block is one fence, however many cells Jose acts through. */
+  td[data-actions] ~ td[data-actions] {
+    margin-top: 0;
+    padding-top: 4px;
+    border-top: 0;
+  }
+
+  td[data-empty] {
+    display: none;
+  }
+
+  /*
+    An opened compressed row already IS a card: the table inside it drops its own
+    border and tint so the two do not nest.
+  */
+  .terse-detail tbody {
+    gap: 0;
+  }
+
+  .terse-detail tr {
+    padding: 6px 11px 11px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  /* The linked sending hangs off the código's own card, not beside it. */
+  tr.linked-sending {
+    margin-top: -10px;
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    background: var(--surface-muted);
+  }
+
+  .terse-detail tr.linked-sending {
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .ledger-filter .filter-foot {
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    padding: 2px 8px;
+  }
+
+  /* Full width in the card, so the number and its state read as one line. */
   .inventory-cell {
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
 
   .settlement-actions {

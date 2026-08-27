@@ -150,11 +150,17 @@ export interface Codigo {
    * the client's proof of payment for that sending, which is why deleting the
    * codigo puts the sending back to unpaid-by-client.
    *
-   * The two joined fields are only there to name the sending on screen.
+   * The joined fields are read-only copies, only ever there to show that sending
+   * inside /codigos instead of sending Jose over to /envios to find it. Nothing
+   * is calculated from them.
    */
   sending_id: number | null;
   sending_client_name: string | null;
   sending_amount_eur: number | null;
+  sending_rate_tasa: number | null;
+  sending_amount_ves_to_pay: number | null;
+  sending_payout_method: string | null;
+  sending_status: SendingStatus | null;
 }
 
 /** One realized earnings bucket, grouped by paid_at in Europe/Madrid. */
