@@ -97,11 +97,30 @@ export interface Sending {
   client_id: number;
   client_name: string;
   created_at: Date;
-  amount_eur: number;
+
+  /**
+   * An "envío propio": money Jose sent to his own family, not for a client.
+   *
+   * Same lifecycle and the same pool draw as any other sending — it is real
+   * money leaving the real pools — but there is no client side to it, so
+   * amount_eur, rate_tasa and profit_eur are null and stay null. See
+   * migration 014.
+   */
+  is_personal: boolean;
+
+  /** Who the money went to ("a mi hermana"). Only ever set on a propio. */
+  personal_note: string | null;
+
+  /**
+   * What the client handed over. Null on an envío propio: no client agreed an
+   * amount, so there is no revenue — not zero revenue.
+   */
+  amount_eur: number | null;
   payout_method: string;
   status: SendingStatus;
   paid_at: Date | null;
-  rate_tasa: number;
+  /** The tasa agreed for this transfer. Null on an envío propio: none was. */
+  rate_tasa: number | null;
   amount_ves_to_pay: number;
 
   /**
@@ -126,6 +145,7 @@ export interface Sending {
   fee_applied: boolean | null;
   usdt_used: number | null;
   cost_eur: number | null;
+  /** Also null forever on an envío propio, whatever its status. */
   profit_eur: number | null;
 }
 

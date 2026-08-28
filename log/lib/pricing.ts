@@ -10,6 +10,13 @@
  *
  *         amountVesToPay = amountEur * rateTasa
  *
+ *     An "envio propio" — money Jose sends his own family — enters at this same
+ *     moment through computeNewPersonalSending, with the bolivares typed
+ *     directly instead of derived. From here on the two are the same sending:
+ *     same payout methods, same fee rule, same draw. The only lasting difference
+ *     is that with no agreed amountEur there is no profit to compute, so
+ *     profitEur comes out null rather than zero.
+ *
  *  2. PAYMENT — later, in a batch, Jose actually pays. Only now is the cost
  *     known. There are two ways it can happen:
  *
@@ -157,6 +164,35 @@ export function computeNewSending(input: NewSendingInput): NewSending {
   return { amountVesToPay: computeAmountVesToPay(amountEur, rateTasa) };
 }
 
+export interface NewPersonalSendingInput {
+  /** The bolivares Jose wants to arrive. The only number he has. */
+  amountVes: number;
+}
+
+/**
+ * Everything knowable when an ENVIO PROPIO is first logged.
+ *
+ * This is the single field the two creation paths do not share, and it is worth
+ * the separate function. A client sending derives its bolivares — amountEur *
+ * rateTasa — because what was agreed is the EUR amount. Here nothing is derived:
+ * Jose types the bolivares themselves, so the figure he typed IS
+ * amount_ves_to_pay. There is no EUR amount to multiply and no tasa to multiply
+ * it by, and inventing either (say, EUR at the current tasa) would put a made-up
+ * revenue into the ledger.
+ *
+ * Everything downstream is shared: the same payout methods, the same 0,3% rule,
+ * the same FIFO draw at payment time.
+ */
+export function computeNewPersonalSending(input: NewPersonalSendingInput): NewSending {
+  const { amountVes } = input;
+
+  if (!(amountVes > 0)) {
+    throw new Error('El monto en bolivares debe ser mayor que cero.');
+  }
+
+  return { amountVesToPay: amountVes };
+}
+
 /* ------------------------------------------------- USDT leaving Binance */
 
 export interface UsdtCost {
@@ -200,7 +236,12 @@ interface PaymentOutcome {
   /** USDT this sending really consumed. Audit figure; nothing is costed from it. */
   usdtUsed: number;
   costEur: number;
-  profitEur: number;
+  /**
+   * amountEur - costEur, or null when there is no amountEur — an envio propio.
+   * Null means "does not apply", never zero: nobody agreed a price, so there is
+   * no margin to have made or lost. The cost is real all the same.
+   */
+  profitEur: number | null;
 }
 
 export interface PoolPaymentResult extends PaymentOutcome {
@@ -275,7 +316,8 @@ function costVesDraw(allocations: Allocation[], vesLots: VesLot[]): number {
 }
 
 export interface PoolPaymentInput {
-  amountEur: number;
+  /** Null on an envio propio; the draw and the cost do not depend on it. */
+  amountEur: number | null;
   /** Snapshot already stored on the sending at creation time. */
   amountVesToPay: number;
   payoutMethod: string;
@@ -313,12 +355,13 @@ export function computePoolPayment(input: PoolPaymentInput): PoolPaymentResult {
     vesShortfall: vesDraw.shortfall,
     usdtUsed,
     costEur,
-    profitEur: amountEur - costEur,
+    profitEur: amountEur === null ? null : amountEur - costEur,
   };
 }
 
 export interface DirectPaymentInput {
-  amountEur: number;
+  /** Null on an envio propio; the USDT draw and the cost do not depend on it. */
+  amountEur: number | null;
   /** The USDT Jose sold straight into the beneficiary's account. */
   usdtSold: number;
   usdtLots: Lot[];
@@ -342,6 +385,6 @@ export function computeDirectPayment(input: DirectPaymentInput): DirectPaymentRe
     feeApplied: false, // nothing moved between banks, so no interbank cost
     usdtUsed: usdtSold,
     ...cost,
-    profitEur: amountEur - cost.costEur,
+    profitEur: amountEur === null ? null : amountEur - cost.costEur,
   };
 }

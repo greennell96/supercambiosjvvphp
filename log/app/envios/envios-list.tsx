@@ -45,14 +45,25 @@ export default function EnviosList({
 }) {
   const renderFull = (s: Sending) => (
     <tr className={`row-${s.status}`}>
+      {/*
+        On an envío propio the client is the placeholder row, whose name already
+        reads "Envío propio", and the note saying who received the money goes
+        here beside it. Deliberately NOT under "Cómo pagó": that column means how
+        the CLIENT handed Jose the money in Spain, which is the other direction
+        entirely and the one distinction this table works hardest to keep.
+      */}
       <td data-label="Cliente" data-lead>
         {s.client_name}
+        {s.is_personal && s.personal_note ? (
+          <span className="muted"> — {s.personal_note}</span>
+        ) : null}
       </td>
-      <td className="num" data-label="EUR">
-        {fmtEur(s.amount_eur)}
+      {/* Null, not zero: nobody agreed a EUR amount or a tasa on a propio. */}
+      <td className="num" data-label="EUR" data-empty={s.amount_eur === null ? true : undefined}>
+        {s.amount_eur === null ? '—' : fmtEur(s.amount_eur)}
       </td>
-      <td className="num" data-label="Tasa">
-        {fmtRate(s.rate_tasa)}
+      <td className="num" data-label="Tasa" data-empty={s.rate_tasa === null ? true : undefined}>
+        {s.rate_tasa === null ? '—' : fmtRate(s.rate_tasa)}
       </td>
       <td className="num" data-label="Bs a pagar" data-wide data-money>
         {fmtVes(s.amount_ves_to_pay)}
@@ -74,8 +85,20 @@ export default function EnviosList({
         in blue and grey against that one's amber and green. The two answer
         different questions and must never be read for each other at a glance.
       */}
-      <td data-label="Cobrado" data-wide data-sep>
-        {s.client_paid_at === null ? (
+      <td
+        data-label="Cobrado"
+        data-wide
+        data-sep
+        data-empty={s.is_personal ? true : undefined}
+      >
+        {/*
+          An envío propio has no client and therefore no debt: neither badge
+          applies, and "sin cobrar" on one would read as money Jose is still
+          owed. A dash, which the card layout drops entirely on a phone.
+        */}
+        {s.is_personal ? (
+          '—'
+        ) : s.client_paid_at === null ? (
           <span className="badge sin-cobrar">sin cobrar</span>
         ) : (
           <>
@@ -109,7 +132,8 @@ export default function EnviosList({
       <td data-label="Acciones" data-wide data-actions>
         <div className="row-actions">
           {s.status === 'pending' ? <PaySendingActions sendingId={s.id} /> : null}
-          {s.client_paid_at === null ? (
+          {/* Nothing to collect on an envío propio; markClientPaid refuses one too. */}
+          {!s.is_personal && s.client_paid_at === null ? (
             <ClientPaidActions sendingId={s.id} clientId={s.client_id} codigos={unlinkedCodigos} />
           ) : null}
           <EditSendingForm sending={s} />
@@ -124,11 +148,20 @@ export default function EnviosList({
       items={sendings}
       getId={(s) => s.id}
       getDate={(s) => s.created_at}
-      getSearchText={(s) => `${s.client_name} ${s.client_payment_note ?? ''} ${s.payout_method}`}
+      getSearchText={(s) =>
+        [s.client_name, s.personal_note, s.client_payment_note, s.payout_method]
+          .filter(Boolean)
+          .join(' ')
+      }
       getTerse={(s) => ({
         time: fmtDateTime(s.created_at),
-        title: s.client_name,
-        value: fmtEur(s.amount_eur),
+        title:
+          s.is_personal && s.personal_note
+            ? `${s.client_name} — ${s.personal_note}`
+            : s.client_name,
+        // The one-line row shows what the sending is worth. On a propio that is
+        // the bolívares: there is no EUR figure to show and no zero to imply.
+        value: s.amount_eur === null ? fmtVes(s.amount_ves_to_pay) : fmtEur(s.amount_eur),
         badge: (
           <span className={`badge ${s.status}`}>
             {s.status === 'paid' ? 'pagado' : 'pendiente'}

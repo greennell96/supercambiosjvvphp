@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation';
 
 const links = [
   { href: '/', label: 'Resumen' },
-  { href: '/stats', label: 'Estadísticas' },
   { href: '/envios', label: 'Envíos' },
+  { href: '/codigos', label: 'Códigos' },
   { href: '/ventas', label: 'Ventas' },
   { href: '/compras', label: 'Compras' },
-  { href: '/codigos', label: 'Códigos' },
+  { href: '/stats', label: 'Estadísticas' },
   { href: '/clientes', label: 'Clientes' },
 ];
 

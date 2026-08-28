@@ -4,10 +4,13 @@ import { revalidatePath } from 'next/cache';
 
 import type { DeleteState } from '../actions';
 import { parseDecimal, parseId, text, textOrNull } from '@/lib/parse';
+import { SENDING_PAYOUT_METHODS } from '@/lib/pricing';
 import {
+  createPersonalSending,
   createSending,
   deleteSending,
   markClientPaid,
+  type CreatePersonalSendingResult,
   type CreateSendingResult,
 } from '@/lib/queries';
 import { isClientPaymentMethod } from '@/lib/types';
@@ -41,6 +44,55 @@ export async function crearEnvioAction(
       amount_eur: amountEur,
       rate_tasa: rateTasa,
       payout_method: payoutMethod,
+    });
+    revalidatePath('/');
+    revalidatePath('/envios');
+    revalidatePath('/stats');
+    return { result };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo registrar el envío.' };
+  }
+}
+
+export interface NuevoEnvioPersonalState {
+  error?: string;
+  result?: CreatePersonalSendingResult;
+}
+
+/**
+ * Log an "envío propio": money José is sending to his own family.
+ *
+ * Three fields, and each is required for its own reason. The bolívares are what
+ * he actually knows — there is no client EUR amount and no tasa, so none is
+ * asked for or invented. The método de pago is the same three-option list a
+ * client sending uses, because the 0,3% interbank rule is the same rule. The
+ * comment is the ONLY record of who received the money: no client row carries
+ * that name here, so it is required rather than optional.
+ *
+ * /codigos is deliberately not revalidated: a códigos is a client's proof of
+ * payment and an envío propio has no client, so that screen cannot change.
+ */
+export async function crearEnvioPersonalAction(
+  _prev: NuevoEnvioPersonalState,
+  formData: FormData,
+): Promise<NuevoEnvioPersonalState> {
+  const amountVes = parseDecimal(formData.get('amount_ves'));
+  const payoutMethod = text(formData.get('payout_method'));
+  const personalNote = text(formData.get('personal_note'));
+
+  if (amountVes === null || !(amountVes > 0)) {
+    return { error: 'Escribe un monto en bolívares mayor que cero.' };
+  }
+  if (!(SENDING_PAYOUT_METHODS as readonly string[]).includes(payoutMethod)) {
+    return { error: 'Elige un método de pago.' };
+  }
+  if (!personalNote) return { error: 'Escribe a quién le enviaste el dinero.' };
+
+  try {
+    const result = await createPersonalSending({
+      amount_ves: amountVes,
+      payout_method: payoutMethod,
+      personal_note: personalNote,
     });
     revalidatePath('/');
     revalidatePath('/envios');

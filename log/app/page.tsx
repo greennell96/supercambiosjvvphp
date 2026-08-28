@@ -84,14 +84,31 @@ export default async function DashboardPage() {
               <tbody>
                 {pendingSendings.map((s) => (
                   <tr key={s.id} className="row-pending">
+                    {/*
+                      An envío propio is pending like any other — the bolívares
+                      are really owed and really come out of the pool — but it
+                      has no client EUR amount and no tasa, so those two cells
+                      show a dash and the beneficiary note rides with the name.
+                    */}
                     <td data-label="Cliente" data-lead>
                       {s.client_name}
+                      {s.is_personal && s.personal_note ? (
+                        <span className="muted"> — {s.personal_note}</span>
+                      ) : null}
                     </td>
-                    <td className="num" data-label="EUR">
-                      {fmtEur(s.amount_eur)}
+                    <td
+                      className="num"
+                      data-label="EUR"
+                      data-empty={s.amount_eur === null ? true : undefined}
+                    >
+                      {s.amount_eur === null ? '—' : fmtEur(s.amount_eur)}
                     </td>
-                    <td className="num" data-label="Tasa">
-                      {fmtRate(s.rate_tasa)}
+                    <td
+                      className="num"
+                      data-label="Tasa"
+                      data-empty={s.rate_tasa === null ? true : undefined}
+                    >
+                      {s.rate_tasa === null ? '—' : fmtRate(s.rate_tasa)}
                     </td>
                     <td className="num" data-label="Bs a pagar" data-wide data-money>
                       <strong>{fmtVes(s.amount_ves_to_pay)}</strong>

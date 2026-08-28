@@ -11,6 +11,7 @@ import {
   paySendingDirect,
   paySendingFromPool,
   updateRates,
+  type EditSendingMoney,
 } from '@/lib/queries';
 import { SESSION_COOKIE } from '@/lib/session';
 
@@ -99,12 +100,22 @@ export interface EditSendingState {
 /**
  * Correct a sending by hand.
  *
- * The three money fields are only sent when the row was pending as rendered.
- * That is a UI convenience, not the guard — lib/queries.ts re-reads the status
- * from the locked row and refuses the money edit if it got paid meanwhile.
+ * The money fields are only sent when the row was pending as rendered. That is a
+ * UI convenience, not the guard — lib/queries.ts re-reads the status from the
+ * locked row and refuses the money edit if it got paid meanwhile, and re-reads
+ * is_personal so neither kind of sending can be edited through the other's
+ * fields.
  *
- * The note is sent every time, whatever the status: it is Jose's own reminder of
- * how the client handed the money over in Spain and feeds no calculation.
+ * Which fields those are depends on the kind. A client sending has monto, tasa
+ * and método; an envío propio has bolívares and método — it never had a EUR
+ * amount or a tasa to correct.
+ *
+ * The note is sent every time, whatever the status, and each kind has its own.
+ * "Cómo pagó el cliente" is Jose's reminder of how the money was handed over in
+ * Spain; "Para quién" is the only record of who received an envío propio. Both
+ * are descriptive and feed no calculation, so neither freezes when the sending
+ * is paid — which is exactly why "Para quién" is read out here and not inside
+ * the money branch.
  */
 export async function editSendingAction(
   _prev: EditSendingState,
@@ -113,11 +124,28 @@ export async function editSendingAction(
   const sendingId = parseId(formData.get('id'));
   if (!sendingId) return { error: 'Envío no válido.' };
 
-  const clientPaymentNote = textOrNull(formData.get('client_payment_note'));
+  const personal = text(formData.get('is_personal')) === '1';
+  const clientPaymentNote = personal ? null : textOrNull(formData.get('client_payment_note'));
+
+  // Read whatever the status: it is the only record of who received the money,
+  // and a paid envío propio must still be correctable.
+  const personalNote = personal ? textOrNull(formData.get('personal_note')) : null;
+  if (personal && !personalNote) return { error: 'Escribe a quién le enviaste el dinero.' };
+
   const money = text(formData.get('edit_money')) === '1';
 
-  let moneyInput: { amount_eur: number; rate_tasa: number; payout_method: string } | null = null;
-  if (money) {
+  let moneyInput: EditSendingMoney | null = null;
+  if (money && personal) {
+    const amountVes = parseDecimal(formData.get('amount_ves'));
+    const payoutMethod = text(formData.get('payout_method'));
+
+    if (amountVes === null || !(amountVes > 0)) {
+      return { error: 'Escribe un monto en bolívares mayor que cero.' };
+    }
+    if (!payoutMethod) return { error: 'Elige un método de pago.' };
+
+    moneyInput = { kind: 'personal', amount_ves: amountVes, payout_method: payoutMethod };
+  } else if (money) {
     const amountEur = parseDecimal(formData.get('amount_eur'));
     const rateTasa = parseDecimal(formData.get('rate_tasa'));
     const payoutMethod = text(formData.get('payout_method'));
@@ -130,13 +158,19 @@ export async function editSendingAction(
     }
     if (!payoutMethod) return { error: 'Elige un método de pago.' };
 
-    moneyInput = { amount_eur: amountEur, rate_tasa: rateTasa, payout_method: payoutMethod };
+    moneyInput = {
+      kind: 'client',
+      amount_eur: amountEur,
+      rate_tasa: rateTasa,
+      payout_method: payoutMethod,
+    };
   }
 
   try {
     await editSending(sendingId, {
       money: moneyInput,
       client_payment_note: clientPaymentNote,
+      personal_note: personalNote,
     });
     revalidateEverything();
     return { savedAt: Date.now() };

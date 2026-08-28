@@ -540,7 +540,8 @@ describe('pool vs direct on the same sending', () => {
     // crypto pool now.
     expect(direct.usdtUsed).toBeCloseTo(pool.usdtUsed, 10);
     expect(direct.costEur).toBeCloseTo(pool.costEur, 10);
-    expect(direct.profitEur).toBeCloseTo(pool.profitEur, 10);
+    // Both paths were given a real amountEur, so both report a real profit.
+    expect(direct.profitEur).toBeCloseTo(pool.profitEur as number, 10);
     // The difference is which pool the draw lands on.
     expect(pool.vesAllocations.length).toBeGreaterThan(0);
     expect(direct.usdtAllocations.length).toBeGreaterThan(0);

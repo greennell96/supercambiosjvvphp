@@ -8,11 +8,18 @@ import { requiresDniReminder } from '@/lib/banks';
 import { fmtDate, fmtEur } from '@/lib/format';
 import { openSendingsForClient } from '@/lib/linking';
 
-/** Just the fields the link picker shows for one open sending. */
+/**
+ * Just the fields the link picker shows for one open sending.
+ *
+ * amount_eur is nullable because a sending in general can be an envío propio,
+ * which has none. listOpenSendings never hands one over — a codigo is a client's
+ * proof of payment and a propio has no client — so the dash below is a guard
+ * that should not be reachable, not a case the picker expects to show.
+ */
 export interface PickerSending {
   id: number;
   client_id: number;
-  amount_eur: number;
+  amount_eur: number | null;
   payout_method: string;
   created_at: Date;
 }
@@ -145,7 +152,8 @@ export default function NuevoCodigoForm({
               <option value="">Sin vincular</option>
               {linkable.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {fmtEur(s.amount_eur)} · {fmtDate(s.created_at)} · {s.payout_method}
+                  {s.amount_eur === null ? '—' : fmtEur(s.amount_eur)} · {fmtDate(s.created_at)} ·{' '}
+                  {s.payout_method}
                 </option>
               ))}
             </select>

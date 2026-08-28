@@ -20,6 +20,7 @@ import {
 } from './pools';
 import {
   computeDirectPayment,
+  computeNewPersonalSending,
   computeNewSending,
   computePoolPayment,
   costUsdtDraw,
@@ -40,6 +41,14 @@ import type {
 
 /* ------------------------------------------------------------------ clients */
 
+/**
+ * Every real client, for the pickers and the /clientes screen.
+ *
+ * The internal placeholder (migration 014) is left out. It exists only so an
+ * envio propio has a client_id to point at and so the Cliente column reads
+ * "Envío propio"; it is not somebody Jose sends money for, and offering it in
+ * the picker would let a real client sending be filed against it by accident.
+ */
 export async function listClients(): Promise<Client[]> {
   const sql = getSql();
   const rows = await sql<
@@ -54,6 +63,7 @@ export async function listClients(): Promise<Client[]> {
   >`
     select id, name, phone, banks, dni_nie, registered_at
     from clients
+    where is_internal = false
     order by lower(name)
   `;
   return rows.map((r) => ({ ...r, id: id(r.id), banks: r.banks ?? [] }));
@@ -545,11 +555,13 @@ type RawSending = {
   client_id: number;
   client_name: string;
   created_at: Date;
-  amount_eur: string;
+  is_personal: boolean;
+  personal_note: string | null;
+  amount_eur: string | null;
   payout_method: string;
   status: 'pending' | 'paid';
   paid_at: Date | null;
-  rate_tasa: string;
+  rate_tasa: string | null;
   amount_ves_to_pay: string;
   client_payment_note: string | null;
   client_paid_at: Date | null;
@@ -561,17 +573,25 @@ type RawSending = {
   profit_eur: string | null;
 };
 
+/*
+  num() turns null into 0, so every nullable numeric has to be null-checked
+  BEFORE it is converted — otherwise an envio propio's absent EUR amount would
+  come back as 0 and render as "0,00 €" where the lists mean to show a dash.
+  Same pattern as usdt_used / cost_eur / profit_eur below.
+*/
 function toSending(r: RawSending): Sending {
   return {
     id: id(r.id),
     client_id: id(r.client_id),
     client_name: r.client_name,
     created_at: r.created_at,
-    amount_eur: num(r.amount_eur),
+    is_personal: r.is_personal,
+    personal_note: r.personal_note,
+    amount_eur: r.amount_eur === null ? null : num(r.amount_eur),
     payout_method: r.payout_method,
     status: r.status,
     paid_at: r.paid_at,
-    rate_tasa: num(r.rate_tasa),
+    rate_tasa: r.rate_tasa === null ? null : num(r.rate_tasa),
     amount_ves_to_pay: num(r.amount_ves_to_pay),
     client_payment_note: r.client_payment_note,
     client_paid_at: r.client_paid_at,
@@ -587,7 +607,8 @@ function toSending(r: RawSending): Sending {
 export async function listSendings(limit = 500): Promise<Sending[]> {
   const sql = getSql();
   const rows = await sql<RawSending[]>`
-    select s.id, s.client_id, c.name as client_name, s.created_at, s.amount_eur,
+    select s.id, s.client_id, c.name as client_name, s.created_at,
+           s.is_personal, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
            s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
@@ -602,7 +623,8 @@ export async function listSendings(limit = 500): Promise<Sending[]> {
 export async function listPendingSendings(): Promise<Sending[]> {
   const sql = getSql();
   const rows = await sql<RawSending[]>`
-    select s.id, s.client_id, c.name as client_name, s.created_at, s.amount_eur,
+    select s.id, s.client_id, c.name as client_name, s.created_at,
+           s.is_personal, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
            s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
@@ -621,17 +643,22 @@ export async function listPendingSendings(): Promise<Sending[]> {
  * narrowed to pending ones: whether Jose has already paid the beneficiary says
  * nothing about whether the client has paid him, and a sending settled days ago
  * is exactly the kind he is still chasing a codigo for.
+ *
+ * Envios propios are excluded, and permanently: their client_paid_at is null
+ * forever because there is no client, so they would otherwise fill this picker
+ * up with rows no codigo can ever pay for.
  */
 export async function listOpenSendings(): Promise<Sending[]> {
   const sql = getSql();
   const rows = await sql<RawSending[]>`
-    select s.id, s.client_id, c.name as client_name, s.created_at, s.amount_eur,
+    select s.id, s.client_id, c.name as client_name, s.created_at,
+           s.is_personal, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
            s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
     from sendings s
     join clients c on c.id = s.client_id
-    where s.client_paid_at is null
+    where s.client_paid_at is null and s.is_personal = false
     order by s.created_at desc, s.id desc
   `;
   return rows.map(toSending);
@@ -696,15 +723,113 @@ export async function createSending(input: {
   });
 }
 
+/**
+ * The placeholder client every envio propio is filed under.
+ *
+ * sendings.client_id stays NOT NULL so that every read can keep inner-joining
+ * clients for the name (see migration 014). Exactly one row carries the flag,
+ * guarded by a partial unique index, and migration 014 seeds it — so a missing
+ * row means the migrations were not run, not that Jose did something wrong.
+ * Defensive assertion, never a normal-path error.
+ */
+async function getPersonalClientId(tx: TransactionSql): Promise<number> {
+  const [client] = await tx<{ id: number }[]>`
+    select id from clients where is_internal = true limit 1
+  `;
+  if (!client) {
+    throw new Error(
+      'Falta el cliente interno de envios propios. Ejecuta las migraciones (npm run migrate).',
+    );
+  }
+  return id(client.id);
+}
+
+export interface CreatePersonalSendingResult {
+  id: number;
+  payoutMethod: string;
+  personalNote: string;
+  amountVesToPay: number;
+}
+
+/**
+ * Log an ENVIO PROPIO: money Jose is sending to his own family.
+ *
+ * Same shape as createSending and the same nothing-is-drawn-yet rule — the
+ * funding is decided when it is paid. Two deliberate differences:
+ *
+ *   - the bolivares are typed, not derived, so there is no amount_eur and no
+ *     rate_tasa to store (see computeNewPersonalSending).
+ *   - current_rates is NOT touched. That row is the prefill for the next
+ *     client sending's tasa input, and no tasa was agreed here, so writing to
+ *     it would mean a family transfer silently moving the suggested rate.
+ */
+export async function createPersonalSending(input: {
+  amount_ves: number;
+  payout_method: string;
+  personal_note: string;
+}): Promise<CreatePersonalSendingResult> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const clientId = await getPersonalClientId(tx);
+
+    const { amountVesToPay } = computeNewPersonalSending({ amountVes: input.amount_ves });
+
+    const [sending] = await tx<{ id: number }[]>`
+      insert into sendings
+        (client_id, is_personal, personal_note, payout_method, amount_ves_to_pay)
+      values
+        (${clientId}, true, ${input.personal_note}, ${input.payout_method}, ${amountVesToPay})
+      returning id
+    `;
+
+    return {
+      id: id(sending.id),
+      payoutMethod: input.payout_method,
+      personalNote: input.personal_note,
+      amountVesToPay,
+    };
+  });
+}
+
+/**
+ * The money fields, in the shape the sending actually has.
+ *
+ * Two variants rather than two functions: the lock, the pending-only rule and
+ * the result are identical for both, and only the lines that recompute and write
+ * differ. The kind is checked against the locked row, so a client sending can
+ * never be edited through the personal form or the other way round.
+ *
+ * Only what actually fed the draw is in here. personal_note describes who
+ * received the money and decides nothing, so it sits outside, beside
+ * client_payment_note, and stays editable after payment.
+ */
+export type EditSendingMoney =
+  | { kind: 'client'; amount_eur: number; rate_tasa: number; payout_method: string }
+  | { kind: 'personal'; amount_ves: number; payout_method: string };
+
 export interface EditSendingInput {
   /**
    * The money fields. Only accepted while the sending is still pending: once it
    * is paid, the pool draws and the cost/profit are locked in, so changing these
    * would desync the ledger. Pass null to edit only the note.
    */
-  money: { amount_eur: number; rate_tasa: number; payout_method: string } | null;
-  /** Always editable, whatever the status. Never feeds a calculation. */
+  money: EditSendingMoney | null;
+  /**
+   * Always editable on a client sending, whatever the status. Never feeds a
+   * calculation. Not written on an envio propio: no client ever paid for one, so
+   * there is nothing for this column to say about it.
+   */
   client_payment_note: string | null;
+  /**
+   * The other side's equivalent: who Jose sent his own money to. Same category
+   * as client_payment_note — descriptive, never part of any sum — so it is
+   * editable in every status too. Fixing a typo in the only record of who
+   * received the money must not stop being possible the moment it is paid.
+   *
+   * Required whenever the row is an envio propio, because the schema says so:
+   * personal_note is not null when is_personal.
+   */
+  personal_note: string | null;
 }
 
 export interface EditSendingResult {
@@ -719,10 +844,11 @@ export interface EditSendingResult {
  * Correct a sending by hand.
  *
  * The money fields are recomputed exactly the way creation does, through
- * computeNewSending, so amount_ves_to_pay can never drift from
- * amount_eur * rate_tasa. The status is read from the locked row, not trusted
- * from the form, so a sending that got paid in the meantime cannot have its
- * money quietly rewritten.
+ * computeNewSending (or computeNewPersonalSending), so amount_ves_to_pay can
+ * never drift from what the inputs say. The status is read from the locked row,
+ * not trusted from the form, so a sending that got paid in the meantime cannot
+ * have its money quietly rewritten — and so is is_personal, so neither kind can
+ * be edited through the other's form.
  *
  * Reassigning the client is deliberately not supported.
  */
@@ -733,9 +859,15 @@ export async function editSending(
   const sql = getSql();
   return sql.begin(async (tx) => {
     const [row] = await tx<
-      { id: number; client_name: string; status: 'pending' | 'paid'; amount_ves_to_pay: string }[]
+      {
+        id: number;
+        client_name: string;
+        status: 'pending' | 'paid';
+        is_personal: boolean;
+        amount_ves_to_pay: string;
+      }[]
     >`
-      select s.id, c.name as client_name, s.status, s.amount_ves_to_pay
+      select s.id, c.name as client_name, s.status, s.is_personal, s.amount_ves_to_pay
       from sendings s
       join clients c on c.id = s.client_id
       where s.id = ${sendingId}
@@ -748,17 +880,59 @@ export async function editSending(
         'Ese envio ya esta pagado: el monto, la tasa y el metodo no se pueden cambiar. Solo la nota.',
       );
     }
+    if (input.money && (input.money.kind === 'personal') !== row.is_personal) {
+      throw new Error(
+        'Ese envio no es del tipo que el formulario esta editando. Actualiza la pagina.',
+      );
+    }
+    // The schema requires it on these rows, and it is the only record of who the
+    // money went to. Caught here rather than left to the check constraint, so a
+    // blank box says what to do instead of surfacing a Postgres error.
+    if (row.is_personal && !input.personal_note) {
+      throw new Error('Escribe a quien le enviaste el dinero.');
+    }
 
+    // Nothing but the note. Which note depends on the kind: an envio propio has
+    // no client payment to describe, and a client sending has no beneficiary
+    // note. Both are descriptive, so both are writable whatever the status.
     if (!input.money) {
-      await tx`
-        update sendings set client_payment_note = ${input.client_payment_note} where id = ${sendingId}
-      `;
+      if (row.is_personal) {
+        await tx`
+          update sendings set personal_note = ${input.personal_note} where id = ${sendingId}
+        `;
+      } else {
+        await tx`
+          update sendings set client_payment_note = ${input.client_payment_note} where id = ${sendingId}
+        `;
+      }
       return {
         id: sendingId,
         clientName: row.client_name,
         status: row.status,
         moneyChanged: false,
         amountVesToPay: num(row.amount_ves_to_pay),
+      };
+    }
+
+    if (input.money.kind === 'personal') {
+      const { amountVesToPay } = computeNewPersonalSending({ amountVes: input.money.amount_ves });
+
+      // The note rides along on the same submit, exactly as client_payment_note
+      // does on the client branch below.
+      await tx`
+        update sendings
+        set payout_method = ${input.money.payout_method},
+            personal_note = ${input.personal_note},
+            amount_ves_to_pay = ${amountVesToPay}
+        where id = ${sendingId}
+      `;
+
+      return {
+        id: sendingId,
+        clientName: row.client_name,
+        status: row.status,
+        moneyChanged: true,
+        amountVesToPay,
       };
     }
 
@@ -791,7 +965,8 @@ export interface PaySendingResult {
   id: number;
   clientName: string;
   paidVia: PaidVia;
-  amountEur: number;
+  /** Null on an envio propio: no client agreed an amount. */
+  amountEur: number | null;
   amountVesToPay: number;
   feeApplied: boolean;
   vesDrawn: number;
@@ -800,13 +975,14 @@ export interface PaySendingResult {
   /** Only a direct payment can run the USDT pool short; the pool path reports 0. */
   usdtShortfall: number;
   costEur: number;
-  profitEur: number;
+  /** Null on an envio propio: there is no agreed price, so no margin. */
+  profitEur: number | null;
 }
 
 type PendingRow = {
   id: number;
   client_name: string;
-  amount_eur: string;
+  amount_eur: string | null;
   amount_ves_to_pay: string;
   payout_method: string;
 };
@@ -828,6 +1004,17 @@ async function lockPendingSending(
 }
 
 /**
+ * What the sending says it is worth in EUR, or null when it says nothing.
+ *
+ * num() would turn the null into 0 and hand computePoolPayment a zero revenue,
+ * which would come back as a real-looking loss of exactly the cost. Both pay
+ * paths read the amount through here.
+ */
+function pendingAmountEur(row: PendingRow): number | null {
+  return row.amount_eur === null ? null : num(row.amount_eur);
+}
+
+/**
  * (a) Pay a pending sending out of the VES pool.
  *
  * One pool only. The bolivares come out of ves_sales, and the cost comes off
@@ -843,7 +1030,7 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
     const vesLots = await lockVesLots(tx);
 
     const payment = computePoolPayment({
-      amountEur: num(sending.amount_eur),
+      amountEur: pendingAmountEur(sending),
       amountVesToPay: num(sending.amount_ves_to_pay),
       payoutMethod: sending.payout_method,
       vesLots,
@@ -882,7 +1069,7 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
       id: sendingId,
       clientName: sending.client_name,
       paidVia: 'pool',
-      amountEur: num(sending.amount_eur),
+      amountEur: pendingAmountEur(sending),
       amountVesToPay: num(sending.amount_ves_to_pay),
       feeApplied: payment.feeApplied,
       vesDrawn: payment.vesDrawn,
@@ -914,7 +1101,7 @@ export async function paySendingDirect(
     const usdtLots = await lockUsdtLots(tx);
 
     const payment = computeDirectPayment({
-      amountEur: num(sending.amount_eur),
+      amountEur: pendingAmountEur(sending),
       usdtSold,
       usdtLots,
     });
@@ -948,7 +1135,7 @@ export async function paySendingDirect(
       id: sendingId,
       clientName: sending.client_name,
       paidVia: 'direct',
-      amountEur: num(sending.amount_eur),
+      amountEur: pendingAmountEur(sending),
       amountVesToPay: num(sending.amount_ves_to_pay),
       feeApplied: payment.feeApplied,
       vesDrawn: 0,
@@ -1000,14 +1187,20 @@ export async function markClientPaid(
 ): Promise<MarkClientPaidResult> {
   const sql = getSql();
   return sql.begin(async (tx) => {
-    const [sending] = await tx<{ id: number; client_name: string }[]>`
-      select s.id, c.name as client_name
+    const [sending] = await tx<{ id: number; client_name: string; is_personal: boolean }[]>`
+      select s.id, c.name as client_name, s.is_personal
       from sendings s
       join clients c on c.id = s.client_id
       where s.id = ${sendingId} and s.client_paid_at is null
       for update of s
     `;
     if (!sending) throw new Error('Ese envio ya figura como pagado por el cliente.');
+    // An envio propio has no client and therefore no debt to collect. The list
+    // never offers this action for one; this is the guard that makes that true
+    // rather than merely observed, like the pending check in lockPendingSending.
+    if (sending.is_personal) {
+      throw new Error('Ese envio es propio: no tiene cliente que pague.');
+    }
 
     if (input.codigo_id !== null) {
       const [codigo] = await tx<{ id: number; sending_id: number | null }[]>`
@@ -1432,13 +1625,23 @@ export async function getStats(): Promise<StatsSnapshot> {
           as crypto_balance_usdt,
         coalesce((select sum(remaining_ves) from ves_sales), 0)
           as ves_pool_balance,
+        -- Envios propios are deliberately NOT excluded here: unpaid bolivares
+        -- are owed to a real beneficiary and will come out of the real pool,
+        -- whoever they are for.
         coalesce((select sum(amount_ves_to_pay) from sendings where status = 'pending'), 0)
           as pending_payout_ves,
         (select count(*) from sendings where status = 'pending')
           as pending_payout_count,
-        coalesce((select sum(amount_eur) from sendings where client_paid_at is null), 0)
-          as uncollected_eur,
-        (select count(*) from sendings where client_paid_at is null)
+        -- These two are the opposite case, and the only place in getStats that
+        -- needs the flag by name. An envio propio has no client, so its
+        -- client_paid_at is null forever; without this it would sit in "sin
+        -- cobrar" for good. Every other figure below is already excluded by its
+        -- profit_eur is not null filter, and that is null forever on a propio.
+        coalesce((
+          select sum(amount_eur) from sendings
+          where client_paid_at is null and is_personal = false
+        ), 0) as uncollected_eur,
+        (select count(*) from sendings where client_paid_at is null and is_personal = false)
           as uncollected_count,
         coalesce((select sum(amount) from codigos where status = 'pendiente'), 0)
           as pending_codes_eur,
