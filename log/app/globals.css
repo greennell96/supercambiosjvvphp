@@ -627,6 +627,36 @@ button.danger {
   padding: 2px 6px;
 }
 
+/*
+  The envío propio cost preview. Amber, like every other "read this before you
+  act" notice, but sized for a table cell instead of a page-width panel — and
+  amber specifically because green would read as a receipt for a payment that
+  has not happened.
+*/
+.pay-actions .pay-preview {
+  max-width: 260px;
+  margin: 2px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--amber-line);
+  border-radius: 6px;
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.pay-actions .pay-preview > strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.pay-actions .pay-preview-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
 .pay-actions .pay-error,
 .edit-sending .pay-error {
   margin: 2px 0 0;

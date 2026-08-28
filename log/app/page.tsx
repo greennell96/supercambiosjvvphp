@@ -124,7 +124,7 @@ export default async function DashboardPage() {
                     </td>
                     <td data-label="Acciones" data-wide data-actions>
                       <div className="row-actions">
-                        <PaySendingActions sendingId={s.id} />
+                        <PaySendingActions sendingId={s.id} isPersonal={s.is_personal} />
                         <EditSendingForm sending={s} />
                       </div>
                     </td>

@@ -10,8 +10,11 @@ import {
   createSending,
   deleteSending,
   markClientPaid,
+  previewDirectPayment,
+  previewPoolPayment,
   type CreatePersonalSendingResult,
   type CreateSendingResult,
+  type PayPreview,
 } from '@/lib/queries';
 import { isClientPaymentMethod } from '@/lib/types';
 
@@ -100,6 +103,45 @@ export async function crearEnvioPersonalAction(
     return { result };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar el envío.' };
+  }
+}
+
+export interface PreviewPagoState {
+  error?: string;
+  result?: PayPreview;
+}
+
+/*
+  What paying an envío propio would cost, before anything is paid.
+
+  Called straight from onClick rather than through useActionState: there is no
+  form here and nothing to submit — the button asks a question and gets numbers
+  back. Neither of these revalidates anything, on purpose: nothing changed, and
+  revalidating would throw away the very page state holding the preview.
+
+  Both are personal-only, and lib/queries.ts is where that is enforced.
+*/
+export async function previewPagoPoolAction(sendingId: number): Promise<PreviewPagoState> {
+  try {
+    return { result: await previewPoolPayment(sendingId) };
+  } catch (error) {
+    // computePoolPayment throws outright when the VES pool holds no lots at all,
+    // rather than reporting it as a shortfall. That is a normal thing to ask
+    // about, so it comes back as a message, not a crash.
+    return { error: error instanceof Error ? error.message : 'No se pudo calcular el coste.' };
+  }
+}
+
+export async function previewPagoDirectoAction(
+  sendingId: number,
+  usdtSold: number,
+): Promise<PreviewPagoState> {
+  if (!(usdtSold > 0)) return { error: 'Escribe los USDT vendidos (mayor que cero).' };
+
+  try {
+    return { result: await previewDirectPayment(sendingId, usdtSold) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo calcular el coste.' };
   }
 }
 

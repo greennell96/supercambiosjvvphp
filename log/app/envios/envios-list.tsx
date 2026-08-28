@@ -131,7 +131,9 @@ export default function EnviosList({
       </td>
       <td data-label="Acciones" data-wide data-actions>
         <div className="row-actions">
-          {s.status === 'pending' ? <PaySendingActions sendingId={s.id} /> : null}
+          {s.status === 'pending' ? (
+            <PaySendingActions sendingId={s.id} isPersonal={s.is_personal} />
+          ) : null}
           {/* Nothing to collect on an envío propio; markClientPaid refuses one too. */}
           {!s.is_personal && s.client_paid_at === null ? (
             <ClientPaidActions sendingId={s.id} clientId={s.client_id} codigos={unlinkedCodigos} />

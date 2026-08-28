@@ -151,23 +151,68 @@ export async function listPurchases(): Promise<CryptoPurchase[]> {
   }));
 }
 
+/*
+  Both pools are read two ways, and the difference is only the lock.
+
+  A write path takes them `for update` inside its transaction, so two writers can
+  never draw the same lot twice. The envio propio payment PREVIEW takes them
+  without one: it writes nothing, and locking rows to answer "what would this
+  cost" would block a real payment for the sake of a number on screen.
+
+  The row -> lot mapping is shared between the two, deliberately. It is the part
+  that carries real meaning (see the price note below), and two copies of it
+  would be two things to keep in step.
+*/
+
+type RawUsdtLot = {
+  id: number;
+  purchased_at: Date;
+  price_eur_per_usdt: string;
+  remaining_usdt: string;
+};
+
 /** The USDT pool, shaped for lib/fifo.ts. price = EUR per USDT. */
+function toUsdtLot(r: RawUsdtLot): Lot {
+  return {
+    id: id(r.id),
+    orderMs: r.purchased_at.getTime(),
+    price: num(r.price_eur_per_usdt),
+    remaining: num(r.remaining_usdt),
+  };
+}
+
 async function lockUsdtLots(tx: TransactionSql) {
-  const rows = await tx<
-    { id: number; purchased_at: Date; price_eur_per_usdt: string; remaining_usdt: string }[]
-  >`
+  const rows = await tx<RawUsdtLot[]>`
     select id, purchased_at, price_eur_per_usdt, remaining_usdt
     from crypto_purchases
     order by purchased_at, id
     for update
   `;
-  return rows.map<Lot>((r) => ({
-    id: id(r.id),
-    orderMs: r.purchased_at.getTime(),
-    price: num(r.price_eur_per_usdt),
-    remaining: num(r.remaining_usdt),
-  }));
+  return rows.map(toUsdtLot);
 }
+
+/** The same pool, unlocked, for a preview that only reads. */
+async function readUsdtLots(): Promise<Lot[]> {
+  const sql = getSql();
+  const rows = await sql<RawUsdtLot[]>`
+    select id, purchased_at, price_eur_per_usdt, remaining_usdt
+    from crypto_purchases
+    order by purchased_at, id
+  `;
+  return rows.map(toUsdtLot);
+}
+
+type RawVesLot = {
+  id: number;
+  sold_at: Date;
+  source_type: 'binance' | 'ves_to_eur';
+  usdt_sold: string | null;
+  price_ves_per_usdt: string | null;
+  eur_amount: string | null;
+  remaining_ves: string;
+  ves_received: string;
+  eur_cost: string;
+};
 
 /**
  * The shared VES pool, shaped for lib/fifo.ts.
@@ -177,27 +222,8 @@ async function lockUsdtLots(tx: TransactionSql) {
  * carry their original USDT amount for audit attribution; direct VES -> EUR
  * rows carry zero and therefore never appear as USDT consumed by a sending.
  */
-async function lockVesLots(tx: TransactionSql) {
-  const rows = await tx<
-    {
-      id: number;
-      sold_at: Date;
-      source_type: 'binance' | 'ves_to_eur';
-      usdt_sold: string | null;
-      price_ves_per_usdt: string | null;
-      eur_amount: string | null;
-      remaining_ves: string;
-      ves_received: string;
-      eur_cost: string;
-    }[]
-  >`
-    select id, sold_at, source_type, usdt_sold, price_ves_per_usdt, eur_amount,
-           remaining_ves, ves_received, eur_cost
-    from ves_sales
-    order by sold_at, id
-    for update
-  `;
-  return rows.map<VesLot>((r) => ({
+function toVesLot(r: RawVesLot): VesLot {
+  return {
     id: id(r.id),
     orderMs: r.sold_at.getTime(),
     // drawFifo carries the lot's own source-native rate through its generic
@@ -211,11 +237,33 @@ async function lockVesLots(tx: TransactionSql) {
     remaining: num(r.remaining_ves),
     sourceType: r.source_type,
     usdtSold: num(r.usdt_sold),
-    priceVesPerUsdt:
-      r.price_ves_per_usdt === null ? null : num(r.price_ves_per_usdt),
+    priceVesPerUsdt: r.price_ves_per_usdt === null ? null : num(r.price_ves_per_usdt),
     vesReceived: num(r.ves_received),
     eurCost: num(r.eur_cost),
-  }));
+  };
+}
+
+async function lockVesLots(tx: TransactionSql) {
+  const rows = await tx<RawVesLot[]>`
+    select id, sold_at, source_type, usdt_sold, price_ves_per_usdt, eur_amount,
+           remaining_ves, ves_received, eur_cost
+    from ves_sales
+    order by sold_at, id
+    for update
+  `;
+  return rows.map(toVesLot);
+}
+
+/** The same pool, unlocked, for a preview that only reads. */
+async function readVesLots(): Promise<VesLot[]> {
+  const sql = getSql();
+  const rows = await sql<RawVesLot[]>`
+    select id, sold_at, source_type, usdt_sold, price_ves_per_usdt, eur_amount,
+           remaining_ves, ves_received, eur_cost
+    from ves_sales
+    order by sold_at, id
+  `;
+  return rows.map(toVesLot);
 }
 
 /**
@@ -1146,6 +1194,106 @@ export async function paySendingDirect(
       profitEur: payment.profitEur,
     };
   });
+}
+
+/* ------------------------------------------------- what paying would cost */
+
+/**
+ * What a payment WOULD do, without doing any of it.
+ *
+ * An envio propio has no agreed EUR amount, so unlike a client sending nothing
+ * on screen says what it is about to cost until it is already paid — and by then
+ * the pools have moved. This answers that question first.
+ *
+ * It is only a read. computePoolPayment and computeDirectPayment are pure: they
+ * take the lots and hand back numbers, and it is paySendingFromPool /
+ * paySendingDirect that write the allocations and the sending row. So running
+ * the very same function over the very same pools, and writing nothing, gives
+ * exactly the figures the real payment would produce against the pools as they
+ * stand right now.
+ *
+ * Deliberately personal-only, guarded below rather than left to the caller: a
+ * client sending already shows its EUR amount and tasa on the row, and adding a
+ * confirm step to its one-click payment would slow down the batch work this app
+ * exists to make fast.
+ */
+export interface PayPreview {
+  feeApplied: boolean;
+  usdtUsed: number;
+  costEur: number;
+  /** Bolivares the VES pool cannot cover. Always 0 on the direct path. */
+  vesShortfall: number;
+  /** USDT the crypto pool cannot cover. Always 0 on the pool path. */
+  usdtShortfall: number;
+}
+
+type PreviewRow = PendingRow & { is_personal: boolean };
+
+/**
+ * The sending a preview is about, read without a lock and refused unless it is
+ * a pending envio propio. Defense in depth: the list only offers the preview on
+ * those rows, the same way markClientPaid is only offered on the others.
+ */
+async function readPendingPersonalSending(sendingId: number): Promise<PreviewRow> {
+  const sql = getSql();
+  const [row] = await sql<PreviewRow[]>`
+    select s.id, c.name as client_name, s.amount_eur, s.amount_ves_to_pay,
+           s.payout_method, s.is_personal
+    from sendings s
+    join clients c on c.id = s.client_id
+    where s.id = ${sendingId} and s.status = 'pending'
+  `;
+  if (!row) throw new Error('Ese envio ya no esta pendiente.');
+  if (!row.is_personal) {
+    throw new Error('La vista previa de coste solo existe para los envios propios.');
+  }
+  return row;
+}
+
+/** (a) What paying it out of the VES pool would cost, right now. */
+export async function previewPoolPayment(sendingId: number): Promise<PayPreview> {
+  const sending = await readPendingPersonalSending(sendingId);
+  const vesLots = await readVesLots();
+
+  const payment = computePoolPayment({
+    // Always null here, and that is the point: no agreed amount means no profit
+    // line to show, only what it costs.
+    amountEur: pendingAmountEur(sending),
+    amountVesToPay: num(sending.amount_ves_to_pay),
+    payoutMethod: sending.payout_method,
+    vesLots,
+  });
+
+  return {
+    feeApplied: payment.feeApplied,
+    usdtUsed: payment.usdtUsed,
+    costEur: payment.costEur,
+    vesShortfall: payment.vesShortfall,
+    usdtShortfall: 0,
+  };
+}
+
+/** (b) What selling `usdtSold` straight into the account would cost, right now. */
+export async function previewDirectPayment(
+  sendingId: number,
+  usdtSold: number,
+): Promise<PayPreview> {
+  const sending = await readPendingPersonalSending(sendingId);
+  const usdtLots = await readUsdtLots();
+
+  const payment = computeDirectPayment({
+    amountEur: pendingAmountEur(sending),
+    usdtSold,
+    usdtLots,
+  });
+
+  return {
+    feeApplied: payment.feeApplied,
+    usdtUsed: payment.usdtUsed,
+    costEur: payment.costEur,
+    vesShortfall: 0,
+    usdtShortfall: payment.usdtShortfall,
+  };
 }
 
 export interface MarkClientPaidInput {
