@@ -865,6 +865,75 @@ button.danger {
   color: var(--red-text);
 }
 
+/* -------------------------------------------- trying out today's tasa */
+
+/*
+  The calculator under "Tasa sugerida". It recomputes on every keystroke, which
+  is the whole point of it, so it is built to hold still while the numbers
+  change: fixed rows, tabular figures, and no transition on anything. Only the
+  digits move.
+
+  Sunk into the muted surface rather than boxed in a colour, because nothing here
+  has happened — it is an estimate against a price José read a minute ago, not a
+  receipt. Green and red are spent only on the two rows that answer the question.
+*/
+.rate-preview {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-muted);
+}
+
+.rate-preview-hint {
+  margin-top: 14px;
+}
+
+.rate-preview-meta {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.rate-preview dl {
+  margin: 0;
+}
+
+.rate-preview dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.rate-preview dl > div:first-child {
+  border-top: 0;
+}
+
+.rate-preview dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.rate-preview dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rate-preview .rate-preview-total dd {
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.rate-preview-note {
+  margin: 8px 0 0;
+}
+
 /* ------------------------------------------------------- statistics ledger */
 
 .page-heading {

@@ -14,6 +14,7 @@ import type { TransactionSql } from 'postgres';
 import { getSql, id, num } from './db';
 import { applyIncomingToBackorders, type Lot } from './fifo';
 import {
+  poolWeightedAveragePrice,
   purchasePriceEurPerUsdt,
   salePriceVesPerUsdt,
   vesToEurPriceVesPerEur,
@@ -1817,6 +1818,25 @@ export async function getDashboardTotals(): Promise<DashboardTotals> {
     pendingSendingsCount: Number(pending.count),
     pendingCodigosCount: Number(codigos.count),
   };
+}
+
+/**
+ * What the USDT currently in the pool cost, EUR per USDT.
+ *
+ * Pairs with getDashboardTotals().cryptoBalanceUsdt — that is HOW MUCH is in the
+ * pool, this is WHAT IT COST — so the tasa calculator on the dashboard can price
+ * the pool as it actually stands.
+ *
+ * Reads the very same lots a payment preview reads, unlocked, because nothing is
+ * drawn here. Deliberately NOT getStats()'s weighted_purchase_price: that
+ * averages every crypto_purchases row ever written, USDT long since sold
+ * included. Correct as a lifetime figure on /stats, wrong for "what is sitting
+ * there right now" — see poolWeightedAveragePrice for the full distinction.
+ *
+ * Null when no purchase still holds anything.
+ */
+export async function getUsdtPoolCostBasis(): Promise<number | null> {
+  return poolWeightedAveragePrice(await readUsdtLots());
 }
 
 /* -------------------------------------------------------------------- stats */

@@ -3,12 +3,19 @@ import Link from 'next/link';
 import RatesForm from './rates-form';
 import Shell from './shell';
 import { fmtUsdt, fmtVes } from '@/lib/format';
-import { getDashboardTotals, getRates } from '@/lib/queries';
+import { getDashboardTotals, getRates, getUsdtPoolCostBasis } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const [totals, rates] = await Promise.all([getDashboardTotals(), getRates()]);
+  // The pool's size and the pool's cost, so the tasa calculator below can price
+  // it. Both are read here rather than inside RatesForm, which is a client
+  // component and has no database.
+  const [totals, rates, poolCostEurPerUsdt] = await Promise.all([
+    getDashboardTotals(),
+    getRates(),
+    getUsdtPoolCostBasis(),
+  ]);
 
   const cryptoNegative = totals.cryptoBalanceUsdt < 0;
   const vesNegative = totals.vesPoolBalance < 0;
@@ -84,7 +91,12 @@ export default async function DashboardPage() {
 
       <div className="panel">
         <h2>Tasa sugerida</h2>
-        <RatesForm tasa={rates.tasa_eur_ves} updatedAt={rates.updated_at} />
+        <RatesForm
+          tasa={rates.tasa_eur_ves}
+          updatedAt={rates.updated_at}
+          poolUsdt={totals.cryptoBalanceUsdt}
+          poolCostEurPerUsdt={poolCostEurPerUsdt}
+        />
       </div>
     </Shell>
   );
