@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseBanks, requiresDniReminder } from '../lib/banks';
+import { bankColorClass, compareBankNames, parseBanks, requiresDniReminder } from '../lib/banks';
 
 describe('requiresDniReminder - the CaixaBank reminder', () => {
   it('fires on any spelling of Caixa, case-insensitively and on partial matches', () => {
@@ -43,5 +43,57 @@ describe('parseBanks', () => {
     expect(parseBanks('-')).toEqual([]);
     expect(parseBanks('')).toEqual([]);
     expect(parseBanks(null)).toEqual([]);
+  });
+});
+
+describe('bankColorClass - the /codigos row border', () => {
+  it('matches the five known banks however they are typed', () => {
+    expect(bankColorClass('BBVA')).toBe('bank-bbva');
+    expect(bankColorClass('bbva es')).toBe('bank-bbva');
+    expect(bankColorClass('Banco Sabadell')).toBe('bank-sabadell');
+    expect(bankColorClass('SANTANDER')).toBe('bank-santander');
+    expect(bankColorClass('  Banco Santander  ')).toBe('bank-santander');
+    expect(bankColorClass('halcash')).toBe('bank-halcash');
+    expect(bankColorClass('HalCash Movil')).toBe('bank-halcash');
+  });
+
+  it('colours Caixa on exactly the spellings that ask for the DNI', () => {
+    for (const spelling of ['Caixa', 'CaixaBank', 'caixabank', 'CAIXA', 'la caixa']) {
+      expect(bankColorClass(spelling)).toBe('bank-caixa');
+      expect(requiresDniReminder(spelling)).toBe(true);
+    }
+  });
+
+  it('leaves every other bank alone', () => {
+    expect(bankColorClass('Banesco')).toBe('');
+    expect(bankColorClass('Banco de Venezuela')).toBe('');
+    expect(bankColorClass('')).toBe('');
+    expect(bankColorClass(null)).toBe('');
+  });
+});
+
+describe('compareBankNames - grouping the pendientes into a route', () => {
+  it('groups alphabetically, ignoring case and accents', () => {
+    const banks = ['santander', 'BBVA', 'Caixa', 'bbva', 'Halcash'];
+    expect([...banks].sort(compareBankNames)).toEqual([
+      'BBVA',
+      'bbva',
+      'Caixa',
+      'Halcash',
+      'santander',
+    ]);
+  });
+
+  it('says two spellings of one bank are the same group', () => {
+    expect(compareBankNames('BBVA', 'bbva')).toBe(0);
+  });
+
+  it('pushes a missing bank to the end, where the gap is visible', () => {
+    expect([...['', 'Santander', 'n/a', 'BBVA']].sort(compareBankNames)).toEqual([
+      'BBVA',
+      'Santander',
+      '',
+      'n/a',
+    ]);
   });
 });

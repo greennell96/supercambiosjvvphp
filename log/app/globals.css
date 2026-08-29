@@ -1,4 +1,12 @@
-/* Plain, dense, glance-and-understand. No animations, no transitions. */
+/*
+  Plain, dense, glance-and-understand. No animations, no transitions — with
+  exactly one exception, and it is not a licence for a second one.
+
+  The exception is `.codigo-marcado` (near the end of this file): marking a
+  código retirado on /codigos flashes the row green and slides it out. Without
+  it the server re-render simply drops the row and the click says nothing about
+  which código it took. Nothing else in this app moves.
+*/
 
 :root {
   --bg: #f2f4f6;
@@ -1402,6 +1410,107 @@ tr.linked-sending td {
   margin: 80px auto;
 }
 
+/* ------------------------------------------------------------- codigos */
+
+/*
+  A pendiente código is not a state to read, it is a job still on the list, and
+  /codigos only ever has two states. So the word becomes a small solid red
+  square, which is counted straight down the column instead of read. Only
+  pendiente: "retirado" keeps the badge, because that is the same badge the
+  ledger shows for the same row.
+*/
+.codigo-pendiente-mark {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  background: var(--red-line);
+  vertical-align: middle;
+}
+
+/*
+  Bank colour: border only, never the fill and never the text.
+
+  The pendientes are sorted by bank because that is how a withdrawal run is
+  done, and the colour exists only to show where one bank's block ends and the
+  next begins. It says nothing the "Banco" column does not already say, which is
+  precisely why it has to stay quiet — the row's TINT is its status, and a loud
+  bank colour would be a second thing competing to be read in the same place.
+  Brand hints, deliberately desaturated. A bank outside this list gets no colour
+  at all, which is a fine answer: it is simply not one of the five blocks.
+*/
+.bank-bbva {
+  --bank-line: #24558a;
+}
+
+.bank-sabadell {
+  --bank-line: #7fa8d4;
+}
+
+.bank-santander {
+  --bank-line: #dd9090;
+}
+
+.bank-caixa {
+  --bank-line: #94a6bb;
+}
+
+.bank-halcash {
+  --bank-line: #e0a469;
+}
+
+/*
+  On a wide screen a table row has no border of its own to colour, so the colour
+  is a bar down its leading edge. An inset shadow rather than a border-left: a
+  border would push the first column 3px right on coloured rows only, and the
+  names would stop lining up with each other down the page. The phone layout
+  below has a real card border and does not want this bar as well.
+*/
+@media (min-width: 721px) {
+  tr.bank-bbva td:first-child,
+  tr.bank-sabadell td:first-child,
+  tr.bank-santander td:first-child,
+  tr.bank-caixa td:first-child,
+  tr.bank-halcash td:first-child {
+    box-shadow: inset 3px 0 0 var(--bank-line);
+  }
+}
+
+/*
+  The one animation in this app — see the note at the top of this file, and do
+  not read it as permission for a second one.
+
+  "Marcar retirado" revalidates the page, and the row is simply absent from the
+  re-render. On a list of eight pendientes that is indistinguishable from a
+  misclick. So the row goes green first — green already means done everywhere
+  here — and then leaves, and the leaving is what confirms which one went.
+*/
+tr.codigo-marcado {
+  background: var(--green-bg);
+  animation: codigo-marcado-out 460ms ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes codigo-marcado-out {
+  0%,
+  45% {
+    opacity: 1;
+    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+/* The green is the message; the movement was only ever the delivery. */
+@media (prefers-reduced-motion: reduce) {
+  tr.codigo-marcado {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
 /* --------------------------------------------------------- phone layout */
 
 @media (max-width: 720px) {
@@ -1597,6 +1706,26 @@ tr.linked-sending td {
     background: var(--green-bg);
   }
 
+  /*
+    /codigos: the card already has the border the wide layout had to fake, so
+    the bank colour goes straight onto it. The status tint underneath is left
+    exactly as it was — the fill still answers "is this done", the edge answers
+    "which bank".
+  */
+  tr.bank-bbva,
+  tr.bank-sabadell,
+  tr.bank-santander,
+  tr.bank-caixa,
+  tr.bank-halcash {
+    border-color: var(--bank-line);
+  }
+
+  /* Both of the above lose to the row that is on its way out. */
+  tr.codigo-marcado {
+    border-color: var(--green-line);
+    background: var(--green-bg);
+  }
+
   td,
   td.num {
     display: flex;
@@ -1614,6 +1743,15 @@ tr.linked-sending td {
   td.num {
     font-variant-numeric: tabular-nums;
     overflow-wrap: normal;
+  }
+
+  /*
+    A cell with no data-label wants no caption at all, not an empty one: without
+    this it still gets a pseudo-element and the blank line it occupies. Used by
+    the client name on /codigos, which is the card's title and captions itself.
+  */
+  td:not([data-label])::before {
+    content: none;
   }
 
   td::before {
@@ -1699,6 +1837,12 @@ tr.linked-sending td {
 
   .badge {
     padding: 2px 8px;
+  }
+
+  /* Everything on the card is a step bigger here; the square keeps up. */
+  .codigo-pendiente-mark {
+    width: 13px;
+    height: 13px;
   }
 
   /* Full width in the card, so the number and its state read as one line. */
