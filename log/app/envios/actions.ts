@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 
 import type { DeleteState } from '../actions';
 import { parseDecimal, parseId, text, textOrNull } from '@/lib/parse';
-import { SENDING_PAYOUT_METHODS } from '@/lib/pricing';
+import { SENDING_PAYOUT_METHODS, type SendingPayoutMethod } from '@/lib/pricing';
 import {
   createPersonalSending,
   createSending,
@@ -12,6 +12,7 @@ import {
   markClientPaid,
   previewDirectPayment,
   previewPoolPayment,
+  splitSending,
   type CreatePersonalSendingResult,
   type CreateSendingResult,
   type PayPreview,
@@ -103,6 +104,65 @@ export async function crearEnvioPersonalAction(
     return { result };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar el envío.' };
+  }
+}
+
+export interface SplitSendingState {
+  error?: string;
+  /**
+   * Timestamp of the last successful division, not a boolean, for the same
+   * reason EditSendingState uses one: the inline form closes itself on it, and
+   * dividing the same row twice in a row has to look different to it.
+   */
+  savedAt?: number;
+}
+
+/**
+ * Divide a pending sending: part of it stays, the rest becomes its own envío.
+ *
+ * The client handed the money over once, but the bolívares sometimes leave in
+ * two pieces through two different banks, and a sending is one row with one
+ * método. This gives the second piece a row of its own.
+ *
+ * Two fields, because two is all that differs: how much of the EUR goes with it,
+ * and which channel that part is paid through. Everything else — the cliente,
+ * the tasa, whether the cliente already pagó — comes off the original row, which
+ * is where those facts already live and the only place they are true.
+ *
+ * Nothing is checked here that decides anything: lib/splitting.ts re-reads the
+ * kind, the status and the amount off the locked row and refuses on those, so a
+ * sending that got paid, or already divided, between render and submit cannot
+ * slip through. These are only the reads of raw form text.
+ *
+ * /codigos is revalidated along with the rest: the new row is another unpaid-by-
+ * client envío, so it joins the "vincular a un envío abierto" picker there.
+ */
+export async function splitSendingAction(
+  _prev: SplitSendingState,
+  formData: FormData,
+): Promise<SplitSendingState> {
+  const sendingId = parseId(formData.get('id'));
+  if (!sendingId) return { error: 'Envío no válido.' };
+
+  const amountEur = parseDecimal(formData.get('amount_eur'));
+  if (amountEur === null || !(amountEur > 0)) {
+    return { error: 'Escribe cuántos EUR separas en el envío nuevo (mayor que cero).' };
+  }
+
+  const payoutMethod = text(formData.get('payout_method'));
+  if (!(SENDING_PAYOUT_METHODS as readonly string[]).includes(payoutMethod)) {
+    return { error: 'Elige un método de pago.' };
+  }
+
+  try {
+    await splitSending(sendingId, amountEur, payoutMethod as SendingPayoutMethod);
+    revalidatePath('/');
+    revalidatePath('/envios');
+    revalidatePath('/codigos');
+    revalidatePath('/stats');
+    return { savedAt: Date.now() };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo dividir el envío.' };
   }
 }
 
