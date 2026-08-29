@@ -10,6 +10,7 @@ import {
   markCodigoRetirado,
   paySendingDirect,
   paySendingFromPool,
+  updateCodigo,
   updateRates,
   type EditSendingMoney,
 } from '@/lib/queries';
@@ -176,6 +177,59 @@ export async function editSendingAction(
     return { savedAt: Date.now() };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo guardar el envío.' };
+  }
+}
+
+export interface EditCodigoState {
+  error?: string;
+  /** Same timestamp-not-boolean as EditSendingState: the form watches it to close. */
+  savedAt?: number;
+}
+
+/**
+ * Correct a codigo by hand.
+ *
+ * Lives here rather than in app/codigos/actions.ts because it is the same kind
+ * of thing editSendingAction is — a row correction reached from a list — and
+ * because the form that calls it is a shared component. app/codigos/actions.ts
+ * holds what only /codigos does: create and delete.
+ *
+ * Three fields and no more. The client and the linked sending are not in the
+ * form and are not read here; lib/queries.ts does not touch those columns
+ * either, so a typo fix can never move a codigo onto another client or
+ * un-prove a sending's payment. The status is not here either: a retirado
+ * codigo is corrected exactly like a pendiente one.
+ *
+ * The validation is crearCodigoAction's, word for word, because it is the same
+ * three fields — the same typo has to be refused the same way whichever screen
+ * it was typed on.
+ */
+export async function editarCodigoAction(
+  _prev: EditCodigoState,
+  formData: FormData,
+): Promise<EditCodigoState> {
+  const codigoId = parseId(formData.get('id'));
+  const code = text(formData.get('code'));
+  const amount = parseDecimal(formData.get('amount'));
+  const bank = text(formData.get('bank'));
+
+  if (!codigoId) return { error: 'Código no válido.' };
+  if (!code) return { error: 'Escribe el código.' };
+  if (amount === null || !(amount > 0)) return { error: 'Escribe un monto mayor que cero.' };
+  if (!bank) return { error: 'Indica el banco.' };
+
+  try {
+    await updateCodigo(codigoId, { code, amount, bank });
+    // crearCodigoAction's list exactly, and for its reason: /envios shows the
+    // código's monto and banco in the "Cliente pagó" picker, and both /stats and
+    // the dashboard cuadre count its amount.
+    revalidatePath('/');
+    revalidatePath('/codigos');
+    revalidatePath('/envios');
+    revalidatePath('/stats');
+    return { savedAt: Date.now() };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo guardar el código.' };
   }
 }
 

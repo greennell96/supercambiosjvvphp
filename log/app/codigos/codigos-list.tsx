@@ -5,6 +5,7 @@ import { useState, useTransition, type FormEvent } from 'react';
 import { eliminarCodigoAction } from './actions';
 import { markCodigoRetiradoAction } from '../actions';
 import DeleteRowForm from '../components/delete-row-form';
+import EditCodigoForm from '../components/edit-codigo-form';
 import LedgerList from '../components/ledger-list';
 import { bankColorClass, compareBankNames, requiresDniReminder } from '@/lib/banks';
 import { fmtDateTimeShort, fmtEur, fmtRate, fmtVes } from '@/lib/format';
@@ -239,7 +240,18 @@ function CodigoRow({ codigo: c }: { codigo: Codigo }) {
           )}
         </td>
         <td data-label="Acciones" data-wide data-actions>
-          <DeleteRowForm id={c.id} action={eliminarCodigoAction} />
+          {/*
+            Same cell and same order as a sending row: edit above delete. This
+            row is rendered both pinned above the log and inside the compressed
+            one, so putting the form here is what gives a retirado código an
+            "Editar" too — which is the point, since a código never freezes.
+          */}
+          <div className="row-actions">
+            <EditCodigoForm
+              codigo={{ id: c.id, code: c.code, amount: c.amount, bank: c.bank }}
+            />
+            <DeleteRowForm id={c.id} action={eliminarCodigoAction} />
+          </div>
         </td>
       </tr>
 
@@ -265,9 +277,11 @@ function CodigoRow({ codigo: c }: { codigo: Codigo }) {
               <div>
                 <dt>Bs a pagar</dt>
                 <dd>
-                  {c.sending_amount_ves_to_pay === null
-                    ? '—'
-                    : fmtVes(c.sending_amount_ves_to_pay)}
+                  {c.sending_amount_ves_to_pay === null ? (
+                    '—'
+                  ) : (
+                    <span className="payout-amount">{fmtVes(c.sending_amount_ves_to_pay)}</span>
+                  )}
                 </dd>
               </div>
               <div>

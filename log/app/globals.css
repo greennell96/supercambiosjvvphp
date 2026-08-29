@@ -37,6 +37,17 @@
   --blue-bg: #e6edf7;
   --blue-line: #7d9fcb;
   --blue-text: #1c3f6e;
+
+  /*
+    What Jose owes a beneficiary in bolívares, and nothing else. The four
+    families above are all muted dark tones meant to sit quietly in body text;
+    this one is deliberately saturated, because it is the one figure on a
+    sending row he is looking FOR rather than reading past. Its own colour so it
+    can never be misread as pendiente, pagado, error or cobrado — it is not a
+    status at all. Text only: there is no --payout-bg or --payout-line, and a
+    background here would turn a table column into a highlighter.
+  */
+  --payout-text: #c2185b;
 }
 
 * {
@@ -322,6 +333,25 @@ tr.row-retirado {
 }
 
 .badge.negative {
+  background: var(--red-bg);
+  border-color: var(--red-line);
+  color: var(--red-text);
+}
+
+/*
+  El cuadre de códigos: does a day's envíos agree with that day's códigos. Same
+  shape and the same borrowed colours as the status badges, for a question that
+  is not a status — exactly what .badge.cobrado does above. Green is "nothing to
+  do here", red is "one of the two logs is missing a row", and red specifically
+  because José asked for red and green by name.
+*/
+.badge.cuadra {
+  background: var(--green-bg);
+  border-color: var(--green-line);
+  color: var(--green-text);
+}
+
+.badge.no-cuadra {
   background: var(--red-bg);
   border-color: var(--red-line);
   color: var(--red-text);
@@ -838,6 +868,49 @@ button.danger {
   color: var(--red-text);
 }
 
+/* -------------------------------------------------- editing a logged codigo */
+
+/*
+  "Editar" on a código row. Same shape as .edit-sending and .split-sending, and
+  written out again for the reason given above: one block per row action is what
+  makes any of them safe to change on its own. It reuses .edit-field and
+  .edit-buttons — those are the form's insides, not the action's, and all three
+  forms stack their fields the same way.
+*/
+.edit-codigo.open {
+  display: block;
+  min-width: 190px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 8px;
+}
+
+.edit-codigo .edit-field {
+  margin-bottom: 6px;
+}
+
+.edit-codigo .edit-field label {
+  font-size: 12px;
+}
+
+.edit-codigo input[type="text"] {
+  padding: 2px 6px;
+  font-size: 16px;
+}
+
+.edit-codigo .edit-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.edit-codigo .pay-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-text);
+}
+
 /* ----------------------------------------------------------------- notices */
 
 .notice {
@@ -1152,6 +1225,18 @@ button.danger {
 
 .negative-value {
   color: var(--red-text);
+  font-weight: 700;
+}
+
+/*
+  "Bs a pagar" — what Jose still owes a client's beneficiary. Colour and weight
+  only, like the two above, because it is the same kind of thing: a money figure
+  that has to read differently from the numbers around it, not a badge and not a
+  status. Only ever on sendings.amount_ves_to_pay; a pool balance, a venta and a
+  shortfall warning are all bolívares too and none of them is this.
+*/
+.payout-amount {
+  color: var(--payout-text);
   font-weight: 700;
 }
 
@@ -2041,6 +2126,20 @@ tr.codigo-marcado {
   }
 
   .split-sending .split-buttons button {
+    flex: 1;
+  }
+
+  .edit-codigo.open {
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .edit-codigo .edit-buttons {
+    gap: 8px;
+  }
+
+  .edit-codigo .edit-buttons button {
     flex: 1;
   }
 

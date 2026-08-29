@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import ConsolidacionTable from '../components/consolidacion-table';
 import Shell from '../shell';
 import {
   fmtCount,
@@ -11,13 +12,20 @@ import {
   fmtUsdt,
   fmtVes,
 } from '@/lib/format';
-import { getStats } from '@/lib/queries';
+import { getCodigoConsolidation, getCodigosPorBancoTotal, getStats } from '@/lib/queries';
 import { averagePerItem, marginPercent } from '@/lib/stats';
 
 export const dynamic = 'force-dynamic';
 
 export default async function StatsPage() {
-  const stats = await getStats();
+  // Three independent reads. The two códigos ones deliberately stay outside
+  // getStats()'s repeatable-read snapshot: neither is compared against the
+  // earnings figures, so neither needs to be in the same transaction as them.
+  const [stats, consolidacion, codigosPorBanco] = await Promise.all([
+    getStats(),
+    getCodigoConsolidation(),
+    getCodigosPorBancoTotal(),
+  ]);
   const { current, earnings, inventory } = stats;
   const margin = marginPercent(earnings.profit_eur, earnings.revenue_eur);
   const averageProfit = averagePerItem(earnings.profit_eur, earnings.paid_count);
@@ -136,6 +144,24 @@ export default async function StatsPage() {
             </p>
           </article>
         </div>
+      </section>
+
+      {/*
+        Not an earnings figure: nothing here is realized, paid or costed. It is
+        the integrity check on everything above it — if a day's envíos and that
+        day's códigos disagree, one of the two logs the rest of this page is
+        computed from is missing a row. Hence its place directly under the
+        current position and above the first profit table.
+      */}
+      <section className="panel stats-panel" aria-labelledby="cuadre-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Cuadre diario</p>
+            <h2 id="cuadre-title">Envíos vs. códigos</h2>
+          </div>
+          <span className="section-note">Por fecha de registro</span>
+        </div>
+        <ConsolidacionTable data={consolidacion} />
       </section>
 
       <section className="panel stats-panel" aria-labelledby="monthly-title">
@@ -398,6 +424,46 @@ export default async function StatsPage() {
                     <tr key={row.bank}>
                       <td data-label="Banco" data-wide>{row.bank}</td>
                       <td className="num" data-label="Códigos">{fmtCount(row.pending_count)}</td>
+                      <td className="num" data-label="Monto">{fmtEur(row.amount_eur)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/*
+          The same table with the status filter taken off, next to the one that
+          has it. The one above is a route — where Jose still has to go this
+          week. This one is the history: which banks the money actually comes
+          through, which is a different question and only answerable over every
+          código ever registered.
+        */}
+        <section className="panel stats-panel" aria-labelledby="codes-total-title">
+          <div className="section-heading compact">
+            <div>
+              <p className="eyebrow">Todo el histórico</p>
+              <h2 id="codes-total-title">Códigos por banco</h2>
+            </div>
+          </div>
+          {codigosPorBanco.length === 0 ? (
+            <p className="empty-state">Todavía no hay códigos.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="stats-table compact-table">
+                <thead>
+                  <tr>
+                    <th>Banco</th>
+                    <th className="num">Códigos</th>
+                    <th className="num">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {codigosPorBanco.map((row) => (
+                    <tr key={row.bank}>
+                      <td data-label="Banco" data-wide>{row.bank}</td>
+                      <td className="num" data-label="Códigos">{fmtCount(row.count)}</td>
                       <td className="num" data-label="Monto">{fmtEur(row.amount_eur)}</td>
                     </tr>
                   ))}

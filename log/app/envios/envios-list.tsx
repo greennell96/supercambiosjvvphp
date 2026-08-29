@@ -89,8 +89,14 @@ export default function EnviosList({
       <td className="num" data-label="Tasa" data-empty={s.rate_tasa === null ? true : undefined}>
         {s.rate_tasa === null ? '—' : fmtRate(s.rate_tasa)}
       </td>
+      {/*
+        The figure the whole row exists for: what Jose still owes over there.
+        Coloured so it is found rather than read past — see .payout-amount, which
+        is only ever this number. The cell's own attributes are untouched;
+        data-money is the mobile card's sizing hook and says nothing about colour.
+      */}
       <td className="num" data-label="Bs a pagar" data-wide data-money>
-        {fmtVes(s.amount_ves_to_pay)}
+        <span className="payout-amount">{fmtVes(s.amount_ves_to_pay)}</span>
       </td>
       <td data-label="Fecha">{fmtDateTime(s.created_at)}</td>
       <td data-label="Estado">
@@ -218,7 +224,14 @@ export default function EnviosList({
               : s.client_name,
           // The one-line row shows what the sending is worth. On a propio that is
           // the bolívares: there is no EUR figure to show and no zero to imply.
-          value: s.amount_eur === null ? fmtVes(s.amount_ves_to_pay) : fmtEur(s.amount_eur),
+          // Only that branch is coloured — the EUR one is what the client paid,
+          // not what Jose owes, and .payout-amount means exactly the second.
+          value:
+            s.amount_eur === null ? (
+              <span className="payout-amount">{fmtVes(s.amount_ves_to_pay)}</span>
+            ) : (
+              fmtEur(s.amount_eur)
+            ),
           badge: (
             <span className={`badge ${s.status}`}>
               {s.status === 'paid' ? 'pagado' : 'pendiente'}

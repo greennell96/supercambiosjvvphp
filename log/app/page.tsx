@@ -1,20 +1,28 @@
 import Link from 'next/link';
 
+import ConsolidacionTable from './components/consolidacion-table';
 import RatesForm from './rates-form';
 import Shell from './shell';
 import { fmtUsdt, fmtVes } from '@/lib/format';
-import { getDashboardTotals, getRates, getUsdtPoolCostBasis } from '@/lib/queries';
+import {
+  getCodigoConsolidation,
+  getDashboardTotals,
+  getRates,
+  getUsdtPoolCostBasis,
+} from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
   // The pool's size and the pool's cost, so the tasa calculator below can price
   // it. Both are read here rather than inside RatesForm, which is a client
-  // component and has no database.
-  const [totals, rates, poolCostEurPerUsdt] = await Promise.all([
+  // component and has no database. The cuadre rides along: it is four numbers
+  // off two tables and nothing else on this page depends on it.
+  const [totals, rates, poolCostEurPerUsdt, consolidacion] = await Promise.all([
     getDashboardTotals(),
     getRates(),
     getUsdtPoolCostBasis(),
+    getCodigoConsolidation(),
   ]);
 
   const cryptoNegative = totals.cryptoBalanceUsdt < 0;
@@ -87,6 +95,19 @@ export default async function DashboardPage() {
             <Link href="/codigos">Ver todos</Link>
           </div>
         </div>
+      </div>
+
+      {/*
+        The check Jose used to run by hand at the end of the day: what the
+        envíos say came in against what the códigos say was paid. It sits here,
+        under the two pendientes counts, because it is the same question they
+        are — "¿está todo en su sitio?" — and above the tasa calculator, which
+        is the one thing on this screen that is about the next envío rather than
+        the ones already logged.
+      */}
+      <div className="panel">
+        <h2>Cuadre de códigos</h2>
+        <ConsolidacionTable data={consolidacion} />
       </div>
 
       <div className="panel">

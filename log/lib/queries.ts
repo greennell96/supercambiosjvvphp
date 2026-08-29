@@ -11,6 +11,7 @@
 
 import type { TransactionSql } from 'postgres';
 
+import { madridDayKey, previousDayKey } from './day-buckets';
 import { getSql, id, num } from './db';
 import { applyIncomingToBackorders, type Lot } from './fifo';
 import {
@@ -28,6 +29,7 @@ import {
   type SendingPayoutMethod,
   type VesLot,
 } from './pricing';
+import type { CodigoConsolidacion } from './reconciliation';
 import { compraDeletionBlocker, restoreDrawnAmounts, ventaDeletionBlocker } from './reversal';
 import { computeSendingSplit } from './splitting';
 import type {
@@ -1740,6 +1742,44 @@ export async function createCodigo(input: {
   });
 }
 
+/**
+ * Correct a codigo that was typed wrong.
+ *
+ * Only the codigo's own three fields — the code, the amount and the bank. The
+ * client and the linked sending are deliberately out of reach: the link is what
+ * makes a sending say the client paid, so moving it is createCodigo's and
+ * deleteCodigo's business, where the sending is locked and updated in the same
+ * transaction. This function must never be able to leave those two halves
+ * disagreeing, and the way it cannot is by not touching either column.
+ *
+ * The status is untouched for the same reason from the other side: a retirado
+ * codigo is as correctable as a pendiente one, and a typo fix is not a reason to
+ * un-withdraw money. So there is no status branch here at all — unlike
+ * editSending, where the money fields do freeze on payment because pools were
+ * drawn against them. No pool has ever been drawn against a codigo.
+ *
+ * The row is still locked and re-read, so an edit aimed at a codigo somebody
+ * deleted in the meantime says so instead of silently updating nothing.
+ */
+export async function updateCodigo(
+  codigoId: number,
+  input: { code: string; amount: number; bank: string },
+): Promise<void> {
+  const sql = getSql();
+  await sql.begin(async (tx) => {
+    const [row] = await tx<{ id: number }[]>`
+      select id from codigos where id = ${codigoId} for update
+    `;
+    if (!row) throw new Error('Código no encontrado.');
+
+    await tx`
+      update codigos
+      set code = ${input.code}, amount = ${input.amount}, bank = ${input.bank}
+      where id = ${codigoId}
+    `;
+  });
+}
+
 export async function markCodigoRetirado(codigoId: number): Promise<void> {
   const sql = getSql();
   await sql`
@@ -1781,6 +1821,132 @@ export async function deleteCodigo(codigoId: number): Promise<void> {
 
     await tx`delete from codigos where id = ${codigoId}`;
   });
+}
+
+/* ------------------------------------------------------- cuadre de codigos */
+
+/**
+ * The EUR logged in envios against the EUR logged in codigos, day by day.
+ *
+ * This is the check Jose used to run by hand in the Excel sheet. A codigo is how
+ * a client's payment gets logged, so a day's envios and that day's codigos are
+ * two records of the same money and a gap means one of them is wrong. What the
+ * gap MEANS is decided in lib/reconciliation.ts; this function only counts.
+ *
+ * Three rules, all of them deliberate:
+ *
+ *   is_personal = false on the envios side. An envio propio is Jose's own money
+ *   going out — no client paid for it, so no codigo will ever exist for it and
+ *   counting one would make every day with a propio look short.
+ *
+ *   No status filter on either side. "Logged" means written down, not settled:
+ *   an envio counts the moment it is created, whether or not it is paid, and a
+ *   codigo counts whether or not it has been withdrawn.
+ *
+ *   created_at, not paid_at or retired_at. The question is what was WRITTEN DOWN
+ *   that day, which is the only thing the two sides can be compared on.
+ *
+ * The Europe/Madrid day is resolved in TypeScript through lib/day-buckets.ts,
+ * the same function the ledger headings use, and matched here with the to_char
+ * idiom the stats buckets already use. No date arithmetic is reinvented in SQL,
+ * so a row can never land on one day in the cuadre and another in the log.
+ */
+export async function getCodigoConsolidation(): Promise<CodigoConsolidacion> {
+  const sql = getSql();
+  const todayKey = madridDayKey(new Date());
+  const yesterdayKey = previousDayKey(todayKey);
+  const beforeYesterdayKey = previousDayKey(yesterdayKey);
+
+  const [row] = await sql<
+    {
+      today_envios: string;
+      today_codigos: string;
+      yesterday_envios: string;
+      yesterday_codigos: string;
+      before_yesterday_envios: string;
+      before_yesterday_codigos: string;
+      total_envios: string;
+      total_codigos: string;
+    }[]
+  >`
+    select
+      coalesce((select sum(amount_eur) from sendings
+        where is_personal = false
+          and to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${todayKey}
+      ), 0) as today_envios,
+      coalesce((select sum(amount) from codigos
+        where to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${todayKey}
+      ), 0) as today_codigos,
+      coalesce((select sum(amount_eur) from sendings
+        where is_personal = false
+          and to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${yesterdayKey}
+      ), 0) as yesterday_envios,
+      coalesce((select sum(amount) from codigos
+        where to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${yesterdayKey}
+      ), 0) as yesterday_codigos,
+      coalesce((select sum(amount_eur) from sendings
+        where is_personal = false
+          and to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${beforeYesterdayKey}
+      ), 0) as before_yesterday_envios,
+      coalesce((select sum(amount) from codigos
+        where to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${beforeYesterdayKey}
+      ), 0) as before_yesterday_codigos,
+      coalesce((select sum(amount_eur) from sendings where is_personal = false), 0)
+        as total_envios,
+      coalesce((select sum(amount) from codigos), 0) as total_codigos
+  `;
+
+  return {
+    today: {
+      day: todayKey,
+      envios_eur: num(row.today_envios),
+      codigos_eur: num(row.today_codigos),
+    },
+    yesterday: {
+      day: yesterdayKey,
+      envios_eur: num(row.yesterday_envios),
+      codigos_eur: num(row.yesterday_codigos),
+    },
+    before_yesterday: {
+      day: beforeYesterdayKey,
+      envios_eur: num(row.before_yesterday_envios),
+      codigos_eur: num(row.before_yesterday_codigos),
+    },
+    total: {
+      envios_eur: num(row.total_envios),
+      codigos_eur: num(row.total_codigos),
+    },
+  };
+}
+
+/**
+ * Every codigo ever registered, grouped by bank.
+ *
+ * The same shape as getStats()'s pending_codes_by_bank and deliberately next to
+ * it on /stats, with the one difference that matters: no status filter. That one
+ * answers "where does Jose still have to go", this one answers "where does the
+ * money come from at all" — which banks he actually works with, over the whole
+ * history rather than whatever happens to be open this afternoon.
+ *
+ * Kept out of getStats()'s repeatable-read transaction on purpose. It is one
+ * small independent read that nothing else is compared against, so it does not
+ * need to be in the same snapshot as the earnings figures.
+ */
+export async function getCodigosPorBancoTotal(): Promise<
+  { bank: string; count: number; amount_eur: number }[]
+> {
+  const sql = getSql();
+  const rows = await sql<{ bank: string; count: string; amount_eur: string }[]>`
+    select bank, count(*) as count, coalesce(sum(amount), 0) as amount_eur
+    from codigos
+    group by bank
+    order by amount_eur desc, lower(bank)
+  `;
+  return rows.map((r) => ({
+    bank: r.bank,
+    count: Number(r.count),
+    amount_eur: num(r.amount_eur),
+  }));
 }
 
 /* ---------------------------------------------------------------- dashboard */
