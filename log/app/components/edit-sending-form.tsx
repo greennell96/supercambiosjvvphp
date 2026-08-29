@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from 'react';
 
 import { editSendingAction, type EditSendingState } from '../actions';
+import { madridDayKey } from '@/lib/day-buckets';
 import { payoutMethodOptions } from '@/lib/pricing';
 import type { SendingStatus } from '@/lib/types';
 
@@ -11,6 +12,8 @@ export interface EditableSending {
   id: number;
   status: SendingStatus;
   is_personal: boolean;
+  /** The day the sending is filed under. Editable in every status. */
+  created_at: Date;
   personal_note: string | null;
   /** Null on an envío propio, where the bolívares below are the typed figure. */
   amount_eur: number | null;
@@ -44,6 +47,15 @@ export interface EditableSending {
  * propio it is the only record of who received the money. Neither ever feeds a
  * calculation, so nothing desyncs when either changes — which is why they are
  * not frozen with the money that funded the draw.
+ *
+ * La fecha is the third field in that same category, and the one that looks
+ * least like it belongs there. It is not an input to anything: FIFO draws its
+ * lots in the order of the LOTS' own timestamps, fixed at payment time, and no
+ * money module reads a sending's created_at at all. What it decides is which
+ * day the row is filed under — its heading in the log, and its column in el
+ * cuadre de códigos. That is why it is editable in every status: a client who
+ * sends today and pays tomorrow leaves the sending sitting on the wrong day,
+ * and the cuadre then reports a difference that does not exist.
  */
 export default function EditSendingForm({ sending }: { sending: EditableSending }) {
   const [state, formAction, pending] = useActionState<EditSendingState, FormData>(
@@ -149,7 +161,26 @@ export default function EditSendingForm({ sending }: { sending: EditableSending 
         </select>
       </div>
 
-      {editMoney ? null : <p className="muted">Envío pagado: solo puedes editar la nota.</p>}
+      {editMoney ? null : (
+        <p className="muted">Envío pagado: solo puedes editar la fecha y la nota.</p>
+      )}
+
+      {/*
+        Outside both the kind branch and the money branch, because it belongs to
+        neither: every sending has a date, and a paid one can be filed on the
+        wrong day exactly as easily as a pending one. Never disabled, for the
+        same reason the notes are not.
+      */}
+      <div className="edit-field">
+        <label htmlFor={`created_at_${sending.id}`}>Fecha</label>
+        <input
+          id={`created_at_${sending.id}`}
+          name="created_at"
+          type="date"
+          required
+          defaultValue={madridDayKey(sending.created_at)}
+        />
+      </div>
 
       {/*
         The note, and never disabled — each kind has its own, both are purely

@@ -117,6 +117,10 @@ export interface EditSendingState {
  * are descriptive and feed no calculation, so neither freezes when the sending
  * is paid — which is exactly why "Para quién" is read out here and not inside
  * the money branch.
+ *
+ * The date is the third thing in that category and the least obvious one: it
+ * decides which day the row is filed under and nothing else. See the block
+ * where it is parsed for why it is stored at noon.
  */
 export async function editSendingAction(
   _prev: EditSendingState,
@@ -132,6 +136,27 @@ export async function editSendingAction(
   // and a paid envío propio must still be correctable.
   const personalNote = personal ? textOrNull(formData.get('personal_note')) : null;
   if (personal && !personalNote) return { error: 'Escribe a quién le enviaste el dinero.' };
+
+  /*
+    The day the sending is filed under, and the reason it is editable at all:
+    some clients send today and pay tomorrow, and the sending has to sit on the
+    day it actually reconciles against or the cuadre reports a gap that is not
+    there. Read on every submit, whatever the kind and whatever the status —
+    nothing computes from it, exactly like the notes.
+
+    Noon UTC, deliberately not midnight. <input type="date"> gives back a bare
+    YYYY-MM-DD with no zone, and everything that reads this column groups it in
+    Europe/Madrid — which is UTC+1 or UTC+2, always ahead. Midnight UTC would
+    land at 01:00 or 02:00 Madrid on the SAME day, which happens to work, but
+    midnight is only two hours from being the previous day and any future change
+    of that shape would silently move rows. Noon has twelve hours of margin on
+    both sides, so the date Jose picked is the date Madrid reads back, in either
+    half of the year and with no DST case to reason about.
+  */
+  const createdAtRaw = text(formData.get('created_at'));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(createdAtRaw)) return { error: 'Elige una fecha válida.' };
+  const createdAt = new Date(`${createdAtRaw}T12:00:00.000Z`);
+  if (Number.isNaN(createdAt.getTime())) return { error: 'Elige una fecha válida.' };
 
   const money = text(formData.get('edit_money')) === '1';
 
@@ -172,6 +197,7 @@ export async function editSendingAction(
       money: moneyInput,
       client_payment_note: clientPaymentNote,
       personal_note: personalNote,
+      created_at: createdAt,
     });
     revalidateEverything();
     return { savedAt: Date.now() };

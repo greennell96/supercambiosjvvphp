@@ -883,6 +883,21 @@ export interface EditSendingInput {
    * personal_note is not null when is_personal.
    */
   personal_note: string | null;
+  /**
+   * The day the sending belongs to. Same category as the two notes above —
+   * accepted whatever the status, because no calculation anywhere reads it.
+   *
+   * Worth being explicit about, since a date on a money row looks like it ought
+   * to matter: FIFO draws its lots in the order of the LOTS' own timestamps
+   * (crypto_purchases.purchased_at, ves_sales.sold_at), fixed at payment time,
+   * and nothing in lib/fifo.ts, lib/pools.ts, lib/pricing.ts, lib/splitting.ts
+   * or lib/reversal.ts reads a sending's created_at at all. What it does decide
+   * is which day the row is filed under — the ledger heading and the cuadre de
+   * codigos — which is exactly why it has to be correctable: a client who sends
+   * today and pays tomorrow leaves the sending on the wrong day otherwise, and
+   * the cuadre reports a gap that is not there.
+   */
+  created_at: Date;
 }
 
 export interface EditSendingResult {
@@ -948,14 +963,23 @@ export async function editSending(
     // Nothing but the note. Which note depends on the kind: an envio propio has
     // no client payment to describe, and a client sending has no beneficiary
     // note. Both are descriptive, so both are writable whatever the status.
+    //
+    // The date is written on both, and on both money branches below: it belongs
+    // to no branch in particular because it applies to every kind and every
+    // status, so each of the four updates has to carry it.
     if (!input.money) {
       if (row.is_personal) {
         await tx`
-          update sendings set personal_note = ${input.personal_note} where id = ${sendingId}
+          update sendings
+          set personal_note = ${input.personal_note}, created_at = ${input.created_at}
+          where id = ${sendingId}
         `;
       } else {
         await tx`
-          update sendings set client_payment_note = ${input.client_payment_note} where id = ${sendingId}
+          update sendings
+          set client_payment_note = ${input.client_payment_note},
+              created_at = ${input.created_at}
+          where id = ${sendingId}
         `;
       }
       return {
@@ -976,7 +1000,8 @@ export async function editSending(
         update sendings
         set payout_method = ${input.money.payout_method},
             personal_note = ${input.personal_note},
-            amount_ves_to_pay = ${amountVesToPay}
+            amount_ves_to_pay = ${amountVesToPay},
+            created_at = ${input.created_at}
         where id = ${sendingId}
       `;
 
@@ -1000,7 +1025,8 @@ export async function editSending(
           rate_tasa = ${input.money.rate_tasa},
           payout_method = ${input.money.payout_method},
           amount_ves_to_pay = ${amountVesToPay},
-          client_payment_note = ${input.client_payment_note}
+          client_payment_note = ${input.client_payment_note},
+          created_at = ${input.created_at}
       where id = ${sendingId}
     `;
 
