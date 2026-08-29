@@ -1835,13 +1835,22 @@ export async function deleteCodigo(codigoId: number): Promise<void> {
  *
  * Three rules, all of them deliberate:
  *
- *   is_personal = false on the envios side. An envio propio is Jose's own money
- *   going out — no client paid for it, so no codigo will ever exist for it and
- *   counting one would make every day with a propio look short.
+ *   client_payment_method = 'CODIGO' on the envios side, and this is the one the
+ *   cuadre originally got wrong. Only a sending the client paid for WITH a
+ *   codigo has a codigo to be compared against; one paid en efectivo, por Bizum
+ *   or en Carrefour never gets one, and counting those made every day that had
+ *   any of them look short by exactly their amount. The column is written
+ *   together with client_paid_at — by createCodigo when a codigo is linked, and
+ *   by markClientPaid from the "Cliente pagó" picker — and cleared again when
+ *   that codigo is deleted, so this clause alone is enough and stays true on
+ *   both sides of an unlink. is_personal = false rides along with it: an envio
+ *   propio is Jose's own money going out, no client ever paid for it, and no
+ *   codigo will ever exist for it.
  *
- *   No status filter on either side. "Logged" means written down, not settled:
- *   an envio counts the moment it is created, whether or not it is paid, and a
- *   codigo counts whether or not it has been withdrawn.
+ *   No status filter on the codigos side. A codigo counts from the moment it is
+ *   registered, whether or not it has been withdrawn: the withdrawal is Jose's
+ *   errand at the cajero, not the client's payment, and waiting for it would
+ *   make every day look short until he got there.
  *
  *   created_at, not paid_at or retired_at. The question is what was WRITTEN DOWN
  *   that day, which is the only thing the two sides can be compared on.
@@ -1872,6 +1881,7 @@ export async function getCodigoConsolidation(): Promise<CodigoConsolidacion> {
     select
       coalesce((select sum(amount_eur) from sendings
         where is_personal = false
+          and client_payment_method = 'CODIGO'
           and to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${todayKey}
       ), 0) as today_envios,
       coalesce((select sum(amount) from codigos
@@ -1879,6 +1889,7 @@ export async function getCodigoConsolidation(): Promise<CodigoConsolidacion> {
       ), 0) as today_codigos,
       coalesce((select sum(amount_eur) from sendings
         where is_personal = false
+          and client_payment_method = 'CODIGO'
           and to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${yesterdayKey}
       ), 0) as yesterday_envios,
       coalesce((select sum(amount) from codigos
@@ -1886,13 +1897,15 @@ export async function getCodigoConsolidation(): Promise<CodigoConsolidacion> {
       ), 0) as yesterday_codigos,
       coalesce((select sum(amount_eur) from sendings
         where is_personal = false
+          and client_payment_method = 'CODIGO'
           and to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${beforeYesterdayKey}
       ), 0) as before_yesterday_envios,
       coalesce((select sum(amount) from codigos
         where to_char(created_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${beforeYesterdayKey}
       ), 0) as before_yesterday_codigos,
-      coalesce((select sum(amount_eur) from sendings where is_personal = false), 0)
-        as total_envios,
+      coalesce((select sum(amount_eur) from sendings
+        where is_personal = false and client_payment_method = 'CODIGO'
+      ), 0) as total_envios,
       coalesce((select sum(amount) from codigos), 0) as total_codigos
   `;
 
