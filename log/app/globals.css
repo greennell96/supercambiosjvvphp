@@ -790,6 +790,54 @@ button.danger {
   gap: 4px;
 }
 
+/* ---------------------------------------------- dividing a pending sending */
+
+/*
+  "Dividir" sits in the same cell as "Editar" and takes the same shape, because
+  it is the same kind of thing: a row action that opens two fields in place. The
+  rules are spelled out again rather than shared with .edit-sending, the way
+  .client-paid and .delete-row each spell out their own — one block per row
+  action is what makes any of them safe to change on its own.
+*/
+.split-sending.open {
+  display: block;
+  min-width: 190px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  padding: 8px;
+}
+
+.split-sending .muted {
+  margin: 0 0 6px;
+}
+
+.split-sending .split-field {
+  margin-bottom: 6px;
+}
+
+.split-sending .split-field label {
+  font-size: 12px;
+}
+
+.split-sending input[type="text"],
+.split-sending select {
+  padding: 2px 6px;
+  font-size: 16px;
+}
+
+.split-sending .split-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.split-sending .pay-error {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-text);
+}
+
 /* ----------------------------------------------------------------- notices */
 
 .notice {
@@ -1910,6 +1958,20 @@ tr.codigo-marcado {
   }
 
   .edit-sending .edit-buttons button {
+    flex: 1;
+  }
+
+  .split-sending.open {
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .split-sending .split-buttons {
+    gap: 8px;
+  }
+
+  .split-sending .split-buttons button {
     flex: 1;
   }
 

@@ -1,26 +1,14 @@
-import { markCodigoRetiradoAction } from './actions';
+import Link from 'next/link';
+
 import RatesForm from './rates-form';
 import Shell from './shell';
-import EditSendingForm from './components/edit-sending-form';
-import PaySendingActions from './components/pay-sending-actions';
-import { requiresDniReminder } from '@/lib/banks';
-import { fmtDateTime, fmtEur, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
-import {
-  getDashboardTotals,
-  getRates,
-  listPendingCodigos,
-  listPendingSendings,
-} from '@/lib/queries';
+import { fmtUsdt, fmtVes } from '@/lib/format';
+import { getDashboardTotals, getRates } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const [totals, rates, pendingSendings, pendingCodigos] = await Promise.all([
-    getDashboardTotals(),
-    getRates(),
-    listPendingSendings(),
-    listPendingCodigos(),
-  ]);
+  const [totals, rates] = await Promise.all([getDashboardTotals(), getRates()]);
 
   const cryptoNegative = totals.cryptoBalanceUsdt < 0;
   const vesNegative = totals.vesPoolBalance < 0;
@@ -62,124 +50,36 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="panel">
-        <h2>Envíos pendientes ({pendingSendings.length})</h2>
-        {pendingSendings.length === 0 ? (
-          <p className="muted">Nada pendiente.</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th className="num">EUR</th>
-                  <th className="num">Tasa</th>
-                  <th className="num">Bs a pagar</th>
-                  <th>Método</th>
-                  <th>Fecha</th>
-                  <th>Cómo pagó</th>
-                  <th className="actions-heading">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingSendings.map((s) => (
-                  <tr key={s.id} className="row-pending">
-                    {/*
-                      An envío propio is pending like any other — the bolívares
-                      are really owed and really come out of the pool — but it
-                      has no client EUR amount and no tasa, so those two cells
-                      show a dash and the beneficiary note rides with the name.
-                    */}
-                    <td data-label="Cliente" data-lead>
-                      {s.client_name}
-                      {s.is_personal && s.personal_note ? (
-                        <span className="muted"> — {s.personal_note}</span>
-                      ) : null}
-                    </td>
-                    <td
-                      className="num"
-                      data-label="EUR"
-                      data-empty={s.amount_eur === null ? true : undefined}
-                    >
-                      {s.amount_eur === null ? '—' : fmtEur(s.amount_eur)}
-                    </td>
-                    <td
-                      className="num"
-                      data-label="Tasa"
-                      data-empty={s.rate_tasa === null ? true : undefined}
-                    >
-                      {s.rate_tasa === null ? '—' : fmtRate(s.rate_tasa)}
-                    </td>
-                    <td className="num" data-label="Bs a pagar" data-wide data-money>
-                      <strong>{fmtVes(s.amount_ves_to_pay)}</strong>
-                    </td>
-                    <td data-label="Método">{s.payout_method}</td>
-                    <td data-label="Fecha">{fmtDateTime(s.created_at)}</td>
-                    <td
-                      data-label="Cómo pagó"
-                      data-wide
-                      data-empty={s.client_payment_note ? undefined : true}
-                    >
-                      {s.client_payment_note ?? '—'}
-                    </td>
-                    <td data-label="Acciones" data-wide data-actions>
-                      <div className="row-actions">
-                        <PaySendingActions sendingId={s.id} isPersonal={s.is_personal} />
-                        <EditSendingForm sending={s} />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/*
+        Two counts and two links, and deliberately nothing else.
 
-      <div className="panel">
-        <h2>Códigos pendientes ({pendingCodigos.length})</h2>
-        {pendingCodigos.length === 0 ? (
-          <p className="muted">Nada pendiente.</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th className="num">Monto</th>
-                  <th>Banco</th>
-                  <th>Fecha</th>
-                  <th className="actions-heading">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingCodigos.map((c) => (
-                  <tr key={c.id} className="row-pendiente">
-                    <td data-label="Cliente" data-lead>
-                      {c.client_name}
-                      {requiresDniReminder(c.bank) && c.client_dni_nie ? (
-                        <span className="muted"> · DNI {c.client_dni_nie}</span>
-                      ) : null}
-                    </td>
-                    <td className="num" data-label="Monto" data-money>
-                      {fmtEur(c.amount)}
-                    </td>
-                    <td data-label="Banco">{c.bank}</td>
-                    <td data-label="Fecha">{fmtDateTime(c.created_at)}</td>
-                    <td className="num" data-label="Acción" data-wide data-actions>
-                      <form action={markCodigoRetiradoAction}>
-                        <input type="hidden" name="id" value={c.id} />
-                        <button className="small action-success" type="submit">
-                          Marcar retirado
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        Both lists used to be previewed here in full, with their own action
+        buttons — which meant every envío and every código pendiente was rendered
+        twice in the app, and the screen that is supposed to answer "cómo está
+        todo" instead re-asked "¿qué hago con cada uno de estos?". The rows, and
+        every action on them, live on their own pages; /envios and /codigos each
+        pin their pendientes above their day-compressed log, so nothing pendiente
+        can hide inside a collapsed bucket once José gets there.
+
+        The counts come straight off getDashboardTotals, which already carried
+        both — no list is fetched here any more.
+      */}
+      <div className="grid2">
+        <div className="stat">
+          <div className="label">Envíos pendientes</div>
+          <div className="value">{totals.pendingSendingsCount}</div>
+          <div className="muted">
+            <Link href="/envios">Ver todos</Link>
           </div>
-        )}
+        </div>
+
+        <div className="stat">
+          <div className="label">Códigos pendientes</div>
+          <div className="value">{totals.pendingCodigosCount}</div>
+          <div className="muted">
+            <Link href="/codigos">Ver todos</Link>
+          </div>
+        </div>
       </div>
 
       <div className="panel">

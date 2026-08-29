@@ -1,11 +1,14 @@
 'use client';
 
+import { Fragment } from 'react';
+
 import { eliminarEnvioAction } from './actions';
 import ClientPaidActions, { type PickerCodigo } from '../components/client-paid-actions';
 import DeleteRowForm from '../components/delete-row-form';
 import EditSendingForm from '../components/edit-sending-form';
 import LedgerList from '../components/ledger-list';
 import PaySendingActions from '../components/pay-sending-actions';
+import SplitSendingForm from '../components/split-sending-form';
 import { fmtDateTime, fmtEur, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
 import { CLIENT_PAYMENT_METHOD_LABELS, type Sending } from '@/lib/types';
 
@@ -36,6 +39,22 @@ const HEAD = (
   </tr>
 );
 
+/**
+ * Every envío, with the ones Jose still has to pay pinned above the log.
+ *
+ * The same split /codigos makes, for the same reason. Compressing by day is
+ * right for a record of what happened — hoy in full, one older day folded up,
+ * the rest behind a search — but a pending envío is not a record, it is money
+ * the beneficiary has not received yet, and the day it was logged says nothing
+ * about whether Jose still owes it. Left in the buckets, an envío from three
+ * days ago disappears into the archive while the bolívares are still owed. So
+ * the pendientes come out of the buckets entirely and are shown in full, oldest
+ * first — the same order listPendingSendings uses, because the oldest debt is
+ * the one to settle next.
+ *
+ * The split is also what stops an envío appearing twice: LedgerList only ever
+ * sees the pagados.
+ */
 export default function EnviosList({
   sendings,
   unlinkedCodigos,
@@ -43,6 +62,11 @@ export default function EnviosList({
   sendings: Sending[];
   unlinkedCodigos: PickerCodigo[];
 }) {
+  const pending = sendings
+    .filter((s) => s.status === 'pending')
+    .sort((a, b) => a.created_at.getTime() - b.created_at.getTime() || a.id - b.id);
+  const paid = sendings.filter((s) => s.status !== 'pending');
+
   const renderFull = (s: Sending) => (
     <tr className={`row-${s.status}`}>
       {/*
@@ -139,6 +163,16 @@ export default function EnviosList({
             <ClientPaidActions sendingId={s.id} clientId={s.client_id} codigos={unlinkedCodigos} />
           ) : null}
           <EditSendingForm sending={s} />
+          {/*
+            Only on a pending client sending. A paid one has already drawn the
+            pools against the amount it had, and an envío propio has no monto en
+            EUR to divide at all — lib/splitting.ts refuses both again server
+            side, off the locked row. amount_eur is non-null on every client row
+            by the migration-014 constraint; the guard is what tells TypeScript.
+          */}
+          {!s.is_personal && s.status === 'pending' && s.amount_eur !== null ? (
+            <SplitSendingForm sendingId={s.id} amountEur={s.amount_eur} />
+          ) : null}
           <DeleteRowForm id={s.id} action={eliminarEnvioAction} />
         </div>
       </td>
@@ -146,34 +180,56 @@ export default function EnviosList({
   );
 
   return (
-    <LedgerList
-      items={sendings}
-      getId={(s) => s.id}
-      getDate={(s) => s.created_at}
-      getSearchText={(s) =>
-        [s.client_name, s.personal_note, s.client_payment_note, s.payout_method]
-          .filter(Boolean)
-          .join(' ')
-      }
-      getTerse={(s) => ({
-        time: fmtDateTime(s.created_at),
-        title:
-          s.is_personal && s.personal_note
-            ? `${s.client_name} — ${s.personal_note}`
-            : s.client_name,
-        // The one-line row shows what the sending is worth. On a propio that is
-        // the bolívares: there is no EUR figure to show and no zero to imply.
-        value: s.amount_eur === null ? fmtVes(s.amount_ves_to_pay) : fmtEur(s.amount_eur),
-        badge: (
-          <span className={`badge ${s.status}`}>
-            {s.status === 'paid' ? 'pagado' : 'pendiente'}
-          </span>
-        ),
-      })}
-      rowClass={(s) => `row-${s.status}`}
-      head={HEAD}
-      renderFull={renderFull}
-      searchLabel="Cliente"
-    />
+    <>
+      {pending.length > 0 ? (
+        <div className="ledger">
+          <section className="ledger-day">
+            <h3 className="ledger-day-heading">
+              Pendientes de pago <span className="ledger-day-count">{pending.length}</span>
+            </h3>
+            <div className="table-wrap">
+              <table>
+                <thead>{HEAD}</thead>
+                <tbody>
+                  {pending.map((s) => (
+                    <Fragment key={s.id}>{renderFull(s)}</Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      <LedgerList
+        items={paid}
+        getId={(s) => s.id}
+        getDate={(s) => s.created_at}
+        getSearchText={(s) =>
+          [s.client_name, s.personal_note, s.client_payment_note, s.payout_method]
+            .filter(Boolean)
+            .join(' ')
+        }
+        getTerse={(s) => ({
+          time: fmtDateTime(s.created_at),
+          title:
+            s.is_personal && s.personal_note
+              ? `${s.client_name} — ${s.personal_note}`
+              : s.client_name,
+          // The one-line row shows what the sending is worth. On a propio that is
+          // the bolívares: there is no EUR figure to show and no zero to imply.
+          value: s.amount_eur === null ? fmtVes(s.amount_ves_to_pay) : fmtEur(s.amount_eur),
+          badge: (
+            <span className={`badge ${s.status}`}>
+              {s.status === 'paid' ? 'pagado' : 'pendiente'}
+            </span>
+          ),
+        })}
+        rowClass={(s) => `row-${s.status}`}
+        head={HEAD}
+        renderFull={renderFull}
+        searchLabel="Cliente"
+      />
+    </>
   );
 }

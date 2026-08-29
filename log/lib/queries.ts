@@ -24,9 +24,11 @@ import {
   computeNewSending,
   computePoolPayment,
   costUsdtDraw,
+  type SendingPayoutMethod,
   type VesLot,
 } from './pricing';
 import { compraDeletionBlocker, restoreDrawnAmounts, ventaDeletionBlocker } from './reversal';
+import { computeSendingSplit } from './splitting';
 import type {
   Client,
   ClientPaymentMethod,
@@ -1005,6 +1007,120 @@ export async function editSending(
       status: row.status,
       moneyChanged: true,
       amountVesToPay,
+    };
+  });
+}
+
+export interface SplitSendingResult {
+  /** The row that was divided, as it now stands. */
+  id: number;
+  clientName: string;
+  remainderEur: number;
+  remainderVesToPay: number;
+  /** The row that was created out of it. */
+  newId: number;
+  splitEur: number;
+  splitVesToPay: number;
+  payoutMethod: SendingPayoutMethod;
+}
+
+/**
+ * Divide a pending client sending into itself plus a new, independent one.
+ *
+ * One transaction and one lock: the row is read `for update`, so its amount_eur
+ * cannot move between the check and the write and two divisions of the same
+ * sending can never both peel off the same euros. That lock is also what makes
+ * dividing the same row repeatedly correct — the second call reads whatever the
+ * first one left, not the amount the page happened to be showing.
+ *
+ * Every rule about WHAT may be divided and into what lives in lib/splitting.ts;
+ * this function locks, calls it, and writes back the two shapes it returns. No
+ * pool is drawn and no cost is recognised: both rows come out pending, and the
+ * existing payment code settles each of them exactly as it settles any other.
+ */
+export async function splitSending(
+  sendingId: number,
+  amountEur: number,
+  payoutMethod: SendingPayoutMethod,
+): Promise<SplitSendingResult> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const [row] = await tx<
+      {
+        id: number;
+        client_id: number;
+        client_name: string;
+        status: 'pending' | 'paid';
+        is_personal: boolean;
+        amount_eur: string | null;
+        rate_tasa: string | null;
+        client_paid_at: Date | null;
+        client_payment_method: ClientPaymentMethod | null;
+        client_payment_note: string | null;
+      }[]
+    >`
+      select s.id, s.client_id, c.name as client_name, s.status, s.is_personal,
+             s.amount_eur, s.rate_tasa,
+             s.client_paid_at, s.client_payment_method, s.client_payment_note
+      from sendings s
+      join clients c on c.id = s.client_id
+      where s.id = ${sendingId}
+      for update of s
+    `;
+    if (!row) throw new Error('Envio no encontrado.');
+
+    // num() turns null into 0, so both nullable numerics are null-checked before
+    // they are converted — an envio propio has to reach computeSendingSplit as
+    // null, not as a zero that would read like a real amount.
+    const { original, created } = computeSendingSplit({
+      sending: {
+        client_id: id(row.client_id),
+        is_personal: row.is_personal,
+        status: row.status,
+        amount_eur: row.amount_eur === null ? null : num(row.amount_eur),
+        rate_tasa: row.rate_tasa === null ? null : num(row.rate_tasa),
+        client_paid_at: row.client_paid_at,
+        client_payment_method: row.client_payment_method,
+        client_payment_note: row.client_payment_note,
+      },
+      amountEur,
+      payoutMethod,
+    });
+
+    // Only the two money columns move. The tasa, the método, the codigo linked to
+    // this row and both client-payment columns are all left exactly as they were.
+    await tx`
+      update sendings
+      set amount_eur = ${original.amountEur},
+          amount_ves_to_pay = ${original.amountVesToPay}
+      where id = ${sendingId}
+    `;
+
+    // Written out in full rather than leaning on the column defaults, because
+    // this is the row that has to satisfy sendings_kind_shape_check: both money
+    // fields present, is_personal false, personal_note null.
+    const [inserted] = await tx<{ id: number }[]>`
+      insert into sendings
+        (client_id, amount_eur, rate_tasa, amount_ves_to_pay, payout_method, status,
+         is_personal, personal_note,
+         client_paid_at, client_payment_method, client_payment_note)
+      values
+        (${created.clientId}, ${created.amountEur}, ${created.rateTasa},
+         ${created.amountVesToPay}, ${created.payoutMethod}, ${created.status},
+         ${created.isPersonal}, ${created.personalNote},
+         ${created.clientPaidAt}, ${created.clientPaymentMethod}, ${created.clientPaymentNote})
+      returning id
+    `;
+
+    return {
+      id: sendingId,
+      clientName: row.client_name,
+      remainderEur: original.amountEur,
+      remainderVesToPay: original.amountVesToPay,
+      newId: id(inserted.id),
+      splitEur: created.amountEur,
+      splitVesToPay: created.amountVesToPay,
+      payoutMethod: created.payoutMethod,
     };
   });
 }
