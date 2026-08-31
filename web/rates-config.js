@@ -12,6 +12,6 @@
 window.SITE_CONFIG = {
   etapa: 2,
   eurToVes: 1000,
-  vesToEur: 1140,
-  updated: "28/08/2026"
+  vesToEur: 1120,
+  updated: "31/08/2026"
 };
