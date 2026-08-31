@@ -22,7 +22,13 @@ export async function logoutAction(): Promise<void> {
   redirect('/login');
 }
 
-/** Every screen that can change a pending sending or codigo. */
+/**
+ * Every screen that can change a pending sending or codigo.
+ *
+ * /caja is in the list because a sending the client paid EFECTIVO is a line of
+ * the libro de caja, derived live from amount_eur and client_paid_at — so an
+ * edit to either moves the balance, even though nothing here knows about cash.
+ */
 function revalidateEverything(): void {
   revalidatePath('/');
   revalidatePath('/envios');
@@ -30,6 +36,7 @@ function revalidateEverything(): void {
   revalidatePath('/compras');
   revalidatePath('/ventas');
   revalidatePath('/stats');
+  revalidatePath('/caja');
 }
 
 export interface PayState {

@@ -44,6 +44,9 @@ export default function NuevaCompraForm() {
               quedan {fmtUsdt(state.ok.remainingForNewLot)} disponibles.
             </>
           ) : null}
+          {state.ok.paidFromCash ? (
+            <> Salió de la caja, así que el saldo en caja ya lo descuenta.</>
+          ) : null}
         </p>
       ) : null}
 
@@ -74,6 +77,18 @@ export default function NuevaCompraForm() {
             value={defaultDate}
             onChange={(event) => setDefaultDate(event.target.value)}
           />
+        </div>
+        {/*
+          Unchecked is the normal case: most compras are paid from a bank, and
+          only the ones paid with the notes in Jose's pocket belong in the caja.
+          Checking it is what makes this purchase a salida in the libro de caja
+          — nothing about the lot, the price or the FIFO draw changes either way.
+        */}
+        <div>
+          <label className="checkbox-option" htmlFor="paid_from_cash">
+            <input id="paid_from_cash" name="paid_from_cash" type="checkbox" value="1" />
+            Pagada con dinero de la caja
+          </label>
         </div>
         <div className="form-actions">
           <button className="primary" type="submit" disabled={pending}>

@@ -160,6 +160,10 @@ export async function splitSendingAction(
     revalidatePath('/envios');
     revalidatePath('/codigos');
     revalidatePath('/stats');
+    // Both halves inherit client_paid_at and client_payment_method, so dividing
+    // a sending the client already paid EFECTIVO turns one caja line into two —
+    // the same euros, split the way the row was.
+    revalidatePath('/caja');
     return { savedAt: Date.now() };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo dividir el envío.' };
@@ -248,6 +252,11 @@ export async function clientePagoAction(
     // A linked codigo now points at this sending, so its list changes too.
     revalidatePath('/codigos');
     revalidatePath('/stats');
+    // EFECTIVO means notes in the pocket, which is a line of the libro de caja.
+    // Revalidated for every method rather than only that one: the balance is
+    // derived live, so guessing which methods can move it is a bug waiting on
+    // the day a seventh method is added.
+    revalidatePath('/caja');
     return { savedAt: Date.now() };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo guardar el cobro.' };
@@ -277,6 +286,9 @@ export async function eliminarEnvioAction(
     revalidatePath('/compras');
     revalidatePath('/ventas');
     revalidatePath('/stats');
+    // A sending the client paid EFECTIVO was a caja line; deleting the row takes
+    // the line with it, with no reversal step of its own.
+    revalidatePath('/caja');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo eliminar el envío.' };

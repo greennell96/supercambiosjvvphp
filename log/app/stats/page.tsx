@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import ConsolidacionTable from '../components/consolidacion-table';
+import RetirosTable from '../components/retiros-table';
 import Shell from '../shell';
 import {
   fmtCount,
@@ -12,19 +13,25 @@ import {
   fmtUsdt,
   fmtVes,
 } from '@/lib/format';
-import { getCodigoConsolidation, getCodigosPorBancoTotal, getStats } from '@/lib/queries';
+import {
+  getCodigoConsolidation,
+  getCodigosPorBancoTotal,
+  getRetirosDias,
+  getStats,
+} from '@/lib/queries';
 import { averagePerItem, marginPercent } from '@/lib/stats';
 
 export const dynamic = 'force-dynamic';
 
 export default async function StatsPage() {
-  // Three independent reads. The two códigos ones deliberately stay outside
-  // getStats()'s repeatable-read snapshot: neither is compared against the
-  // earnings figures, so neither needs to be in the same transaction as them.
-  const [stats, consolidacion, codigosPorBanco] = await Promise.all([
+  // Four independent reads. The three códigos ones deliberately stay outside
+  // getStats()'s repeatable-read snapshot: none is compared against the
+  // earnings figures, so none needs to be in the same transaction as them.
+  const [stats, consolidacion, codigosPorBanco, retiros] = await Promise.all([
     getStats(),
     getCodigoConsolidation(),
     getCodigosPorBancoTotal(),
+    getRetirosDias(),
   ]);
   const { current, earnings, inventory } = stats;
   const margin = marginPercent(earnings.profit_eur, earnings.revenue_eur);
@@ -162,6 +169,25 @@ export default async function StatsPage() {
           <span className="section-note">Por fecha de registro</span>
         </div>
         <ConsolidacionTable data={consolidacion} />
+      </section>
+
+      {/*
+        Directly under the cuadre because it is the same kind of check on the
+        same rows, one step further along: the cuadre asks whether the códigos
+        registered that día match the envíos, this asks whether the ones already
+        withdrawn match the cash in Jose's hand. It is also the only screen in
+        the app that puts money into /caja, which is why it is a control and not
+        just a table.
+      */}
+      <section className="panel stats-panel" aria-labelledby="retiros-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Confirmación de retiros</p>
+            <h2 id="retiros-title">Códigos retirados vs. efectivo</h2>
+          </div>
+          <span className="section-note">Por fecha de retiro · últimos 4 días</span>
+        </div>
+        <RetirosTable dias={retiros} />
       </section>
 
       <section className="panel stats-panel" aria-labelledby="monthly-title">

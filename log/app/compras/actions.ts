@@ -14,6 +14,8 @@ export interface NuevaCompraState {
     priceEurPerUsdt: number;
     usedToPayBackorders: number;
     remainingForNewLot: number;
+    /** Echoed back so the receipt says the euros left the caja, not just a bank. */
+    paidFromCash: boolean;
   };
 }
 
@@ -25,6 +27,9 @@ export async function crearCompraAction(
   const usdtReceived = parseDecimal(formData.get('usdt_received'));
   const provider = textOrNull(formData.get('provider'));
   const purchasedAtRaw = text(formData.get('purchased_at'));
+  // An unchecked checkbox is simply absent from the FormData, which is exactly
+  // "no, this did not come out of the pocket".
+  const paidFromCash = text(formData.get('paid_from_cash')) === '1';
 
   if (eurPaid === null || !(eurPaid > 0)) {
     return { error: 'Escribe los EUR pagados (mayor que cero).' };
@@ -46,10 +51,15 @@ export async function crearCompraAction(
       usdt_received: usdtReceived,
       provider,
       purchased_at: purchasedAt,
+      paid_from_cash: paidFromCash,
     });
     revalidatePath('/');
     revalidatePath('/compras');
     revalidatePath('/stats');
+    // Revalidated whether or not this one came out of the caja: the flag is read
+    // live by the journal, and getting that wrong in one branch would leave a
+    // stale balance on screen exactly when it matters.
+    revalidatePath('/caja');
     return {
       ok: {
         eurPaid,
@@ -57,6 +67,7 @@ export async function crearCompraAction(
         priceEurPerUsdt: created.priceEurPerUsdt,
         usedToPayBackorders: created.usedToPayBackorders,
         remainingForNewLot: created.remainingForNewLot,
+        paidFromCash,
       },
     };
   } catch (error) {
@@ -69,6 +80,9 @@ export async function crearCompraAction(
  *
  * Only while nothing has drawn from it: lib/queries.ts decides that and answers
  * with the reason, which is shown next to the row.
+ *
+ * Nothing here undoes a caja outflow, and nothing should: the journal reads
+ * paid_from_cash live off this row, so deleting the row takes its line with it.
  */
 export async function eliminarCompraAction(
   _prev: DeleteState,
@@ -82,6 +96,7 @@ export async function eliminarCompraAction(
     revalidatePath('/');
     revalidatePath('/compras');
     revalidatePath('/stats');
+    revalidatePath('/caja');
     return {};
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo eliminar la compra.' };

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { bucketByDay, madridDayKey, previousDayKey, withinDayRange } from '../lib/day-buckets';
+import {
+  bucketByDay,
+  madridDayKey,
+  previousDayKey,
+  recentDayKeys,
+  withinDayRange,
+} from '../lib/day-buckets';
 
 /** Rows as the three logs hand them over: an id and the instant they happened. */
 const row = (id: number, iso: string) => ({ id, at: new Date(iso) });
@@ -19,6 +25,22 @@ describe('the Europe/Madrid day of a row', () => {
     expect(previousDayKey('2026-08-23')).toBe('2026-08-22');
     expect(previousDayKey('2026-03-01')).toBe('2026-02-28');
     expect(previousDayKey('2026-01-01')).toBe('2025-12-31');
+  });
+
+  it('counts back real consecutive days from the one it is standing on', () => {
+    // The window the retiros panel offers. Newest first, and it has to step over
+    // a month boundary the same way previousDayKey does.
+    expect(recentDayKeys(4, new Date('2026-03-02T10:00:00Z'))).toEqual([
+      '2026-03-02',
+      '2026-03-01',
+      '2026-02-28',
+      '2026-02-27',
+    ]);
+    // Read in Madrid, like everything else: 23:30 UTC is already tomorrow.
+    expect(recentDayKeys(2, new Date('2026-08-22T23:30:00Z'))).toEqual([
+      '2026-08-23',
+      '2026-08-22',
+    ]);
   });
 
   it('bounds a range only where a bound was given', () => {

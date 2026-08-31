@@ -507,6 +507,33 @@ input[readonly] {
   accent-color: var(--primary);
 }
 
+/*
+  A single yes/no inside a .form-row, where every other cell is a label above a
+  field. It borrows .radio-option's shape rather than that layout: there is no
+  question to put above it, because the words next to the box ARE the question.
+  No checked state colouring — the tick is unambiguous on its own, and tinting
+  one cell of the row would read as an error.
+*/
+.checkbox-option {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.checkbox-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--primary);
+}
+
 button {
   min-height: 40px;
   padding: 8px 14px;
@@ -742,6 +769,45 @@ button.danger {
 }
 
 .client-paid .pay-error {
+  font-weight: 600;
+  color: var(--red-text);
+}
+
+/* ------------------------------------------------ confirming a día's retiros */
+
+/*
+  The "Confirmar" cell of the retiros panel on /stats. The same reveal-a-confirm
+  shape as .client-paid above, narrower because it opens exactly one field, and
+  it sits in a .stats-table cell — which sets white-space: nowrap on every cell —
+  so the wrapping is re-enabled here rather than left to fight the table.
+*/
+.confirmar-retiro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  max-width: 260px;
+  white-space: normal;
+}
+
+/* The "el total cambió" note is a whole sentence, so it wraps and is capped. */
+.retiro-nota {
+  max-width: 260px;
+  margin: 4px 0 0;
+  white-space: normal;
+}
+
+.confirmar-retiro input[type="text"] {
+  width: 96px;
+  padding: 2px 6px;
+  font-size: 16px;
+}
+
+.confirmar-retiro .pay-error {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
   font-weight: 600;
   color: var(--red-text);
 }
@@ -1334,6 +1400,47 @@ button.danger {
 
 .skeleton-table {
   height: 310px;
+}
+
+/* ------------------------------------------------------------- libro de caja */
+
+/*
+  The journal on /caja. Four columns and only two rules beyond the base table,
+  because a cash book wants to look like the tables around it and not like a
+  feature.
+
+  The concepto is the one column allowed to wrap: it carries a second, muted
+  line naming the row the movement came from, and forcing that onto one line
+  would push the two money columns off the right of a phone. Everything else
+  is a date or a figure and stays on its line.
+*/
+.caja-table td,
+.caja-table th {
+  white-space: nowrap;
+}
+
+.caja-table td:nth-child(2) {
+  white-space: normal;
+  min-width: 220px;
+}
+
+.caja-table .muted {
+  margin: 2px 0 0;
+}
+
+.caja-amount {
+  font-weight: 600;
+}
+
+/*
+  The rule down the left of the saldo column is the accounting convention doing
+  the work colour is not allowed to do here: it fences the running balance off
+  from the movements it was computed from, so the eye reads "these happened,
+  therefore this" rather than four figures in a row.
+*/
+.caja-saldo {
+  border-left: 1px solid var(--line);
+  font-weight: 700;
 }
 
 /* ------------------------------------------------ day-grouped running logs */
@@ -1946,6 +2053,20 @@ tr.codigo-marcado {
   td.num {
     font-variant-numeric: tabular-nums;
     overflow-wrap: normal;
+  }
+
+  /*
+    The libro de caja's two column tricks are wide-layout only: on a card the
+    saldo is a labelled field like any other, so the rule that fenced it off
+    from the movement columns has nothing left to fence, and the concepto's
+    minimum width would push the card wider than the phone.
+  */
+  .caja-table .caja-saldo {
+    border-left: 0;
+  }
+
+  .caja-table td:nth-child(2) {
+    min-width: 0;
   }
 
   /*

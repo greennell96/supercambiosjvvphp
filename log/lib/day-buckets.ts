@@ -32,6 +32,28 @@ export function previousDayKey(key: string): string {
   return new Date(Date.UTC(year, month - 1, day - 1)).toISOString().slice(0, 10);
 }
 
+/**
+ * The last `count` Madrid days ending with the one `now` falls on, newest first.
+ *
+ * `recentDayKeys(4)` is today, yesterday, and the two before it. Written as its
+ * own function because the caller that needs it — the retiros panel on /stats —
+ * wants REAL consecutive days, which is a different question from the one the
+ * cuadre asks: getCodigoConsolidation's three days plus an all-time total is a
+ * shape, not a window, and chaining previousDayKey by hand at each call site is
+ * exactly how the two would drift apart.
+ *
+ * Newest first, matching the order the cuadre already puts its rows in.
+ */
+export function recentDayKeys(count: number, now: Date | string = new Date()): string[] {
+  const keys: string[] = [];
+  let key = madridDayKey(now);
+  for (let i = 0; i < count; i += 1) {
+    keys.push(key);
+    key = previousDayKey(key);
+  }
+  return keys;
+}
+
 /** True when a day key sits inside an inclusive range. '' means "no bound". */
 export function withinDayRange(key: string, from: string, to: string): boolean {
   if (from && key < from) return false;

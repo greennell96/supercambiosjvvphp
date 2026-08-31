@@ -11,7 +11,13 @@
 
 import type { TransactionSql } from 'postgres';
 
-import { madridDayKey, previousDayKey } from './day-buckets';
+import {
+  RETIRO_WINDOW_DAYS,
+  type CajaMovement,
+  type CajaSource,
+  type RetiroDia,
+} from './caja';
+import { madridDayKey, previousDayKey, recentDayKeys } from './day-buckets';
 import { getSql, id, num } from './db';
 import { applyIncomingToBackorders, type Lot } from './fifo';
 import {
@@ -279,12 +285,19 @@ async function readVesLots(): Promise<VesLot[]> {
  * If older lots are in the red, this purchase pays those down first (oldest
  * first) and only the leftover becomes the new lot's own remaining_usdt.
  * See applyIncomingToBackorders in lib/fifo.ts.
+ *
+ * paid_from_cash decides nothing here: no price, no lot, no backorder and no
+ * allocation reads it. It is written and then only ever read again by the caja
+ * ledger, which turns this row into an outflow of eur_paid. Create-time only,
+ * because /compras has no edit path at all.
  */
 export async function createPurchase(input: {
   eur_paid: number;
   usdt_received: number;
   provider: string | null;
   purchased_at: Date;
+  /** True when the euros came out of Jose's pocket rather than out of a bank. */
+  paid_from_cash: boolean;
 }): Promise<{
   id: number;
   priceEurPerUsdt: number;
@@ -307,10 +320,11 @@ export async function createPurchase(input: {
     const [row] = await tx<{ id: number }[]>`
       insert into crypto_purchases
         (purchased_at, eur_paid, usdt_received, price_eur_per_usdt, provider, remaining_usdt,
-         used_to_pay_backorders)
+         used_to_pay_backorders, paid_from_cash)
       values
         (${input.purchased_at}, ${input.eur_paid}, ${input.usdt_received}, ${price},
-         ${input.provider}, ${applied.remainingForNewLot}, ${applied.usedToPayBackorders})
+         ${input.provider}, ${applied.remainingForNewLot}, ${applied.usedToPayBackorders},
+         ${input.paid_from_cash})
       returning id
     `;
 
@@ -1984,6 +1998,215 @@ export async function getCodigosPorBancoTotal(): Promise<
   return rows.map((r) => ({
     bank: r.bank,
     count: Number(r.count),
+    amount_eur: num(r.amount_eur),
+  }));
+}
+
+/* --------------------------------------------------------------- la caja */
+
+/**
+ * The four días the retiros panel offers, newest first.
+ *
+ * Two reads and a join in TypeScript rather than one query with a `unnest` of
+ * the day keys: the códigos side is a group-by that answers for every day at
+ * once, the confirmations side is four rows at most, and stitching them over the
+ * key list here keeps both statements plain enough to read.
+ *
+ * The system total is grouped by retired_at, and that is the whole difference
+ * from getCodigoConsolidation above, which groups by created_at. The cuadre asks
+ * what was written down on a day; this asks what came out of a cajero on one,
+ * and for the same código those are usually different days.
+ *
+ * The status filter is the other half of that: only a retirado código has been
+ * withdrawn, and a pendiente one has no money in the pocket to confirm. Both
+ * clauses are needed — retired_at is null on pendiente rows, so the filter is
+ * belt and braces, but the index it uses is the partial one on status.
+ *
+ * The Europe/Madrid day is resolved through lib/day-buckets.ts and matched with
+ * the same to_char idiom the cuadre and the stats buckets use, so a código can
+ * never land on one day here and another one there.
+ */
+export async function getRetirosDias(): Promise<RetiroDia[]> {
+  const sql = getSql();
+  const days = recentDayKeys(RETIRO_WINDOW_DAYS);
+  const oldestKey = days[days.length - 1];
+
+  const totals = await sql<{ day: string; system_eur: string }[]>`
+    select to_char(retired_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') as day,
+           coalesce(sum(amount), 0) as system_eur
+    from codigos
+    where status = 'retirado'
+      and retired_at is not null
+      and to_char(retired_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') >= ${oldestKey}
+    group by 1
+  `;
+
+  const confirmations = await sql<
+    { day: string; system_eur: string; counted_eur: string; confirmed_at: Date }[]
+  >`
+    select to_char(day, 'YYYY-MM-DD') as day, system_eur, counted_eur, confirmed_at
+    from codigo_withdrawal_confirmations
+    where day >= ${oldestKey}::date
+  `;
+
+  const totalByDay = new Map(totals.map((r) => [r.day, num(r.system_eur)]));
+  const confirmationByDay = new Map(confirmations.map((r) => [r.day, r]));
+
+  return days.map((day) => {
+    const confirmation = confirmationByDay.get(day);
+    return {
+      day,
+      system_eur: totalByDay.get(day) ?? 0,
+      confirmed_system_eur: confirmation ? num(confirmation.system_eur) : null,
+      counted_eur: confirmation ? num(confirmation.counted_eur) : null,
+      confirmed_at: confirmation ? confirmation.confirmed_at : null,
+    };
+  });
+}
+
+export interface ConfirmarRetiroResult {
+  day: string;
+  systemEur: number;
+  countedEur: number;
+}
+
+/**
+ * Record what Jose actually counted for one día, and what the códigos said at
+ * that moment.
+ *
+ * The system total is recomputed inside the transaction and never taken from the
+ * form. That is not defensiveness about a hostile request — it is the point of
+ * re-confirming at all: a retirado código's amount can be corrected afterwards
+ * through updateCodigo(), so the figure the panel was rendered with may already
+ * be stale by the time the button is pressed, and storing the stale one would
+ * make the audit trail lie about what it was compared against.
+ *
+ * Upsert on the day, so confirming twice replaces the row rather than adding a
+ * second one. A día contributing its counted euros to the caja twice would be a
+ * silent duplication of real money, which is exactly what unique (day) and this
+ * `on conflict` exist to make impossible.
+ */
+export async function confirmarRetiroDia(
+  day: string,
+  countedEur: number,
+): Promise<ConfirmarRetiroResult> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const [total] = await tx<{ system_eur: string }[]>`
+      select coalesce(sum(amount), 0) as system_eur
+      from codigos
+      where status = 'retirado'
+        and retired_at is not null
+        and to_char(retired_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${day}
+    `;
+    const systemEur = num(total.system_eur);
+
+    await tx`
+      insert into codigo_withdrawal_confirmations (day, system_eur, counted_eur)
+      values (${day}::date, ${systemEur}, ${countedEur})
+      on conflict (day) do update
+        set system_eur = excluded.system_eur,
+            counted_eur = excluded.counted_eur,
+            confirmed_at = now()
+    `;
+
+    return { day, systemEur, countedEur };
+  });
+}
+
+/** Money in or out of the pocket that no other table has a reason to know about. */
+export async function createCajaManualEntry(input: {
+  amount_eur: number;
+  note: string;
+}): Promise<number> {
+  const sql = getSql();
+  const [row] = await sql<{ id: number }[]>`
+    insert into caja_manual_entries (amount_eur, note)
+    values (${input.amount_eur}, ${input.note})
+    returning id
+  `;
+  return id(row.id);
+}
+
+/**
+ * Every line of the caja journal, from the four places money enters or leaves
+ * Jose's pocket.
+ *
+ * Nothing here is a balance and nothing is stored as one — see lib/caja.ts for
+ * why. This is only the gather; buildCajaLedger does the walking, the cut-off at
+ * the opening balance and the running total, and it owns the ordering including
+ * the tie-breaks, so no `order by` is imposed on the union.
+ *
+ * The four branches, and what each one is:
+ *
+ *   retiro_codigos — counted_eur, NOT system_eur. What came out of the cajero is
+ *     what went into the pocket; what the códigos were worth is the audit trail
+ *     beside it. Dated to midnight of its Madrid day, because a confirmation is
+ *     about a whole day and has no hour of its own — that also makes it sort
+ *     ahead of the movements that happened during the day, which is the right
+ *     place for money collected before anything was spent out of it.
+ *
+ *   envio_efectivo — the client handed over notes, so the notes are in the
+ *     pocket. Restricted to EFECTIVO on purpose: CODIGO reaches the caja through
+ *     a confirmed retiro instead, and BIZUM, CARREFOUR and A_CLIENTE never
+ *     become cash at all. amount_eur is null-checked rather than assumed —
+ *     markClientPaid already refuses an envío propio, so this can only be a
+ *     client sending, and this clause is what makes that a guarantee of the
+ *     query rather than of a function somewhere else.
+ *
+ *   apertura / ajuste — the manual entries, split by the flag so the ledger can
+ *     label the opening balance as what it is. Both carry their sign already.
+ *
+ *   compra_usdt — negated here, because eur_paid is stored as a positive amount
+ *     paid and the caja sees it as euros leaving. Read live off crypto_purchases
+ *     with no reversal path anywhere: deleting the compra deletes the line.
+ */
+export async function listCajaMovements(): Promise<CajaMovement[]> {
+  const sql = getSql();
+  const rows = await sql<
+    {
+      occurred_at: Date;
+      source: CajaSource;
+      ref_id: number;
+      note: string | null;
+      amount_eur: string;
+    }[]
+  >`
+    select (w.day::timestamp at time zone 'Europe/Madrid') as occurred_at,
+           'retiro_codigos'::text                          as source,
+           w.id                                            as ref_id,
+           null::text                                      as note,
+           w.counted_eur                                   as amount_eur
+    from codigo_withdrawal_confirmations w
+
+    union all
+
+    select s.client_paid_at, 'envio_efectivo'::text, s.id, c.name, s.amount_eur
+    from sendings s
+    join clients c on c.id = s.client_id
+    where s.client_payment_method = 'EFECTIVO'
+      and s.client_paid_at is not null
+      and s.amount_eur is not null
+
+    union all
+
+    select m.created_at,
+           case when m.is_opening then 'apertura'::text else 'ajuste'::text end,
+           m.id, m.note, m.amount_eur
+    from caja_manual_entries m
+
+    union all
+
+    select p.purchased_at, 'compra_usdt'::text, p.id, p.provider, -p.eur_paid
+    from crypto_purchases p
+    where p.paid_from_cash
+  `;
+
+  return rows.map((r) => ({
+    occurred_at: r.occurred_at,
+    source: r.source,
+    ref_id: id(r.ref_id),
+    note: r.note,
     amount_eur: num(r.amount_eur),
   }));
 }
