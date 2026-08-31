@@ -8,6 +8,7 @@ import DeleteRowForm from '../components/delete-row-form';
 import EditCodigoForm from '../components/edit-codigo-form';
 import LedgerList from '../components/ledger-list';
 import { bankColorClass, compareBankNames, requiresDniReminder } from '@/lib/banks';
+import { formatCodigosForExport } from '@/lib/export-codigos';
 import { fmtDateTimeShort, fmtEur, fmtRate, fmtVes } from '@/lib/format';
 import type { Codigo } from '@/lib/types';
 
@@ -21,8 +22,11 @@ const COLUMNS = 8;
  */
 const MARCADO_MS = 460;
 
-const HEAD = (
-  <tr>
+/** How long "Exportar" stays "Copiado ✓" before it goes back to offering itself. */
+const COPIADO_MS = 1400;
+
+const HEAD_CELLS = (
+  <>
     {/*
       The name is already the biggest thing in the row and the only bold one;
       "Cliente" over the top of it was a caption for something that needs no
@@ -38,6 +42,22 @@ const HEAD = (
     <th>Envío</th>
     <th className="actions-heading">Retiro</th>
     <th className="actions-heading">Acciones</th>
+  </>
+);
+
+const HEAD = <tr>{HEAD_CELLS}</tr>;
+
+/**
+ * The same head with the tick box in front of it. Only the pendientes table
+ * gets one: a retirado código is a record, and there is nothing left to take to
+ * a cajero. Built off HEAD_CELLS so the two can never drift apart.
+ */
+const PENDING_HEAD = (
+  <tr>
+    <th>
+      <span className="sr-only">Seleccionar</span>
+    </th>
+    {HEAD_CELLS}
   </tr>
 );
 
@@ -74,20 +94,68 @@ export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
     );
   const resolved = codigos.filter((c) => c.status !== 'pendiente');
 
+  const [ticked, setTicked] = useState<ReadonlySet<number>>(new Set());
+  const [copyLabel, setCopyLabel] = useState<string | null>(null);
+
+  /*
+    Read against the pendientes rather than trusted on its own: mark a ticked
+    código retirado and its row leaves, so the id in `ticked` would go on
+    counting towards "Exportar (N)" for a row nobody can see any more.
+  */
+  const selected = pending.filter((c) => ticked.has(c.id));
+
+  function toggle(id: number): void {
+    setTicked((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  /*
+    One block of text on the clipboard and a word on the button — the withdrawal
+    run happens on the phone, in WhatsApp, and the less this page does about it
+    the better. A refusal (http, no permission) has to say so: a button that
+    does nothing at all reads as a misclick.
+  */
+  async function exportar(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(formatCodigosForExport(selected));
+      setCopyLabel('Copiado ✓');
+    } catch {
+      setCopyLabel('No se pudo copiar');
+    }
+    window.setTimeout(() => setCopyLabel(null), COPIADO_MS);
+  }
+
   return (
     <>
       {pending.length > 0 ? (
         <div className="ledger">
           <section className="ledger-day">
-            <h3 className="ledger-day-heading">
-              Pendientes de retiro <span className="ledger-day-count">{pending.length}</span>
-            </h3>
+            <div className="form-actions">
+              <h3 className="ledger-day-heading">
+                Pendientes de retiro <span className="ledger-day-count">{pending.length}</span>
+              </h3>
+              <button
+                className="small secondary"
+                type="button"
+                disabled={selected.length === 0}
+                onClick={() => void exportar()}
+              >
+                {copyLabel ?? `Exportar (${selected.length})`}
+              </button>
+            </div>
             <div className="table-wrap">
               <table>
-                <thead>{HEAD}</thead>
+                <thead>{PENDING_HEAD}</thead>
                 <tbody>
                   {pending.map((c) => (
-                    <CodigoRow key={c.id} codigo={c} />
+                    <CodigoRow
+                      key={c.id}
+                      codigo={c}
+                      selectable={{ checked: ticked.has(c.id), onChange: () => toggle(c.id) }}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -126,8 +194,18 @@ export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
  * — so the cell is now a button that opens exactly that, without leaving the
  * page. The name is only repeated in the one case it is not a repetition: a
  * codigo linked from /envios to a sending logged under a relative's name.
+ *
+ * `selectable` is what the pendientes table passes and the retirados table does
+ * not; it is the only thing that makes this row nine columns wide instead of
+ * eight.
  */
-function CodigoRow({ codigo: c }: { codigo: Codigo }) {
+function CodigoRow({
+  codigo: c,
+  selectable,
+}: {
+  codigo: Codigo;
+  selectable?: { checked: boolean; onChange: () => void };
+}) {
   const [showSending, setShowSending] = useState(false);
   const [marcado, setMarcado] = useState(false);
   const [, startAction] = useTransition();
@@ -176,6 +254,16 @@ function CodigoRow({ codigo: c }: { codigo: Codigo }) {
   return (
     <>
       <tr className={rowClass}>
+        {selectable ? (
+          <td data-label="Seleccionar">
+            <input
+              type="checkbox"
+              checked={selectable.checked}
+              onChange={selectable.onChange}
+              aria-label={`Seleccionar ${c.client_name}`}
+            />
+          </td>
+        ) : null}
         <td data-lead>{c.client_name}</td>
         <td data-label="Datos" data-wide>
           {/*
@@ -258,7 +346,7 @@ function CodigoRow({ codigo: c }: { codigo: Codigo }) {
       {/* The panel hangs off the código, so it leaves with it rather than outliving it. */}
       {linked && showSending ? (
         <tr className={marcado ? 'linked-sending codigo-marcado' : 'linked-sending'}>
-          <td data-label="Envío vinculado" data-wide colSpan={COLUMNS}>
+          <td data-label="Envío vinculado" data-wide colSpan={selectable ? COLUMNS + 1 : COLUMNS}>
             <dl className="linked-sending-fields">
               {otherName ? (
                 <div>
