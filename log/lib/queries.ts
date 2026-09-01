@@ -54,6 +54,15 @@ import type {
   VesSale,
 } from './types';
 
+// postgres.js cannot infer a PostgreSQL integer type from JavaScript `number`
+// array elements, so `sql.array([1, 2])` defaults to text[]. Both callers below
+// compare against bigserial/bigint ids and must declare the scalar bigint OID.
+const POSTGRES_BIGINT_OID = 20;
+
+function bigintIdArray(tx: TransactionSql, ids: number[]) {
+  return tx.array(ids, POSTGRES_BIGINT_OID);
+}
+
 /* ------------------------------------------------------------------ clients */
 
 /**
@@ -1977,7 +1986,7 @@ export async function markCodigosRetiradosPorTercero(
           retired_at = now(),
           retirado_por_kind = ${assignment.kind},
           retirado_por_agente_id = ${agenteId}
-      where id = any(${tx.array(uniqueIds)}) and status = 'pendiente'
+      where id = any(${bigintIdArray(tx, uniqueIds)}) and status = 'pendiente'
       returning id
     `;
     if (updated.length !== uniqueIds.length) {
@@ -2036,7 +2045,7 @@ export async function reassignCodigoRetirado(
     if (lockIds.length > 0) {
       const locked = await tx<{ id: number }[]>`
         select id from retiro_agentes
-        where id = any(${tx.array(lockIds)})
+        where id = any(${bigintIdArray(tx, lockIds)})
         order by id
         for update
       `;
