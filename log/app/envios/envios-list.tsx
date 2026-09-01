@@ -1,8 +1,16 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 
 import { eliminarEnvioAction } from './actions';
+import {
+  ENVIOS_FILTERS,
+  filterEnvios,
+  type EnviosFilter,
+  type EnviosSort,
+  sortEnvios,
+} from './envios-filters';
+import styles from './envios.module.css';
 import ClientPaidActions, { type PickerCodigo } from '../components/client-paid-actions';
 import DeleteRowForm from '../components/delete-row-form';
 import EditSendingForm from '../components/edit-sending-form';
@@ -65,15 +73,32 @@ export default function EnviosList({
   /** Stable server-render instant so the Madrid-day colour cannot hydration-drift. */
   now: string;
 }) {
-  const incomplete = sendings
-    .filter((s) => sendingPaymentState(s, now) !== 'complete')
-    .sort((a, b) => a.created_at.getTime() - b.created_at.getTime() || a.id - b.id);
-  const complete = sendings.filter((s) => sendingPaymentState(s, now) === 'complete');
+  const [filter, setFilter] = useState<EnviosFilter>('all');
+  const [sort, setSort] = useState<EnviosSort>('oldest');
 
-  const renderFull = (s: Sending) => {
+  const pendingRows = useMemo(
+    () => sortEnvios(filterEnvios(sendings, filter, now), sort),
+    [filter, now, sendings, sort],
+  );
+  const complete = useMemo(
+    () => sortEnvios(sendings.filter((s) => sendingPaymentState(s, now) === 'complete'), sort),
+    [now, sendings, sort],
+  );
+  const pendingCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        ENVIOS_FILTERS.map(({ value }) => [value, filterEnvios(sendings, value, now).length]),
+      ) as Record<EnviosFilter, number>,
+    [now, sendings],
+  );
+
+  const renderFull = (s: Sending, pendingWorkspace = false) => {
     const paymentState = sendingPaymentState(s, now);
     return (
-      <tr className={sendingPaymentRowClass(s, now)}>
+      <tr
+        className={`${sendingPaymentRowClass(s, now)} ${styles.sendingRow}`}
+        data-pending-row={pendingWorkspace ? 'true' : undefined}
+      >
       {/*
         On an envío propio the client is the placeholder row, whose name already
         reads "Envío propio", and the note saying who received the money goes
@@ -113,7 +138,11 @@ export default function EnviosList({
         ) : null}
       </td>
       <td data-label="Método">{s.payout_method}</td>
-      <td data-label="Pagado vía" data-empty={s.paid_via === null ? true : undefined}>
+      <td
+        data-label="Pagado vía"
+        data-secondary-accounting
+        data-empty={s.paid_via === null ? true : undefined}
+      >
         {s.paid_via === 'pool' ? 'pool' : s.paid_via === 'direct' ? 'directo' : '—'}
         {s.fee_applied ? <span className="muted"> +0,3%</span> : null}
       </td>
@@ -149,26 +178,38 @@ export default function EnviosList({
       </td>
       <td
         data-label="Cómo pagó"
+        data-secondary-accounting
         data-wide
         data-empty={s.client_payment_note ? undefined : true}
       >
         {s.client_payment_note ?? '—'}
       </td>
-      <td className="num" data-label="USDT" data-empty={s.usdt_used === null ? true : undefined}>
+      <td
+        className="num"
+        data-label="USDT"
+        data-secondary-accounting
+        data-empty={s.usdt_used === null ? true : undefined}
+      >
         {s.usdt_used === null ? '—' : fmtUsdt(s.usdt_used)}
       </td>
-      <td className="num" data-label="Costo" data-empty={s.cost_eur === null ? true : undefined}>
+      <td
+        className="num"
+        data-label="Costo"
+        data-secondary-accounting
+        data-empty={s.cost_eur === null ? true : undefined}
+      >
         {s.cost_eur === null ? '—' : fmtEur(s.cost_eur)}
       </td>
       <td
         className="num"
         data-label="Ganancia"
+        data-secondary-accounting
         data-empty={s.profit_eur === null ? true : undefined}
       >
         {s.profit_eur === null ? '—' : fmtEur(s.profit_eur)}
       </td>
       <td data-label="Acciones" data-wide data-actions>
-        <div className="row-actions">
+        <div className={`row-actions ${styles.actionRail}`}>
           {s.status === 'pending' ? (
             <PaySendingActions sendingId={s.id} isPersonal={s.is_personal} />
           ) : null}
@@ -186,23 +227,80 @@ export default function EnviosList({
 
   return (
     <>
-      {incomplete.length > 0 ? (
-        <div className="ledger">
-          <section className="ledger-day">
-            <h3 className="ledger-day-heading">
-              Pendientes de pago <span className="ledger-day-count">{incomplete.length}</span>
-            </h3>
-            <div className="table-wrap">
-              <table>
-                <thead>{HEAD}</thead>
-                <tbody>
-                  {incomplete.map((s) => (
-                    <Fragment key={s.id}>{renderFull(s)}</Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+      <div className={styles.toolbar} role="toolbar" aria-label="Filtros y orden de envíos">
+        <div className={styles.filterBlock}>
+          <span className={styles.filterLabel}>Trabajo pendiente</span>
+          <div className={styles.filterButtons} role="group" aria-label="Filtrar pendientes">
+            {ENVIOS_FILTERS.map(({ value, label }) => (
+              <button
+                className={`${styles.filterButton} ${
+                  filter === value ? styles.filterButtonActive : ''
+                }`}
+                key={value}
+                type="button"
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value)}
+              >
+                {label}
+                <span className={styles.filterCount}>{pendingCounts[value]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={styles.sortControl}>
+          <label className={styles.sortLabel} htmlFor="envios-sort">
+            Ordenar
+          </label>
+          <select
+            id="envios-sort"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as EnviosSort)}
+          >
+            <option value="oldest">Más antiguos primero</option>
+            <option value="newest">Más recientes primero</option>
+            <option value="amount">Mayor Bs primero</option>
+          </select>
+        </div>
+      </div>
+
+      <section className={styles.pendingSection} aria-labelledby="pending-heading">
+        <div className={styles.pendingHeader}>
+          <h3 id="pending-heading">
+            Pendientes <span className="ledger-day-count">{pendingRows.length}</span>
+          </h3>
+          <p>
+            {filter === 'all'
+              ? 'Cada envío aparece una vez; una fila puede deber ambos pagos.'
+              : 'Este filtro muestra solo la tarea elegida.'}
+          </p>
+        </div>
+        {pendingRows.length > 0 ? (
+          <div className="table-wrap" data-pending-workspace>
+            <table>
+              <thead>{HEAD}</thead>
+              <tbody>
+                {pendingRows.map((s) => (
+                  <Fragment key={s.id}>{renderFull(s, true)}</Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className={styles.pendingEmpty}>
+            {filter === 'all'
+              ? 'Todo al día. No hay pagos pendientes.'
+              : 'No hay envíos en este filtro.'}
+          </p>
+        )}
+      </section>
+
+      {complete.length > 0 ? (
+        <div className={styles.archiveHeading}>
+          <h3>Registro cerrado</h3>
+          <p>
+            {complete.length} envío{complete.length === 1 ? '' : 's'} ya resuelto
+            {complete.length === 1 ? '' : 's'}.
+          </p>
         </div>
       ) : null}
 
@@ -239,7 +337,7 @@ export default function EnviosList({
         })}
         rowClass={(s) => sendingPaymentRowClass(s, now)}
         head={HEAD}
-        renderFull={renderFull}
+        renderFull={(s) => renderFull(s)}
         searchLabel="Cliente"
       />
     </>

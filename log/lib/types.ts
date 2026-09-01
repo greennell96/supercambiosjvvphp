@@ -233,18 +233,22 @@ export interface Codigo {
 /** One realized earnings bucket, grouped by paid_at in Europe/Madrid. */
 export interface StatsPeriod {
   period: string;
+  /** Distinct client payment groups; split rows must not inflate this count. */
   paid_count: number;
   revenue_eur: number;
   cost_eur: number;
   profit_eur: number;
   ves_paid: number;
   usdt_used: number;
+  /** Number of payout rows funded from the VES pool. */
   pool_count: number;
+  /** Number of payout rows funded by a direct sale. */
   direct_count: number;
 }
 
 export interface StatsFunding {
   paid_via: PaidVia;
+  /** Distinct client payment groups with at least one realized payout row. */
   paid_count: number;
   revenue_eur: number;
   cost_eur: number;
@@ -254,9 +258,17 @@ export interface StatsFunding {
 export interface StatsClient {
   client_id: number;
   client_name: string;
+  /** Distinct client payment groups represented by realized payout rows. */
   paid_count: number;
   revenue_eur: number;
   profit_eur: number;
+}
+
+/** How clients paid Jose, counted once per payment group (not per split row). */
+export interface StatsClientPaymentMethod {
+  method: string;
+  payment_count: number;
+  amount_eur: number;
 }
 
 export interface StatsCodeBank {
@@ -286,6 +298,8 @@ export interface StatsSnapshot {
     today_profit_eur: number;
     month_profit_eur: number;
     negative_profit_count: number;
+    /** Realized row-level performance across the last seven Madrid calendar days. */
+    seven_day: StatsPeriod;
   };
   inventory: {
     purchase_eur: number;
@@ -305,6 +319,8 @@ export interface StatsSnapshot {
   daily: StatsPeriod[];
   funding: StatsFunding[];
   top_clients: StatsClient[];
+  repeat_client_count: number;
+  client_payment_methods: StatsClientPaymentMethod[];
   pending_codes_by_bank: StatsCodeBank[];
   zero_cost_paid_sendings: number;
 }

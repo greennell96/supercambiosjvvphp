@@ -4,14 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
-  { href: '/', label: 'Resumen' },
   { href: '/envios', label: 'Envíos' },
   { href: '/codigos', label: 'Códigos' },
+  { href: '/caja', label: 'Caja' },
+  { href: '/', label: 'Resumen' },
   { href: '/ventas', label: 'Ventas' },
   { href: '/compras', label: 'Compras' },
-  // After the four logs and before the two read-only screens: la caja is the
-  // last of the day-to-day money screens, not a report about them.
-  { href: '/caja', label: 'Caja' },
   { href: '/stats', label: 'Estadísticas' },
   { href: '/clientes', label: 'Clientes' },
 ];

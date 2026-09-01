@@ -8,6 +8,7 @@ import {
   type NuevoEnvioPersonalState,
   type NuevoEnvioState,
 } from './actions';
+import styles from './envios.module.css';
 import ClientPicker, { type PickerClient } from '../components/client-picker';
 import { requiresDniReminder } from '@/lib/banks';
 import { fmtEur, fmtRate, fmtVes } from '@/lib/format';
@@ -32,23 +33,45 @@ export default function NuevoEnvioForm({
   suggestedTasa: number;
 }) {
   const [mode, setMode] = useState<Mode>('cliente');
+  const [open, setOpen] = useState(false);
 
-  return mode === 'cliente' ? (
-    <ClienteEnvioForm
-      clients={clients}
-      suggestedTasa={suggestedTasa}
-      mode={mode}
-      onMode={setMode}
-    />
-  ) : (
-    <PropioEnvioForm mode={mode} onMode={setMode} />
+  return (
+    <section className={styles.creationDock} aria-label="Registrar un envío">
+      <div className={styles.creationHeader}>
+        <div>
+          <h2>Registrar un envío</h2>
+          <p>Abre el formulario solo cuando tengas un nuevo movimiento.</p>
+        </div>
+        <button
+          className={`primary ${styles.creationToggle}`}
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((shown) => !shown)}
+        >
+          {open ? 'Cerrar formulario' : 'Nuevo envío'}
+        </button>
+      </div>
+
+      {open ? (
+        mode === 'cliente' ? (
+          <ClienteEnvioForm
+            clients={clients}
+            suggestedTasa={suggestedTasa}
+            mode={mode}
+            onMode={setMode}
+          />
+        ) : (
+          <PropioEnvioForm mode={mode} onMode={setMode} />
+        )
+      ) : null}
+    </section>
   );
 }
 
 /** The two tabs, rendered identically inside whichever form is showing. */
 function ModeTabs({ mode, onMode }: { mode: Mode; onMode: (mode: Mode) => void }) {
   return (
-    <div className="form-actions" style={{ marginBottom: 14 }}>
+    <div className={`form-actions ${styles.modeTabs}`}>
       <button
         className={mode === 'cliente' ? 'small action-primary' : 'small secondary'}
         type="button"

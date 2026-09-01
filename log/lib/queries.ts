@@ -2427,36 +2427,6 @@ export async function getCodigoConsolidation(): Promise<CodigoConsolidacion> {
   };
 }
 
-/**
- * Every codigo ever registered, grouped by bank.
- *
- * The same shape as getStats()'s pending_codes_by_bank and deliberately next to
- * it on /stats, with the one difference that matters: no status filter. That one
- * answers "where does Jose still have to go", this one answers "where does the
- * money come from at all" — which banks he actually works with, over the whole
- * history rather than whatever happens to be open this afternoon.
- *
- * Kept out of getStats()'s repeatable-read transaction on purpose. It is one
- * small independent read that nothing else is compared against, so it does not
- * need to be in the same snapshot as the earnings figures.
- */
-export async function getCodigosPorBancoTotal(): Promise<
-  { bank: string; count: number; amount_eur: number }[]
-> {
-  const sql = getSql();
-  const rows = await sql<{ bank: string; count: string; amount_eur: string }[]>`
-    select bank, count(*) as count, coalesce(sum(amount), 0) as amount_eur
-    from codigos
-    group by bank
-    order by amount_eur desc, lower(bank)
-  `;
-  return rows.map((r) => ({
-    bank: r.bank,
-    count: Number(r.count),
-    amount_eur: num(r.amount_eur),
-  }));
-}
-
 /* --------------------------------------------------------------- la caja */
 
 /**
@@ -2806,9 +2776,12 @@ export async function getStats(): Promise<StatsSnapshot> {
       [earnings],
       monthlyRows,
       dailyRows,
+      [sevenDay],
       fundingRows,
       [inventory],
       clientRows,
+      [repeatClients],
+      clientPaymentRows,
       codeBankRows,
       [warning],
     ] = await Promise.all([
@@ -2847,7 +2820,8 @@ export async function getStats(): Promise<StatsSnapshot> {
           select sum(amount_eur) from sendings
           where client_paid_at is null and is_personal = false
         ), 0) as uncollected_eur,
-        (select count(*) from sendings where client_paid_at is null and is_personal = false)
+        (select count(distinct payment_group_id) from sendings
+          where client_paid_at is null and is_personal = false)
           as uncollected_count,
         coalesce((select sum(amount) from codigos where status = 'pendiente'), 0)
           as pending_codes_eur,
@@ -2876,7 +2850,7 @@ export async function getStats(): Promise<StatsSnapshot> {
         coalesce(sum(amount_eur), 0) as revenue_eur,
         coalesce(sum(cost_eur), 0) as cost_eur,
         coalesce(sum(profit_eur), 0) as profit_eur,
-        count(*) as paid_count,
+        count(distinct payment_group_id) as paid_count,
         coalesce(sum(profit_eur) filter (
           where (paid_at at time zone 'Europe/Madrid')::date =
                 (now() at time zone 'Europe/Madrid')::date
@@ -2885,14 +2859,14 @@ export async function getStats(): Promise<StatsSnapshot> {
           where date_trunc('month', paid_at at time zone 'Europe/Madrid') =
                 date_trunc('month', now() at time zone 'Europe/Madrid')
         ), 0) as month_profit_eur,
-        count(*) filter (where profit_eur < 0) as negative_profit_count
+        count(distinct payment_group_id) filter (where profit_eur < 0) as negative_profit_count
       from sendings
       where status = 'paid' and paid_at is not null and profit_eur is not null
     `,
       tx<RawStatsPeriod[]>`
       select
         to_char(paid_at at time zone 'Europe/Madrid', 'YYYY-MM') as period,
-        count(*) as paid_count,
+        count(distinct payment_group_id) as paid_count,
         coalesce(sum(amount_eur), 0) as revenue_eur,
         coalesce(sum(cost_eur), 0) as cost_eur,
         coalesce(sum(profit_eur), 0) as profit_eur,
@@ -2909,7 +2883,7 @@ export async function getStats(): Promise<StatsSnapshot> {
       tx<RawStatsPeriod[]>`
       select
         to_char(paid_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') as period,
-        count(*) as paid_count,
+        count(distinct payment_group_id) as paid_count,
         coalesce(sum(amount_eur), 0) as revenue_eur,
         coalesce(sum(cost_eur), 0) as cost_eur,
         coalesce(sum(profit_eur), 0) as profit_eur,
@@ -2923,6 +2897,24 @@ export async function getStats(): Promise<StatsSnapshot> {
       order by 1 desc
       limit 14
     `,
+      tx<RawStatsPeriod[]>`
+      select
+        '7d' as period,
+        count(distinct payment_group_id) as paid_count,
+        coalesce(sum(amount_eur), 0) as revenue_eur,
+        coalesce(sum(cost_eur), 0) as cost_eur,
+        coalesce(sum(profit_eur), 0) as profit_eur,
+        coalesce(sum(amount_ves_to_pay), 0) as ves_paid,
+        coalesce(sum(usdt_used), 0) as usdt_used,
+        count(*) filter (where paid_via = 'pool') as pool_count,
+        count(*) filter (where paid_via = 'direct') as direct_count
+      from sendings
+      where status = 'paid' and paid_at is not null and profit_eur is not null
+        and (paid_at at time zone 'Europe/Madrid')::date >=
+            (now() at time zone 'Europe/Madrid')::date - 6
+        and (paid_at at time zone 'Europe/Madrid')::date <=
+            (now() at time zone 'Europe/Madrid')::date
+    `,
       tx<
         {
           paid_via: PaidVia;
@@ -2932,7 +2924,7 @@ export async function getStats(): Promise<StatsSnapshot> {
           profit_eur: string;
         }[]
       >`
-      select paid_via, count(*) as paid_count,
+      select paid_via, count(distinct payment_group_id) as paid_count,
              coalesce(sum(amount_eur), 0) as revenue_eur,
              coalesce(sum(cost_eur), 0) as cost_eur,
              coalesce(sum(profit_eur), 0) as profit_eur
@@ -2989,7 +2981,8 @@ export async function getStats(): Promise<StatsSnapshot> {
           profit_eur: string;
         }[]
       >`
-      select c.id as client_id, c.name as client_name, count(*) as paid_count,
+      select c.id as client_id, c.name as client_name,
+             count(distinct s.payment_group_id) as paid_count,
              coalesce(sum(s.amount_eur), 0) as revenue_eur,
              coalesce(sum(s.profit_eur), 0) as profit_eur
       from sendings s
@@ -2999,6 +2992,24 @@ export async function getStats(): Promise<StatsSnapshot> {
       order by profit_eur desc, revenue_eur desc, lower(c.name)
       limit 8
     `,
+      tx<{ count: string }[]>`
+      select count(*) from (
+        select client_id
+        from sendings
+        where is_personal = false
+        group by client_id
+        having count(distinct payment_group_id) >= 2
+      ) repeat_clients
+    `,
+      tx<{ method: string; payment_count: string; amount_eur: string }[]>`
+      select coalesce(client_payment_method, 'SIN_REGISTRAR') as method,
+             count(distinct payment_group_id) as payment_count,
+             coalesce(sum(amount_eur), 0) as amount_eur
+      from sendings
+      where is_personal = false and client_paid_at is not null
+      group by coalesce(client_payment_method, 'SIN_REGISTRAR')
+      order by payment_count desc, lower(coalesce(client_payment_method, 'SIN_REGISTRAR'))
+    `,
       tx<{ bank: string; pending_count: string; amount_eur: string }[]>`
       select bank, count(*) as pending_count, coalesce(sum(amount), 0) as amount_eur
       from codigos
@@ -3007,7 +3018,7 @@ export async function getStats(): Promise<StatsSnapshot> {
       order by amount_eur desc, lower(bank)
     `,
       tx<{ count: string }[]>`
-      select count(distinct a.sending_id) as count
+      select count(distinct s.payment_group_id) as count
       from sending_ves_allocations a
       join ves_sales v on v.id = a.ves_sale_id
       join sendings s on s.id = a.sending_id
@@ -3036,6 +3047,17 @@ export async function getStats(): Promise<StatsSnapshot> {
         today_profit_eur: num(earnings.today_profit_eur),
         month_profit_eur: num(earnings.month_profit_eur),
         negative_profit_count: Number(earnings.negative_profit_count),
+        seven_day: toStatsPeriod(sevenDay ?? {
+          period: '7d',
+          paid_count: '0',
+          revenue_eur: '0',
+          cost_eur: '0',
+          profit_eur: '0',
+          ves_paid: '0',
+          usdt_used: '0',
+          pool_count: '0',
+          direct_count: '0',
+        }),
       },
       inventory: {
         purchase_eur: num(inventory.purchase_eur),
@@ -3069,6 +3091,12 @@ export async function getStats(): Promise<StatsSnapshot> {
         paid_count: Number(row.paid_count),
         revenue_eur: num(row.revenue_eur),
         profit_eur: num(row.profit_eur),
+      })),
+      repeat_client_count: Number(repeatClients?.count ?? 0),
+      client_payment_methods: clientPaymentRows.map((row) => ({
+        method: row.method,
+        payment_count: Number(row.payment_count),
+        amount_eur: num(row.amount_eur),
       })),
       pending_codes_by_bank: codeBankRows.map((row) => ({
         bank: row.bank,

@@ -1,25 +1,25 @@
 /*
-  Plain, dense, glance-and-understand. No animations, no transitions — with
-  exactly one exception, and it is not a licence for a second one.
-
-  The exception is `.codigo-marcado` (near the end of this file): marking a
-  código retirado on /codigos flashes the row green and slides it out. Without
-  it the server re-render simply drops the row and the click says nothing about
-  which código it took. Nothing else in this app moves.
+  JVV Log: a warm, focused operator cockpit. Motion is deliberately limited to
+  crisp interaction feedback and the existing retiro confirmation reveal; it
+  never competes with the ledger or delays a money action.
 */
 
 :root {
-  --bg: #f2f4f6;
-  --panel: #ffffff;
-  --surface-muted: #edf0f3;
-  --line: #d2d7dd;
-  --line-strong: #aeb5bf;
-  --text: #171b20;
-  --muted: #606975;
-  --primary: #173f69;
-  --primary-hover: #113457;
-  --link: #145493;
-  --focus: #3478b9;
+  --bg: #f5edd9;
+  --panel: #fffdf8;
+  --surface-muted: #eee6d4;
+  --line: #d8ccb7;
+  --line-strong: #b9a98d;
+  --text: #1a1a1a;
+  --muted: #5b5b4e;
+  --primary: #1b4332;
+  --primary-hover: #2d6a4f;
+  --primary-soft: #e4efe7;
+  --surface-hover: #e5decc;
+  --link: #2d6a4f;
+  --focus: #1b4332;
+  --attention: #f4a435;
+  --attention-hover: #ffe8ad;
 
   --amber-bg: #fff4d6;
   --amber-line: #e0b44a;
@@ -79,6 +79,7 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 15px;
   line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -105,15 +106,17 @@ select:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
+  padding: 6px 2px 12px;
   margin-bottom: 18px;
 }
 
 .topbar .brand {
+  color: var(--primary);
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.02em;
   margin-right: 4px;
 }
 
@@ -128,7 +131,7 @@ select:focus-visible {
   min-height: 40px;
   align-items: center;
   text-decoration: none;
-  padding: 0 9px;
+  padding: 0 10px;
   border-bottom: 2px solid transparent;
   color: var(--muted);
   font-size: 14px;
@@ -137,7 +140,7 @@ select:focus-visible {
 
 .topbar nav a.active {
   border-bottom-color: var(--primary);
-  color: var(--text);
+  color: var(--primary);
 }
 
 .topbar .spacer {
@@ -166,7 +169,7 @@ h3 {
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 10px;
   padding: 16px;
   margin-bottom: 18px;
 }
@@ -188,7 +191,7 @@ h3 {
 .stat {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: 10px;
   padding: 16px;
 }
 
@@ -244,7 +247,7 @@ th {
   letter-spacing: 0.03em;
   color: var(--muted);
   border-bottom: 2px solid var(--line);
-  background: #f7f8f9;
+  background: var(--surface-muted);
 }
 
 td.num,
@@ -255,7 +258,7 @@ th.num {
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 9px;
 }
 
 .table-wrap table th:first-child,
@@ -437,8 +440,8 @@ select {
   min-width: 0;
   padding: 9px 10px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
+  border-radius: 8px;
+  background: var(--panel);
   color: var(--text);
   font-size: 16px;
 }
@@ -473,7 +476,7 @@ input[readonly] {
   margin: 16px 0 0;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 9px;
 }
 
 .creation-section legend {
@@ -539,7 +542,7 @@ input[readonly] {
   margin: 0;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--panel);
   cursor: pointer;
 }
@@ -550,9 +553,9 @@ input[readonly] {
 }
 
 .radio-option:has(input:checked) {
-  border-color: var(--focus);
-  background: var(--blue-bg);
-  color: var(--blue-text);
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .radio-option input[type="radio"] {
@@ -577,7 +580,7 @@ input[readonly] {
   margin: 0;
   padding: 8px 12px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--panel);
   cursor: pointer;
 }
@@ -592,9 +595,9 @@ input[readonly] {
 button {
   min-height: 40px;
   padding: 8px 14px;
-  border: 1px solid #c6ccd3;
-  border-radius: 6px;
-  background: #f7f8f9;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-muted);
   color: var(--text);
   cursor: pointer;
   font-weight: 600;
@@ -607,19 +610,19 @@ button:active:not(:disabled) {
 button.primary {
   background: var(--primary);
   border-color: var(--primary);
-  color: #fff;
+  color: #fffdf8;
 }
 
 button.action-primary {
   background: var(--primary);
   border-color: var(--primary);
-  color: #fff;
+  color: #fffdf8;
 }
 
 button.action-info {
-  background: var(--blue-bg);
-  border-color: var(--blue-line);
-  color: var(--blue-text);
+  background: var(--amber-bg);
+  border-color: var(--amber-line);
+  color: var(--amber-text);
 }
 
 button.action-success {
@@ -649,7 +652,7 @@ button.link {
   background: none;
   border: none;
   border-radius: 0;
-  color: var(--link);
+  color: var(--primary);
   text-decoration: underline;
   padding: 0 4px;
 }
@@ -665,14 +668,34 @@ button:disabled {
   opacity: 0.55;
 }
 
+/* Keep the interaction language short and explicit on both pointer and touch;
+   the reduced-motion rule below removes it completely when requested. */
+@media (prefers-reduced-motion: no-preference) {
+  .topbar nav a,
+  button,
+  input,
+  select,
+  .section-note[href],
+  .picker .results button,
+  .picker .chosen {
+    transition: border-color 120ms ease-out, background-color 120ms ease-out,
+      color 120ms ease-out, box-shadow 120ms ease-out, transform 100ms ease-out;
+  }
+}
+
 @media (hover: hover) {
   .topbar nav a:hover {
-    text-decoration: underline;
-    text-underline-offset: 4px;
+    color: var(--primary);
+    background: rgb(45 106 79 / 8%);
+  }
+
+  .section-note[href]:hover {
+    background: var(--primary-soft);
+    color: var(--primary-hover);
   }
 
   button:hover:not(:disabled) {
-    background: #e1e4e9;
+    background: var(--surface-hover);
   }
 
   button.primary:hover:not(:disabled) {
@@ -686,8 +709,8 @@ button:disabled {
   }
 
   button.action-info:hover:not(:disabled) {
-    background: #d9e6f5;
-    border-color: var(--blue-text);
+    background: var(--attention-hover);
+    border-color: var(--amber-text);
   }
 
   button.action-success:hover:not(:disabled) {
@@ -1060,8 +1083,8 @@ button.danger {
 /*
   The calculator under "Tasa sugerida". It recomputes on every keystroke, which
   is the whole point of it, so it is built to hold still while the numbers
-  change: fixed rows, tabular figures, and no transition on anything. Only the
-  digits move.
+  change: fixed rows and tabular figures. The changing values stay immediate;
+  no decorative transition is needed here.
 
   Sunk into the muted surface rather than boxed in a colour, because nothing here
   has happened — it is an estimate against a price José read a minute ago, not a
@@ -1161,15 +1184,26 @@ button.danger {
   gap: 22px;
   margin-bottom: 16px;
   padding: 20px;
-  border: 1px solid #0e3153;
+  border: 1px solid var(--primary);
   border-radius: 9px;
   background: var(--primary);
-  color: #fff;
+  color: #fffdf8;
+}
+
+/* The desktop hero has generous minimums for two readable columns. At tablet
+   width those minimums can exceed the shell, so stack before horizontal scroll
+   appears; the existing phone rule takes over below 720px. */
+@media (min-width: 721px) and (max-width: 820px) {
+  .earnings-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
 }
 
 .earnings-summary .eyebrow,
 .earnings-primary > p:last-child {
-  color: #d4e1ee;
+  color: #dfeee3;
 }
 
 .earnings-primary > p:last-child {
@@ -1208,7 +1242,7 @@ button.danger {
 
 .earnings-strip dt {
   margin-bottom: 3px;
-  color: #c7d7e7;
+  color: #cfe2d4;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -1245,6 +1279,17 @@ button.danger {
   font-size: 12px;
 }
 
+.section-note[href] {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 7px;
+  color: var(--primary);
+  font-weight: 650;
+  text-decoration: none;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1259,6 +1304,17 @@ button.danger {
   border-left: 3px solid var(--line-strong);
   border-radius: 7px;
   background: var(--panel);
+}
+
+.metric-card.priority {
+  border-color: var(--amber-line);
+  border-left-color: var(--attention);
+  background: var(--amber-bg);
+}
+
+.metric-card.priority .metric-label,
+.metric-card.priority .metric-meta {
+  color: var(--amber-text);
 }
 
 .metric-card.warning {
@@ -1420,9 +1476,9 @@ button.danger {
   min-height: 40px;
   align-items: center;
   padding: 8px 14px;
-  border: 1px solid #c6ccd3;
-  border-radius: 6px;
-  background: #f7f8f9;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-muted);
   color: var(--text);
   font-weight: 600;
   text-decoration: none;
@@ -1741,7 +1797,7 @@ tr.linked-sending td {
   border: 1px solid var(--line);
   border-top: none;
   border-radius: 0 0 8px 8px;
-  background: #fff;
+  background: var(--panel);
   max-height: 280px;
   overflow-y: auto;
   box-shadow: 0 8px 20px rgb(28 31 35 / 8%);
@@ -1753,7 +1809,7 @@ tr.linked-sending td {
   text-align: left;
   border: none;
   border-bottom: 1px solid var(--line);
-  background: #fff;
+  background: var(--panel);
   min-height: 44px;
   padding: 8px 10px;
   font-weight: 400;
@@ -1769,7 +1825,7 @@ tr.linked-sending td {
   gap: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--panel);
   min-height: 44px;
   padding: 8px 10px;
 }
@@ -1851,8 +1907,9 @@ tr.linked-sending td {
 }
 
 /*
-  The one animation in this app — see the note at the top of this file, and do
-  not read it as permission for a second one.
+  The dedicated completion animation for this action — alongside the small
+  interaction transitions above — is intentionally kept separate from normal
+  ledger rendering.
 
   "Marcar retirado" revalidates the page, and the row is simply absent from the
   re-render. On a list of eight pendientes that is indistinguishable from a
@@ -2431,5 +2488,17 @@ tr.codigo-marcado {
   .login-wrap {
     max-width: none;
     margin: max(28px, env(safe-area-inset-top)) 14px 28px;
+  }
+}
+
+/* Respect an operator's system preference without removing the visual state
+   change itself. A completed row remains green; it simply does not travel. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
   }
 }

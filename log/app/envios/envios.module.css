@@ -1,0 +1,304 @@
+.workspacePanel {
+  padding: 16px;
+}
+
+.workspaceHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.workspaceHeading h2,
+.workspaceHeading h1,
+.workspaceHeading p {
+  margin: 0;
+}
+
+.workspaceHeading p {
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.filterBlock {
+  min-width: 0;
+}
+
+.filterLabel,
+.sortLabel {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.filterButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filterButton {
+  min-height: 40px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background-color 100ms ease-out, border-color 100ms ease-out,
+    color 100ms ease-out, transform 100ms ease-out;
+}
+
+.filterButton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.filterButtonActive {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--panel);
+}
+
+.filterCount {
+  display: inline-flex;
+  min-width: 21px;
+  min-height: 21px;
+  align-items: center;
+  justify-content: center;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.filterButtonActive .filterCount {
+  background: color-mix(in srgb, var(--panel) 20%, transparent);
+  color: var(--panel);
+}
+
+.sortControl {
+  flex: 0 0 170px;
+}
+
+.sortControl select {
+  min-height: 40px;
+  padding-block: 6px;
+  font-size: 14px;
+}
+
+.pendingSection {
+  margin-bottom: 20px;
+}
+
+.pendingHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.pendingHeader h3,
+.pendingHeader p {
+  margin: 0;
+}
+
+.pendingHeader p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pendingEmpty {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.sendingRow :global(td[data-lead]) {
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.sendingRow :global(.payout-amount) {
+  font-size: 18px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+
+.sendingRow :global(td[data-actions]) {
+  min-width: 196px;
+}
+
+.actionRail :global(button.action-primary) {
+  font-weight: 750;
+}
+
+.archiveHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.archiveHeading h3,
+.archiveHeading p {
+  margin: 0;
+}
+
+.archiveHeading p {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.creationDock {
+  margin-bottom: 16px;
+}
+
+.creationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+}
+
+.creationHeader h2,
+.creationHeader p {
+  margin: 0;
+}
+
+.creationHeader p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.creationToggle {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding-inline: 16px;
+  font-weight: 750;
+}
+
+.creationDock :global(.panel) {
+  margin-top: 10px;
+}
+
+.modeTabs {
+  margin-bottom: 14px;
+}
+
+@media (hover: hover) {
+  .filterButton:hover:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--surface-muted);
+  }
+
+  .filterButtonActive:hover:not(:disabled) {
+    border-color: var(--primary-hover);
+    background: var(--primary-hover);
+    color: var(--panel);
+  }
+}
+
+@media (max-width: 720px) {
+  .workspacePanel {
+    padding: 12px;
+  }
+
+  .workspaceHeading,
+  .toolbar,
+  .pendingHeader,
+  .archiveHeading,
+  .creationHeader {
+    display: block;
+  }
+
+  .workspaceHeading p {
+    margin-top: 3px;
+  }
+
+  .toolbar {
+    padding-bottom: 12px;
+  }
+
+  .filterButtons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filterButton {
+    width: 100%;
+    padding-inline: 7px;
+  }
+
+  .sortControl {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .pendingHeader p,
+  .archiveHeading p {
+    margin-top: 3px;
+  }
+
+  .sendingRow :global(td[data-lead]) {
+    font-size: 18px;
+  }
+
+  .sendingRow :global(.payout-amount) {
+    font-size: 20px;
+  }
+
+  :global([data-pending-workspace] tr[data-pending-row] td[data-secondary-accounting]) {
+    display: none;
+  }
+
+  .creationHeader {
+    padding: 14px;
+  }
+
+  .creationToggle {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .creationDock :global(.panel) {
+    margin-top: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterButton {
+    transition: none;
+  }
+}
