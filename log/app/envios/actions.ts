@@ -12,7 +12,6 @@ import {
   markClientPaid,
   previewDirectPayment,
   previewPoolPayment,
-  splitSending,
   type CreatePersonalSendingResult,
   type CreateSendingResult,
   type PayPreview,
@@ -32,6 +31,8 @@ export async function crearEnvioAction(
   const amountEur = parseDecimal(formData.get('amount_eur'));
   const rateTasa = parseDecimal(formData.get('rate_tasa'));
   const payoutMethod = text(formData.get('payout_method'));
+  const splitAmounts = formData.getAll('split_amount_eur');
+  const splitMethods = formData.getAll('split_payout_method');
 
   if (!clientId) return { error: 'Elige un cliente de la lista.' };
   if (amountEur === null || !(amountEur > 0)) {
@@ -40,17 +41,57 @@ export async function crearEnvioAction(
   if (rateTasa === null || !(rateTasa > 0)) {
     return { error: 'Escribe la tasa EUR/VES de este envío (mayor que cero).' };
   }
-  if (!payoutMethod) return { error: 'Elige un método de pago.' };
+  if (!(SENDING_PAYOUT_METHODS as readonly string[]).includes(payoutMethod)) {
+    return { error: 'Elige un método de pago.' };
+  }
+  if (splitAmounts.length !== splitMethods.length) {
+    return { error: 'Las partes divididas están incompletas. Revísalas e inténtalo otra vez.' };
+  }
+
+  const additionalParts: { amountEur: number; payoutMethod: SendingPayoutMethod }[] = [];
+  for (let index = 0; index < splitAmounts.length; index += 1) {
+    const amount = parseDecimal(splitAmounts[index]);
+    const method = text(splitMethods[index]);
+    if (amount === null || !(amount > 0)) {
+      return { error: `Escribe un monto mayor que cero para la parte ${index + 2}.` };
+    }
+    if (!(SENDING_PAYOUT_METHODS as readonly string[]).includes(method)) {
+      return { error: `Elige un método de pago para la parte ${index + 2}.` };
+    }
+    additionalParts.push({ amountEur: amount, payoutMethod: method as SendingPayoutMethod });
+  }
+
+  const registerCodigo = text(formData.get('register_codigo')) === '1';
+  const codigo = registerCodigo
+    ? {
+        code: text(formData.get('codigo_code')),
+        amount: parseDecimal(formData.get('codigo_amount')),
+        bank: text(formData.get('codigo_bank')),
+      }
+    : null;
+  if (codigo !== null) {
+    if (!codigo.code) return { error: 'Escribe el código que pagó este envío.' };
+    if (codigo.amount === null || !(codigo.amount > 0)) {
+      return { error: 'Escribe el monto del código (mayor que cero).' };
+    }
+    if (!codigo.bank) return { error: 'Indica el banco del código.' };
+  }
 
   try {
     const result = await createSending({
       client_id: clientId,
       amount_eur: amountEur,
       rate_tasa: rateTasa,
-      payout_method: payoutMethod,
+      payout_method: payoutMethod as SendingPayoutMethod,
+      additional_parts: additionalParts,
+      codigo:
+        codigo === null
+          ? null
+          : { code: codigo.code, amount: codigo.amount as number, bank: codigo.bank },
     });
     revalidatePath('/');
     revalidatePath('/envios');
+    revalidatePath('/codigos');
     revalidatePath('/stats');
     return { result };
   } catch (error) {
@@ -104,69 +145,6 @@ export async function crearEnvioPersonalAction(
     return { result };
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'No se pudo registrar el envío.' };
-  }
-}
-
-export interface SplitSendingState {
-  error?: string;
-  /**
-   * Timestamp of the last successful division, not a boolean, for the same
-   * reason EditSendingState uses one: the inline form closes itself on it, and
-   * dividing the same row twice in a row has to look different to it.
-   */
-  savedAt?: number;
-}
-
-/**
- * Divide a pending sending: part of it stays, the rest becomes its own envío.
- *
- * The client handed the money over once, but the bolívares sometimes leave in
- * two pieces through two different banks, and a sending is one row with one
- * método. This gives the second piece a row of its own.
- *
- * Two fields, because two is all that differs: how much of the EUR goes with it,
- * and which channel that part is paid through. Everything else — the cliente,
- * the tasa, whether the cliente already pagó — comes off the original row, which
- * is where those facts already live and the only place they are true.
- *
- * Nothing is checked here that decides anything: lib/splitting.ts re-reads the
- * kind, the status and the amount off the locked row and refuses on those, so a
- * sending that got paid, or already divided, between render and submit cannot
- * slip through. These are only the reads of raw form text.
- *
- * /codigos is revalidated along with the rest: the new row is another unpaid-by-
- * client envío, so it joins the "vincular a un envío abierto" picker there.
- */
-export async function splitSendingAction(
-  _prev: SplitSendingState,
-  formData: FormData,
-): Promise<SplitSendingState> {
-  const sendingId = parseId(formData.get('id'));
-  if (!sendingId) return { error: 'Envío no válido.' };
-
-  const amountEur = parseDecimal(formData.get('amount_eur'));
-  if (amountEur === null || !(amountEur > 0)) {
-    return { error: 'Escribe cuántos EUR separas en el envío nuevo (mayor que cero).' };
-  }
-
-  const payoutMethod = text(formData.get('payout_method'));
-  if (!(SENDING_PAYOUT_METHODS as readonly string[]).includes(payoutMethod)) {
-    return { error: 'Elige un método de pago.' };
-  }
-
-  try {
-    await splitSending(sendingId, amountEur, payoutMethod as SendingPayoutMethod);
-    revalidatePath('/');
-    revalidatePath('/envios');
-    revalidatePath('/codigos');
-    revalidatePath('/stats');
-    // Both halves inherit client_paid_at and client_payment_method, so dividing
-    // a sending the client already paid EFECTIVO turns one caja line into two —
-    // the same euros, split the way the row was.
-    revalidatePath('/caja');
-    return { savedAt: Date.now() };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : 'No se pudo dividir el envío.' };
   }
 }
 

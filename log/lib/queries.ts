@@ -9,6 +9,8 @@
  * so two writers can never draw the same lot twice.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import type { TransactionSql } from 'postgres';
 
 import {
@@ -20,6 +22,10 @@ import {
 import { madridDayKey, previousDayKey, recentDayKeys } from './day-buckets';
 import { getSql, id, num } from './db';
 import { applyIncomingToBackorders, type Lot } from './fifo';
+import {
+  computeCreatedSendingParts,
+  type AdditionalSendingPart,
+} from './grouped-sendings';
 import {
   poolWeightedAveragePrice,
   purchasePriceEurPerUsdt,
@@ -38,7 +44,6 @@ import {
 import type { CodigoConsolidacion } from './reconciliation';
 import { buildAgenteSaldos, sameSaldo, type AgenteSaldo } from './retiro-terceros';
 import { compraDeletionBlocker, restoreDrawnAmounts, ventaDeletionBlocker } from './reversal';
-import { computeSendingSplit } from './splitting';
 import type {
   Client,
   ClientPaymentMethod,
@@ -632,6 +637,7 @@ export async function deleteVenta(saleId: number): Promise<void> {
 
 type RawSending = {
   id: number;
+  payment_group_id: string;
   client_id: number;
   client_name: string;
   created_at: Date;
@@ -662,6 +668,7 @@ type RawSending = {
 function toSending(r: RawSending): Sending {
   return {
     id: id(r.id),
+    payment_group_id: r.payment_group_id,
     client_id: id(r.client_id),
     client_name: r.client_name,
     created_at: r.created_at,
@@ -687,7 +694,7 @@ function toSending(r: RawSending): Sending {
 export async function listSendings(limit = 500): Promise<Sending[]> {
   const sql = getSql();
   const rows = await sql<RawSending[]>`
-    select s.id, s.client_id, c.name as client_name, s.created_at,
+    select s.id, s.payment_group_id, s.client_id, c.name as client_name, s.created_at,
            s.is_personal, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
@@ -703,7 +710,7 @@ export async function listSendings(limit = 500): Promise<Sending[]> {
 export async function listPendingSendings(): Promise<Sending[]> {
   const sql = getSql();
   const rows = await sql<RawSending[]>`
-    select s.id, s.client_id, c.name as client_name, s.created_at,
+    select s.id, s.payment_group_id, s.client_id, c.name as client_name, s.created_at,
            s.is_personal, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
@@ -728,20 +735,52 @@ export async function listPendingSendings(): Promise<Sending[]> {
  * forever because there is no client, so they would otherwise fill this picker
  * up with rows no codigo can ever pay for.
  */
-export async function listOpenSendings(): Promise<Sending[]> {
+export interface OpenSendingGroup {
+  /** Representative sending id used to select and lock the whole group. */
+  id: number;
+  payment_group_id: string;
+  client_id: number;
+  amount_eur: number;
+  created_at: Date;
+  part_count: number;
+  payout_method: string;
+}
+
+export async function listOpenSendings(): Promise<OpenSendingGroup[]> {
   const sql = getSql();
-  const rows = await sql<RawSending[]>`
-    select s.id, s.client_id, c.name as client_name, s.created_at,
-           s.is_personal, s.personal_note, s.amount_eur,
-           s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
-           s.client_payment_note, s.client_paid_at, s.client_payment_method,
-           s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
+  const rows = await sql<
+    {
+      id: number;
+      payment_group_id: string;
+      client_id: number;
+      amount_eur: string;
+      created_at: Date;
+      part_count: string;
+      payout_method: string;
+    }[]
+  >`
+    select min(s.id) as id,
+           s.payment_group_id,
+           s.client_id,
+           sum(s.amount_eur) as amount_eur,
+           min(s.created_at) as created_at,
+           count(*) as part_count,
+           case when count(*) = 1 then min(s.payout_method)
+                else count(*)::text || ' partes' end as payout_method
     from sendings s
-    join clients c on c.id = s.client_id
     where s.client_paid_at is null and s.is_personal = false
-    order by s.created_at desc, s.id desc
+    group by s.payment_group_id, s.client_id
+    order by min(s.created_at) desc, min(s.id) desc
   `;
-  return rows.map(toSending);
+  return rows.map((row) => ({
+    id: id(row.id),
+    payment_group_id: row.payment_group_id,
+    client_id: id(row.client_id),
+    amount_eur: num(row.amount_eur),
+    created_at: row.created_at,
+    part_count: Number(row.part_count),
+    payout_method: row.payout_method,
+  }));
 }
 
 export interface CreateSendingResult {
@@ -751,6 +790,8 @@ export interface CreateSendingResult {
   payoutMethod: string;
   rateTasa: number;
   amountVesToPay: number;
+  partCount: number;
+  codigo: { code: string; amount: number; bank: string } | null;
 }
 
 /**
@@ -764,7 +805,9 @@ export async function createSending(input: {
   client_id: number;
   amount_eur: number;
   rate_tasa: number;
-  payout_method: string;
+  payout_method: SendingPayoutMethod;
+  additional_parts: readonly AdditionalSendingPart[];
+  codigo: { code: string; amount: number; bank: string } | null;
 }): Promise<CreateSendingResult> {
   const sql = getSql();
   return sql.begin(async (tx) => {
@@ -773,19 +816,44 @@ export async function createSending(input: {
     `;
     if (!client) throw new Error('Cliente no encontrado.');
 
-    const { amountVesToPay } = computeNewSending({
-      amountEur: input.amount_eur,
+    const parts = computeCreatedSendingParts({
+      totalAmountEur: input.amount_eur,
       rateTasa: input.rate_tasa,
+      primaryPayoutMethod: input.payout_method,
+      additionalParts: input.additional_parts,
     });
+    const paymentGroupId = randomUUID();
+    let representativeId: number | null = null;
 
-    const [sending] = await tx<{ id: number }[]>`
-      insert into sendings
-        (client_id, amount_eur, payout_method, rate_tasa, amount_ves_to_pay)
-      values
-        (${input.client_id}, ${input.amount_eur}, ${input.payout_method},
-         ${input.rate_tasa}, ${amountVesToPay})
-      returning id
-    `;
+    for (const part of parts) {
+      const [sending] = await tx<{ id: number }[]>`
+        insert into sendings
+          (payment_group_id, client_id, amount_eur, payout_method, rate_tasa,
+           amount_ves_to_pay)
+        values
+          (${paymentGroupId}, ${input.client_id}, ${part.amountEur}, ${part.payoutMethod},
+           ${input.rate_tasa}, ${part.amountVesToPay})
+        returning id
+      `;
+      representativeId ??= id(sending.id);
+    }
+
+    if (representativeId === null) throw new Error('El envío no produjo ninguna parte.');
+
+    if (input.codigo !== null) {
+      await tx`
+        insert into codigos
+          (client_id, code, amount, bank, sending_id, sending_group_id)
+        values
+          (${input.client_id}, ${input.codigo.code}, ${input.codigo.amount},
+           ${input.codigo.bank}, ${representativeId}, ${paymentGroupId})
+      `;
+      await tx`
+        update sendings
+        set client_paid_at = now(), client_payment_method = 'CODIGO'
+        where payment_group_id = ${paymentGroupId}
+      `;
+    }
 
     // Remember the tasa as the suggestion for next time.
     await tx`
@@ -793,12 +861,14 @@ export async function createSending(input: {
     `;
 
     return {
-      id: id(sending.id),
+      id: representativeId,
       clientName: client.name,
       amountEur: input.amount_eur,
       payoutMethod: input.payout_method,
       rateTasa: input.rate_tasa,
-      amountVesToPay,
+      amountVesToPay: parts.reduce((sum, part) => sum + part.amountVesToPay, 0),
+      partCount: parts.length,
+      codigo: input.codigo,
     };
   });
 }
@@ -856,9 +926,11 @@ export async function createPersonalSending(input: {
 
     const [sending] = await tx<{ id: number }[]>`
       insert into sendings
-        (client_id, is_personal, personal_note, payout_method, amount_ves_to_pay)
+        (payment_group_id, client_id, is_personal, personal_note, payout_method,
+         amount_ves_to_pay)
       values
-        (${clientId}, true, ${input.personal_note}, ${input.payout_method}, ${amountVesToPay})
+        (${randomUUID()}, ${clientId}, true, ${input.personal_note}, ${input.payout_method},
+         ${amountVesToPay})
       returning id
     `;
 
@@ -917,7 +989,7 @@ export interface EditSendingInput {
    * Worth being explicit about, since a date on a money row looks like it ought
    * to matter: FIFO draws its lots in the order of the LOTS' own timestamps
    * (crypto_purchases.purchased_at, ves_sales.sold_at), fixed at payment time,
-   * and nothing in lib/fifo.ts, lib/pools.ts, lib/pricing.ts, lib/splitting.ts
+   * and nothing in lib/fifo.ts, lib/pools.ts, lib/pricing.ts, lib/grouped-sendings.ts
    * or lib/reversal.ts reads a sending's created_at at all. What it does decide
    * is which day the row is filed under — the ledger heading and the cuadre de
    * codigos — which is exactly why it has to be correctable: a client who sends
@@ -1063,120 +1135,6 @@ export async function editSending(
       status: row.status,
       moneyChanged: true,
       amountVesToPay,
-    };
-  });
-}
-
-export interface SplitSendingResult {
-  /** The row that was divided, as it now stands. */
-  id: number;
-  clientName: string;
-  remainderEur: number;
-  remainderVesToPay: number;
-  /** The row that was created out of it. */
-  newId: number;
-  splitEur: number;
-  splitVesToPay: number;
-  payoutMethod: SendingPayoutMethod;
-}
-
-/**
- * Divide a pending client sending into itself plus a new, independent one.
- *
- * One transaction and one lock: the row is read `for update`, so its amount_eur
- * cannot move between the check and the write and two divisions of the same
- * sending can never both peel off the same euros. That lock is also what makes
- * dividing the same row repeatedly correct — the second call reads whatever the
- * first one left, not the amount the page happened to be showing.
- *
- * Every rule about WHAT may be divided and into what lives in lib/splitting.ts;
- * this function locks, calls it, and writes back the two shapes it returns. No
- * pool is drawn and no cost is recognised: both rows come out pending, and the
- * existing payment code settles each of them exactly as it settles any other.
- */
-export async function splitSending(
-  sendingId: number,
-  amountEur: number,
-  payoutMethod: SendingPayoutMethod,
-): Promise<SplitSendingResult> {
-  const sql = getSql();
-  return sql.begin(async (tx) => {
-    const [row] = await tx<
-      {
-        id: number;
-        client_id: number;
-        client_name: string;
-        status: 'pending' | 'paid';
-        is_personal: boolean;
-        amount_eur: string | null;
-        rate_tasa: string | null;
-        client_paid_at: Date | null;
-        client_payment_method: ClientPaymentMethod | null;
-        client_payment_note: string | null;
-      }[]
-    >`
-      select s.id, s.client_id, c.name as client_name, s.status, s.is_personal,
-             s.amount_eur, s.rate_tasa,
-             s.client_paid_at, s.client_payment_method, s.client_payment_note
-      from sendings s
-      join clients c on c.id = s.client_id
-      where s.id = ${sendingId}
-      for update of s
-    `;
-    if (!row) throw new Error('Envio no encontrado.');
-
-    // num() turns null into 0, so both nullable numerics are null-checked before
-    // they are converted — an envio propio has to reach computeSendingSplit as
-    // null, not as a zero that would read like a real amount.
-    const { original, created } = computeSendingSplit({
-      sending: {
-        client_id: id(row.client_id),
-        is_personal: row.is_personal,
-        status: row.status,
-        amount_eur: row.amount_eur === null ? null : num(row.amount_eur),
-        rate_tasa: row.rate_tasa === null ? null : num(row.rate_tasa),
-        client_paid_at: row.client_paid_at,
-        client_payment_method: row.client_payment_method,
-        client_payment_note: row.client_payment_note,
-      },
-      amountEur,
-      payoutMethod,
-    });
-
-    // Only the two money columns move. The tasa, the método, the codigo linked to
-    // this row and both client-payment columns are all left exactly as they were.
-    await tx`
-      update sendings
-      set amount_eur = ${original.amountEur},
-          amount_ves_to_pay = ${original.amountVesToPay}
-      where id = ${sendingId}
-    `;
-
-    // Written out in full rather than leaning on the column defaults, because
-    // this is the row that has to satisfy sendings_kind_shape_check: both money
-    // fields present, is_personal false, personal_note null.
-    const [inserted] = await tx<{ id: number }[]>`
-      insert into sendings
-        (client_id, amount_eur, rate_tasa, amount_ves_to_pay, payout_method, status,
-         is_personal, personal_note,
-         client_paid_at, client_payment_method, client_payment_note)
-      values
-        (${created.clientId}, ${created.amountEur}, ${created.rateTasa},
-         ${created.amountVesToPay}, ${created.payoutMethod}, ${created.status},
-         ${created.isPersonal}, ${created.personalNote},
-         ${created.clientPaidAt}, ${created.clientPaymentMethod}, ${created.clientPaymentNote})
-      returning id
-    `;
-
-    return {
-      id: sendingId,
-      clientName: row.client_name,
-      remainderEur: original.amountEur,
-      remainderVesToPay: original.amountVesToPay,
-      newId: id(inserted.id),
-      splitEur: created.amountEur,
-      splitVesToPay: created.amountVesToPay,
-      payoutMethod: created.payoutMethod,
     };
   });
 }
@@ -1483,6 +1441,57 @@ export interface MarkClientPaidResult {
   linkedCodigoId: number | null;
 }
 
+interface UnpaidClientGroup {
+  paymentGroupId: string;
+  clientId: number;
+  clientName: string;
+}
+
+/** Lock every sibling before changing the one client payment they share. */
+async function lockUnpaidClientGroup(
+  tx: TransactionSql,
+  sendingId: number,
+): Promise<UnpaidClientGroup> {
+  const rows = await tx<
+    {
+      id: number;
+      payment_group_id: string;
+      client_id: number;
+      client_name: string;
+      is_personal: boolean;
+      client_paid_at: Date | null;
+    }[]
+  >`
+    select s.id, s.payment_group_id, s.client_id, c.name as client_name,
+           s.is_personal, s.client_paid_at
+    from sendings s
+    join clients c on c.id = s.client_id
+    where s.payment_group_id = (
+      select payment_group_id from sendings where id = ${sendingId}
+    )
+    order by s.id
+    for update of s
+  `;
+  if (rows.length === 0) throw new Error('Ese envio ya no existe.');
+  if (rows.some((row) => row.is_personal)) {
+    throw new Error('Ese envio es propio: no tiene cliente que pague.');
+  }
+  if (rows.some((row) => row.client_paid_at !== null)) {
+    throw new Error('Ese envio ya figura como pagado por el cliente.');
+  }
+
+  const first = rows[0];
+  if (rows.some((row) => id(row.client_id) !== id(first.client_id))) {
+    throw new Error('El grupo de envios mezcla clientes. No se puede marcar cobrado.');
+  }
+
+  return {
+    paymentGroupId: first.payment_group_id,
+    clientId: id(first.client_id),
+    clientName: first.client_name,
+  };
+}
+
 /**
  * (c) Record that the CLIENT paid Jose for this sending.
  *
@@ -1492,11 +1501,10 @@ export interface MarkClientPaidResult {
  *
  * Both extras are optional, and each belongs to exactly one method:
  *
- *   CODIGO — a codigo can be pointed at this sending, or not. It is re-read
- *            under a lock and refused if something linked it since the page was
- *            rendered, because a codigo belongs to one sending and silently
- *            taking it off another would leave that one claiming a proof it no
- *            longer has.
+ *   CODIGO — a codigo can be pointed at this payment group, or not. It is
+ *            re-read under a lock and refused if something linked it since the
+ *            page was rendered, because silently moving the proof would leave
+ *            the first group claiming a payment it no longer has.
  *   OTRO   — the free text, written into client_payment_note. Only written when
  *            something was typed: a blank box means "nothing to add", never
  *            "erase the note Jose already left there".
@@ -1507,47 +1515,43 @@ export async function markClientPaid(
 ): Promise<MarkClientPaidResult> {
   const sql = getSql();
   return sql.begin(async (tx) => {
-    const [sending] = await tx<{ id: number; client_name: string; is_personal: boolean }[]>`
-      select s.id, c.name as client_name, s.is_personal
-      from sendings s
-      join clients c on c.id = s.client_id
-      where s.id = ${sendingId} and s.client_paid_at is null
-      for update of s
-    `;
-    if (!sending) throw new Error('Ese envio ya figura como pagado por el cliente.');
-    // An envio propio has no client and therefore no debt to collect. The list
-    // never offers this action for one; this is the guard that makes that true
-    // rather than merely observed, like the pending check in lockPendingSending.
-    if (sending.is_personal) {
-      throw new Error('Ese envio es propio: no tiene cliente que pague.');
-    }
+    const group = await lockUnpaidClientGroup(tx, sendingId);
 
     if (input.codigo_id !== null) {
-      const [codigo] = await tx<{ id: number; sending_id: number | null }[]>`
-        select id, sending_id from codigos where id = ${input.codigo_id} for update
+      const [codigo] = await tx<
+        { id: number; sending_id: number | null; sending_group_id: string | null }[]
+      >`
+        select id, sending_id, sending_group_id
+        from codigos where id = ${input.codigo_id} for update
       `;
       if (!codigo) throw new Error('Ese codigo ya no existe.');
-      if (codigo.sending_id !== null) {
-        throw new Error('Ese codigo ya esta vinculado a otro envio. Actualiza la pagina.');
+      if (codigo.sending_id !== null || codigo.sending_group_id !== null) {
+        throw new Error('Ese codigo ya esta vinculado a otro grupo. Actualiza la pagina.');
       }
-      await tx`update codigos set sending_id = ${sendingId} where id = ${input.codigo_id}`;
+      await tx`
+        update codigos
+        set sending_id = ${sendingId}, sending_group_id = ${group.paymentGroupId}
+        where id = ${input.codigo_id}
+      `;
     }
 
     await tx`
       update sendings
       set client_paid_at = now(), client_payment_method = ${input.method}
-      where id = ${sendingId}
+      where payment_group_id = ${group.paymentGroupId}
     `;
 
     if (input.note !== null) {
       await tx`
-        update sendings set client_payment_note = ${input.note} where id = ${sendingId}
+        update sendings
+        set client_payment_note = ${input.note}
+        where payment_group_id = ${group.paymentGroupId}
       `;
     }
 
     return {
       id: sendingId,
-      clientName: sending.client_name,
+      clientName: group.clientName,
       method: input.method,
       linkedCodigoId: input.codigo_id,
     };
@@ -1581,10 +1585,35 @@ export async function markClientPaid(
  * deleteSending.
  */
 export async function deleteSendingInTx(tx: TransactionSql, sendingId: number): Promise<void> {
-  const [sending] = await tx<{ id: number }[]>`
-    select id from sendings where id = ${sendingId} for update
+  const groupRows = await tx<{ id: number; payment_group_id: string }[]>`
+    select id, payment_group_id
+    from sendings
+    where payment_group_id = (
+      select payment_group_id from sendings where id = ${sendingId}
+    )
+    order by id
+    for update
   `;
+  const sending = groupRows.find((row) => id(row.id) === sendingId);
   if (!sending) throw new Error('Envio no encontrado.');
+
+  // /codigos keeps one representative sending id for its expandable detail.
+  // If that representative is deleted, point at a surviving sibling. Deleting
+  // the last row leaves the codigo standing independently, as before.
+  const replacement = groupRows.find((row) => id(row.id) !== sendingId);
+  if (replacement) {
+    await tx`
+      update codigos
+      set sending_id = ${replacement.id}
+      where sending_group_id = ${sending.payment_group_id} and sending_id = ${sendingId}
+    `;
+  } else {
+    await tx`
+      update codigos
+      set sending_id = null, sending_group_id = null
+      where sending_group_id = ${sending.payment_group_id}
+    `;
+  }
 
   const vesDrawn = await tx<{ ves_sale_id: number; ves_amount: string }[]>`
     select ves_sale_id, ves_amount from sending_ves_allocations where sending_id = ${sendingId}
@@ -1646,6 +1675,7 @@ type RawCodigo = {
   retirado_por_agente_id: number | null;
   retirado_por_agente_nombre: string | null;
   sending_id: number | null;
+  sending_group_id: string | null;
   sending_client_name: string | null;
   sending_amount_eur: string | null;
   sending_rate_tasa: string | null;
@@ -1685,7 +1715,8 @@ export async function listCodigos(limit = 500): Promise<Codigo[]> {
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.retirado_por_kind, g.retirado_por_agente_id,
            ra.name as retirado_por_agente_nombre,
-           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
+           g.sending_id, g.sending_group_id,
+           sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
            s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
            s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
@@ -1707,7 +1738,8 @@ export async function listPendingCodigos(): Promise<Codigo[]> {
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.retirado_por_kind, g.retirado_por_agente_id,
            ra.name as retirado_por_agente_nombre,
-           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
+           g.sending_id, g.sending_group_id,
+           sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
            s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
            s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
@@ -1740,7 +1772,8 @@ export async function listUnlinkedCodigos(): Promise<Codigo[]> {
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.retirado_por_kind, g.retirado_por_agente_id,
            ra.name as retirado_por_agente_nombre,
-           g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
+           g.sending_id, g.sending_group_id,
+           sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
            s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
            s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
@@ -1748,7 +1781,7 @@ export async function listUnlinkedCodigos(): Promise<Codigo[]> {
     left join retiro_agentes ra on ra.id = g.retirado_por_agente_id
     left join sendings s on s.id = g.sending_id
     left join clients sc on sc.id = s.client_id
-    where g.sending_id is null
+    where g.sending_id is null and g.sending_group_id is null
     order by g.created_at desc, g.id desc
   `;
   return rows.map(toCodigo);
@@ -1756,7 +1789,7 @@ export async function listUnlinkedCodigos(): Promise<Codigo[]> {
 
 /**
  * Register a codigo, and — when Jose linked it to an open sending — settle that
- * sending's client side in the same breath.
+ * sending group's client side in the same breath.
  *
  * That link is the whole reason this needs a transaction. A linked codigo IS the
  * client's proof of payment, so writing the link without writing
@@ -1779,31 +1812,26 @@ export async function createCodigo(input: {
 }): Promise<number> {
   const sql = getSql();
   return sql.begin(async (tx) => {
+    let group: UnpaidClientGroup | null = null;
     if (input.sending_id !== null) {
-      const [sending] = await tx<{ id: number; client_id: number; client_paid_at: Date | null }[]>`
-        select id, client_id, client_paid_at from sendings where id = ${input.sending_id} for update
-      `;
-      if (!sending) throw new Error('Ese envio ya no existe.');
-      if (id(sending.client_id) !== input.client_id) {
+      group = await lockUnpaidClientGroup(tx, input.sending_id);
+      if (group.clientId !== input.client_id) {
         throw new Error('Ese envio es de otro cliente. Elige uno del mismo cliente del codigo.');
-      }
-      if (sending.client_paid_at !== null) {
-        throw new Error('Ese envio ya figura como pagado por el cliente.');
       }
     }
 
     const [row] = await tx<{ id: number }[]>`
-      insert into codigos (client_id, code, amount, bank, sending_id)
+      insert into codigos (client_id, code, amount, bank, sending_id, sending_group_id)
       values (${input.client_id}, ${input.code}, ${input.amount}, ${input.bank},
-              ${input.sending_id})
+              ${input.sending_id}, ${group?.paymentGroupId ?? null})
       returning id
     `;
 
-    if (input.sending_id !== null) {
+    if (group !== null) {
       await tx`
         update sendings
         set client_paid_at = now(), client_payment_method = 'CODIGO'
-        where id = ${input.sending_id}
+        where payment_group_id = ${group.paymentGroupId}
       `;
     }
 
@@ -1876,10 +1904,35 @@ export async function markCodigoRetirado(codigoId: number): Promise<void> {
 export async function deleteCodigo(codigoId: number): Promise<void> {
   const sql = getSql();
   await sql.begin(async (tx) => {
+    // Discover the group without locking the codigo, then lock its sendings in
+    // id order before the codigo itself. markClientPaid and deleteSending take
+    // the same group -> codigo order, preventing an avoidable deadlock.
+    const [preview] = await tx<{ sending_group_id: string | null }[]>`
+      select coalesce(g.sending_group_id, s.payment_group_id) as sending_group_id
+      from codigos g
+      left join sendings s on s.id = g.sending_id
+      where g.id = ${codigoId}
+    `;
+    if (!preview) throw new Error('Codigo no encontrado.');
+    if (preview.sending_group_id !== null) {
+      await tx`
+        select id
+        from sendings
+        where payment_group_id = ${preview.sending_group_id}
+        order by id
+        for update
+      `;
+    }
+
     const [codigo] = await tx<
-      { id: number; sending_id: number | null; retirado_por_kind: RetiradoPorKind | null }[]
+      {
+        id: number;
+        sending_id: number | null;
+        sending_group_id: string | null;
+        retirado_por_kind: RetiradoPorKind | null;
+      }[]
     >`
-      select id, sending_id, retirado_por_kind
+      select id, sending_id, sending_group_id, retirado_por_kind
       from codigos where id = ${codigoId} for update
     `;
     if (!codigo) throw new Error('Codigo no encontrado.');
@@ -1889,11 +1942,14 @@ export async function deleteCodigo(codigoId: number): Promise<void> {
       );
     }
 
-    if (codigo.sending_id !== null) {
+    // The coalesce covers a codigo linked by the old deployment after migration
+    // 017 but before the new deployment: old code knows sending_id only.
+    const effectiveGroupId = codigo.sending_group_id ?? preview.sending_group_id;
+    if (effectiveGroupId !== null) {
       await tx`
         update sendings
         set client_paid_at = null, client_payment_method = null
-        where id = ${codigo.sending_id}
+        where payment_group_id = ${effectiveGroupId}
       `;
     }
 
@@ -2648,7 +2704,10 @@ export interface DashboardTotals {
   vesPoolBalance: number;
   /** Sum of amount_ves_to_pay for sendings still pending: what is still owed. */
   bolivaresPendientes: number;
-  pendingSendingsCount: number;
+  /** Rows José still has to pay to a beneficiary. */
+  pendingPayoutSendingsCount: number;
+  /** Rows with any applicable side still unpaid. */
+  incompleteSendingsCount: number;
   pendingCodigosCount: number;
 }
 
@@ -2664,6 +2723,12 @@ export async function getDashboardTotals(): Promise<DashboardTotals> {
     select coalesce(sum(amount_ves_to_pay), 0) as total, count(*) as count
     from sendings where status = 'pending'
   `;
+  const [incomplete] = await sql<{ count: string }[]>`
+    select count(*) as count
+    from sendings
+    where (is_personal = true and status <> 'paid')
+       or (is_personal = false and (status <> 'paid' or client_paid_at is null))
+  `;
   const [codigos] = await sql<{ count: string }[]>`
     select count(*) as count from codigos where status = 'pendiente'
   `;
@@ -2671,7 +2736,8 @@ export async function getDashboardTotals(): Promise<DashboardTotals> {
     cryptoBalanceUsdt: num(crypto.balance),
     vesPoolBalance: num(ves.balance),
     bolivaresPendientes: num(pending.total),
-    pendingSendingsCount: Number(pending.count),
+    pendingPayoutSendingsCount: Number(pending.count),
+    incompleteSendingsCount: Number(incomplete.count),
     pendingCodigosCount: Number(codigos.count),
   };
 }

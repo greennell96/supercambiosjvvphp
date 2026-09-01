@@ -58,8 +58,8 @@ export type PaidVia = 'pool' | 'direct';
  * Jose paying the beneficiary in Venezuela, and the two are independent. Nothing
  * here feeds the money math — it is status tracking, like client_payment_note.
  *
- *   CODIGO — a cash-collection code, which can be linked to the codigos row it
- *            was issued as (see Codigo.sending_id).
+ *   CODIGO — a cash-collection code, which can be linked to the payment group
+ *            it proves (see Codigo.sending_group_id).
  *   OTRO   — the free-input one: whatever Jose types goes into
  *            client_payment_note, which already exists for exactly that.
  */
@@ -94,6 +94,8 @@ export function isClientPaymentMethod(value: string): value is ClientPaymentMeth
 
 export interface Sending {
   id: number;
+  /** Shared client-payment identity. Split payout rows carry the same UUID. */
+  payment_group_id: string;
   client_id: number;
   client_name: string;
   created_at: Date;
@@ -211,15 +213,15 @@ export interface Codigo {
   retirado_por_agente_nombre: string | null;
 
   /**
-   * The sending this codigo paid for, when Jose linked one. A linked codigo is
-   * the client's proof of payment for that sending, which is why deleting the
-   * codigo puts the sending back to unpaid-by-client.
+   * The representative sending and shared payment group this codigo paid for.
+   * Deleting the codigo puts every surviving sibling back to unpaid-by-client.
    *
    * The joined fields are read-only copies, only ever there to show that sending
    * inside /codigos instead of sending Jose over to /envios to find it. Nothing
    * is calculated from them.
    */
   sending_id: number | null;
+  sending_group_id: string | null;
   sending_client_name: string | null;
   sending_amount_eur: number | null;
   sending_rate_tasa: number | null;

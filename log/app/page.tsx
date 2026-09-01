@@ -59,7 +59,7 @@ export default async function DashboardPage() {
           <div className="label">Bolívares pendientes de pagar</div>
           <div className="value">{fmtVes(totals.bolivaresPendientes)}</div>
           <div className="muted">
-            {totals.pendingSendingsCount} envío(s) sin pagar
+            {totals.pendingPayoutSendingsCount} envío(s) sin pagar por ti
             {gap > 0 ? ` · te faltan ${fmtVes(gap)} por vender` : ' · el pool los cubre'}
           </div>
         </div>
@@ -82,9 +82,9 @@ export default async function DashboardPage() {
       <div className="grid2">
         <div className="stat">
           <div className="label">Envíos pendientes</div>
-          <div className="value">{totals.pendingSendingsCount}</div>
+          <div className="value">{totals.incompleteSendingsCount}</div>
           <div className="muted">
-            <Link href="/envios">Ver todos</Link>
+            Falta al menos un lado · <Link href="/envios">Ver todos</Link>
           </div>
         </div>
 

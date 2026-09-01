@@ -8,8 +8,8 @@ import DeleteRowForm from '../components/delete-row-form';
 import EditSendingForm from '../components/edit-sending-form';
 import LedgerList from '../components/ledger-list';
 import PaySendingActions from '../components/pay-sending-actions';
-import SplitSendingForm from '../components/split-sending-form';
 import { fmtDateTime, fmtEur, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
+import { sendingPaymentRowClass, sendingPaymentState } from '@/lib/sending-payment-state';
 import { CLIENT_PAYMENT_METHOD_LABELS, type Sending } from '@/lib/types';
 
 /*
@@ -40,7 +40,7 @@ const HEAD = (
 );
 
 /**
- * Every envío, with the ones Jose still has to pay pinned above the log.
+ * Every envío, with every row missing an applicable payment side pinned above.
  *
  * The same split /codigos makes, for the same reason. Compressing by day is
  * right for a record of what happened — hoy in full, one older day folded up,
@@ -48,9 +48,9 @@ const HEAD = (
  * the beneficiary has not received yet, and the day it was logged says nothing
  * about whether Jose still owes it. Left in the buckets, an envío from three
  * days ago disappears into the archive while the bolívares are still owed. So
- * the pendientes come out of the buckets entirely and are shown in full, oldest
- * first — the same order listPendingSendings uses, because the oldest debt is
- * the one to settle next.
+ * the incomplete rows come out of the buckets entirely and are shown in full,
+ * oldest first. A row José paid but the client did not is still incomplete and
+ * stays pinned; only both-paid client rows (or paid envíos propios) enter the log.
  *
  * The split is also what stops an envío appearing twice: LedgerList only ever
  * sees the pagados.
@@ -58,17 +58,22 @@ const HEAD = (
 export default function EnviosList({
   sendings,
   unlinkedCodigos,
+  now,
 }: {
   sendings: Sending[];
   unlinkedCodigos: PickerCodigo[];
+  /** Stable server-render instant so the Madrid-day colour cannot hydration-drift. */
+  now: string;
 }) {
-  const pending = sendings
-    .filter((s) => s.status === 'pending')
+  const incomplete = sendings
+    .filter((s) => sendingPaymentState(s, now) !== 'complete')
     .sort((a, b) => a.created_at.getTime() - b.created_at.getTime() || a.id - b.id);
-  const paid = sendings.filter((s) => s.status !== 'pending');
+  const complete = sendings.filter((s) => sendingPaymentState(s, now) === 'complete');
 
-  const renderFull = (s: Sending) => (
-    <tr className={`row-${s.status}`}>
+  const renderFull = (s: Sending) => {
+    const paymentState = sendingPaymentState(s, now);
+    return (
+      <tr className={sendingPaymentRowClass(s, now)}>
       {/*
         On an envío propio the client is the placeholder row, whose name already
         reads "Envío propio", and the note saying who received the money goes
@@ -103,6 +108,9 @@ export default function EnviosList({
         <span className={`badge ${s.status}`}>
           {s.status === 'paid' ? 'pagado' : 'pendiente'}
         </span>
+        {paymentState === 'overdue' ? (
+          <span className="badge negative sending-overdue-badge">sin pagos · atrasado</span>
+        ) : null}
       </td>
       <td data-label="Método">{s.payout_method}</td>
       <td data-label="Pagado vía" data-empty={s.paid_via === null ? true : undefined}>
@@ -169,35 +177,26 @@ export default function EnviosList({
             <ClientPaidActions sendingId={s.id} clientId={s.client_id} codigos={unlinkedCodigos} />
           ) : null}
           <EditSendingForm sending={s} />
-          {/*
-            Only on a pending client sending. A paid one has already drawn the
-            pools against the amount it had, and an envío propio has no monto en
-            EUR to divide at all — lib/splitting.ts refuses both again server
-            side, off the locked row. amount_eur is non-null on every client row
-            by the migration-014 constraint; the guard is what tells TypeScript.
-          */}
-          {!s.is_personal && s.status === 'pending' && s.amount_eur !== null ? (
-            <SplitSendingForm sendingId={s.id} amountEur={s.amount_eur} />
-          ) : null}
           <DeleteRowForm id={s.id} action={eliminarEnvioAction} />
         </div>
       </td>
-    </tr>
-  );
+      </tr>
+    );
+  };
 
   return (
     <>
-      {pending.length > 0 ? (
+      {incomplete.length > 0 ? (
         <div className="ledger">
           <section className="ledger-day">
             <h3 className="ledger-day-heading">
-              Pendientes de pago <span className="ledger-day-count">{pending.length}</span>
+              Pendientes de pago <span className="ledger-day-count">{incomplete.length}</span>
             </h3>
             <div className="table-wrap">
               <table>
                 <thead>{HEAD}</thead>
                 <tbody>
-                  {pending.map((s) => (
+                  {incomplete.map((s) => (
                     <Fragment key={s.id}>{renderFull(s)}</Fragment>
                   ))}
                 </tbody>
@@ -208,7 +207,7 @@ export default function EnviosList({
       ) : null}
 
       <LedgerList
-        items={paid}
+        items={complete}
         getId={(s) => s.id}
         getDate={(s) => s.created_at}
         getSearchText={(s) =>
@@ -238,7 +237,7 @@ export default function EnviosList({
             </span>
           ),
         })}
-        rowClass={(s) => `row-${s.status}`}
+        rowClass={(s) => sendingPaymentRowClass(s, now)}
         head={HEAD}
         renderFull={renderFull}
         searchLabel="Cliente"

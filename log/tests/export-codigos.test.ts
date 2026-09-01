@@ -20,6 +20,7 @@ function codigo(overrides: Partial<Codigo> & { id: number }): Codigo {
     retirado_por_agente_id: null,
     retirado_por_agente_nombre: null,
     sending_id: null,
+    sending_group_id: null,
     sending_client_name: null,
     sending_amount_eur: null,
     sending_rate_tasa: null,

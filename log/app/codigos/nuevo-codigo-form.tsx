@@ -18,10 +18,12 @@ import { openSendingsForClient } from '@/lib/linking';
  */
 export interface PickerSending {
   id: number;
+  payment_group_id: string;
   client_id: number;
-  amount_eur: number | null;
+  amount_eur: number;
   payout_method: string;
   created_at: Date;
+  part_count: number;
 }
 
 export default function NuevoCodigoForm({
@@ -152,8 +154,7 @@ export default function NuevoCodigoForm({
               <option value="">Sin vincular</option>
               {linkable.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.amount_eur === null ? '—' : fmtEur(s.amount_eur)} · {fmtDate(s.created_at)} ·{' '}
-                  {s.payout_method}
+                  {fmtEur(s.amount_eur)} · {fmtDate(s.created_at)} · {s.payout_method}
                 </option>
               ))}
             </select>

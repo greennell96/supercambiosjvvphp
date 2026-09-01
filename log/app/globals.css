@@ -280,7 +280,7 @@ tr.depleted td {
   color: var(--muted);
 }
 
-/* Status colouring: amber = waiting on him, green = done, red = trouble. */
+/* Generic one-sided status colouring used outside the combined envío state. */
 tr.row-pending,
 tr.row-pendiente {
   background: var(--amber-bg);
@@ -289,6 +289,26 @@ tr.row-pendiente {
 tr.row-paid,
 tr.row-retirado {
   background: var(--green-bg);
+}
+
+/*
+  Envíos have two independent sides. The row colour answers the combined
+  question; the two badges still spell out which side is missing.
+*/
+tr.row-sending-partial {
+  background: var(--amber-bg);
+}
+
+tr.row-sending-complete {
+  background: var(--green-bg);
+}
+
+tr.row-sending-overdue {
+  background: var(--red-bg);
+}
+
+.sending-overdue-badge {
+  margin-left: 5px;
 }
 
 .badge {
@@ -445,6 +465,41 @@ input[readonly] {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+/* Pre-creation division and optional codigo registration on Nuevo envío. */
+.creation-section {
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.creation-section legend {
+  padding: 0 5px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.creation-section > .muted {
+  margin: 0 0 10px;
+}
+
+.creation-part {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.creation-code-fields {
+  margin-top: 10px;
+}
+
+.creation-submit {
+  margin-top: 14px;
 }
 
 .source-picker,
@@ -930,58 +985,10 @@ button.danger {
   gap: 4px;
 }
 
-/* ---------------------------------------------- dividing a pending sending */
-
-/*
-  "Dividir" sits in the same cell as "Editar" and takes the same shape, because
-  it is the same kind of thing: a row action that opens two fields in place. The
-  rules are spelled out again rather than shared with .edit-sending, the way
-  .client-paid and .delete-row each spell out their own — one block per row
-  action is what makes any of them safe to change on its own.
-*/
-.split-sending.open {
-  display: block;
-  min-width: 190px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel);
-  padding: 8px;
-}
-
-.split-sending .muted {
-  margin: 0 0 6px;
-}
-
-.split-sending .split-field {
-  margin-bottom: 6px;
-}
-
-.split-sending .split-field label {
-  font-size: 12px;
-}
-
-.split-sending input[type="text"],
-.split-sending select {
-  padding: 2px 6px;
-  font-size: 16px;
-}
-
-.split-sending .split-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.split-sending .pay-error {
-  margin: 2px 0 0;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--red-text);
-}
-
 /* -------------------------------------------------- editing a logged codigo */
 
 /*
-  "Editar" on a código row. Same shape as .edit-sending and .split-sending, and
+  "Editar" on a código row. Same shape as .edit-sending, and
   written out again for the reason given above: one block per row action is what
   makes any of them safe to change on its own. It reuses .edit-field and
   .edit-buttons — those are the form's insides, not the action's, and all three
@@ -1550,6 +1557,21 @@ button.danger {
   background: var(--green-bg);
 }
 
+.terse-row.row-sending-partial {
+  border-color: var(--amber-line);
+  background: var(--amber-bg);
+}
+
+.terse-row.row-sending-complete {
+  border-color: var(--green-line);
+  background: var(--green-bg);
+}
+
+.terse-row.row-sending-overdue {
+  border-color: var(--red-line);
+  background: var(--red-bg);
+}
+
 .terse-row.depleted {
   color: var(--muted);
 }
@@ -1824,7 +1846,7 @@ tr.linked-sending td {
   tr.bank-santander td:first-child,
   tr.bank-caixa td:first-child,
   tr.bank-halcash td:first-child {
-    box-shadow: inset 3px 0 0 var(--bank-line);
+    box-shadow: inset 6px 0 0 var(--bank-line);
   }
 }
 
@@ -1955,6 +1977,15 @@ tr.codigo-marcado {
     gap: 10px;
   }
 
+  .creation-part {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .creation-part button {
+    justify-self: start;
+  }
+
   .stat .value {
     font-size: 24px;
   }
@@ -2059,6 +2090,21 @@ tr.codigo-marcado {
     background: var(--green-bg);
   }
 
+  tr.row-sending-partial {
+    border-color: var(--amber-line);
+    background: var(--amber-bg);
+  }
+
+  tr.row-sending-complete {
+    border-color: var(--green-line);
+    background: var(--green-bg);
+  }
+
+  tr.row-sending-overdue {
+    border-color: var(--red-line);
+    background: var(--red-bg);
+  }
+
   /*
     /codigos: the card already has the border the wide layout had to fake, so
     the bank colour goes straight onto it. The status tint underneath is left
@@ -2071,6 +2117,7 @@ tr.codigo-marcado {
   tr.bank-caixa,
   tr.bank-halcash {
     border-color: var(--bank-line);
+    border-width: 3px;
   }
 
   /* Both of the above lose to the row that is on its way out. */
@@ -2277,20 +2324,6 @@ tr.codigo-marcado {
   }
 
   .edit-sending .edit-buttons button {
-    flex: 1;
-  }
-
-  .split-sending.open {
-    width: 100%;
-    min-width: 0;
-    padding: 12px;
-  }
-
-  .split-sending .split-buttons {
-    gap: 8px;
-  }
-
-  .split-sending .split-buttons button {
     flex: 1;
   }
 

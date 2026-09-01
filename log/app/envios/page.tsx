@@ -24,7 +24,11 @@ export default async function EnviosPage() {
         {sendings.length === 0 ? (
           <p className="muted">Todavía no hay envíos.</p>
         ) : (
-          <EnviosList sendings={sendings} unlinkedCodigos={unlinkedCodigos} />
+          <EnviosList
+            sendings={sendings}
+            unlinkedCodigos={unlinkedCodigos}
+            now={new Date().toISOString()}
+          />
         )}
       </div>
     </Shell>

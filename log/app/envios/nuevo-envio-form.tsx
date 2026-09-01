@@ -9,8 +9,9 @@ import {
   type NuevoEnvioState,
 } from './actions';
 import ClientPicker, { type PickerClient } from '../components/client-picker';
+import { requiresDniReminder } from '@/lib/banks';
 import { fmtEur, fmtRate, fmtVes } from '@/lib/format';
-import { SENDING_PAYOUT_METHODS } from '@/lib/pricing';
+import { SENDING_PAYOUT_METHODS, type SendingPayoutMethod } from '@/lib/pricing';
 
 /**
  * One panel, two ways of logging a sending. They are separate forms rather than
@@ -100,6 +101,14 @@ function ClienteEnvioForm({
     {},
   );
   const [client, setClient] = useState<PickerClient | null>(null);
+  const [amountEur, setAmountEur] = useState('');
+  const [additionalParts, setAdditionalParts] = useState<
+    { key: number; payoutMethod: SendingPayoutMethod }[]
+  >([]);
+  const [registerCodigo, setRegisterCodigo] = useState(false);
+  const [codigoAmount, setCodigoAmount] = useState('');
+  const [codigoBank, setCodigoBank] = useState('');
+  const nextPartKey = useRef(1);
   const formRef = useRef<HTMLFormElement>(null);
 
   // After a successful save, clear the form so the next envio can be typed.
@@ -107,8 +116,21 @@ function ClienteEnvioForm({
     if (state.result) {
       formRef.current?.reset();
       setClient(null);
+      setAmountEur('');
+      setAdditionalParts([]);
+      setRegisterCodigo(false);
+      setCodigoAmount('');
+      setCodigoBank('');
     }
   }, [state.result]);
+
+  useEffect(() => {
+    if (!client) {
+      setCodigoBank('');
+      return;
+    }
+    setCodigoBank(client.banks.length === 1 ? client.banks[0] : '');
+  }, [client]);
 
   // Prefill with the tasa just used, if there is one, otherwise the saved one.
   const defaultTasa = state.result?.rateTasa ?? suggestedTasa;
@@ -133,7 +155,14 @@ function ClienteEnvioForm({
         <div className="form-row">
           <div>
             <label htmlFor="amount_eur">Monto (EUR)</label>
-            <input id="amount_eur" name="amount_eur" type="text" inputMode="decimal" />
+            <input
+              id="amount_eur"
+              name="amount_eur"
+              type="text"
+              inputMode="decimal"
+              value={amountEur}
+              onChange={(event) => setAmountEur(event.target.value)}
+            />
           </div>
           <div>
             <label htmlFor="rate_tasa">Tasa (EUR → Bs)</label>
@@ -156,11 +185,152 @@ function ClienteEnvioForm({
               ))}
             </select>
           </div>
-          <div className="form-actions">
-            <button className="primary" type="submit" disabled={pending || !client}>
-              {pending ? 'Registrando…' : 'Registrar envío'}
-            </button>
-          </div>
+        </div>
+
+        <fieldset className="creation-section">
+          <legend>División del envío</legend>
+          <p className="muted">
+            Añade cada parte que irá por otro método. La primera parte será el resto del monto
+            total y todas compartirán el mismo cobro del cliente.
+          </p>
+
+          {additionalParts.map((part, index) => (
+            <div className="creation-part" key={part.key}>
+              <div>
+                <label htmlFor={`split_amount_eur_${part.key}`}>Parte {index + 2} (EUR)</label>
+                <input
+                  id={`split_amount_eur_${part.key}`}
+                  name="split_amount_eur"
+                  type="text"
+                  inputMode="decimal"
+                />
+              </div>
+              <div>
+                <label htmlFor={`split_payout_method_${part.key}`}>Método de pago</label>
+                <select
+                  id={`split_payout_method_${part.key}`}
+                  name="split_payout_method"
+                  defaultValue={part.payoutMethod}
+                >
+                  {SENDING_PAYOUT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="small quiet"
+                type="button"
+                onClick={() =>
+                  setAdditionalParts((current) => current.filter((item) => item.key !== part.key))
+                }
+              >
+                Quitar parte
+              </button>
+            </div>
+          ))}
+
+          <button
+            className="small secondary"
+            type="button"
+            onClick={() => {
+              const key = nextPartKey.current;
+              nextPartKey.current += 1;
+              setAdditionalParts((current) => [
+                ...current,
+                { key, payoutMethod: SENDING_PAYOUT_METHODS[0] },
+              ]);
+            }}
+          >
+            {additionalParts.length === 0 ? 'Dividir' : 'Añadir otra parte'}
+          </button>
+        </fieldset>
+
+        <fieldset className="creation-section">
+          <legend>Cobro por código</legend>
+          <button
+            className="small action-info"
+            type="button"
+            aria-expanded={registerCodigo}
+            onClick={() => {
+              setRegisterCodigo((open) => {
+                if (!open && !codigoAmount) setCodigoAmount(amountEur);
+                return !open;
+              });
+            }}
+          >
+            {registerCodigo ? 'No registrar código ahora' : 'Registrar código ahora'}
+          </button>
+
+          {registerCodigo ? (
+            <>
+              <input type="hidden" name="register_codigo" value="1" />
+              <div className="form-row creation-code-fields">
+                <div>
+                  <label htmlFor="codigo_code">Código</label>
+                  <input
+                    id="codigo_code"
+                    name="codigo_code"
+                    type="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="codigo_amount">Monto del código</label>
+                  <input
+                    id="codigo_amount"
+                    name="codigo_amount"
+                    type="text"
+                    inputMode="decimal"
+                    value={codigoAmount}
+                    onChange={(event) => setCodigoAmount(event.target.value)}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="codigo_bank">Banco</label>
+                  {client && client.banks.length > 1 ? (
+                    <select
+                      id="codigo_bank"
+                      name="codigo_bank"
+                      value={codigoBank}
+                      onChange={(event) => setCodigoBank(event.target.value)}
+                    >
+                      <option value="">Elige banco…</option>
+                      {client.banks.map((bank) => (
+                        <option key={bank} value={bank}>
+                          {bank}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id="codigo_bank"
+                      name="codigo_bank"
+                      type="text"
+                      value={codigoBank}
+                      placeholder={client ? 'Escribe el banco' : 'Elige un cliente primero'}
+                      disabled={!client}
+                      onChange={(event) => setCodigoBank(event.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {requiresDniReminder(codigoBank) ? (
+                <div className="notice warn">
+                  CaixaBank — recuerda el DNI/NIE: {client?.dni_nie ?? 'sin DNI en ficha'}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </fieldset>
+
+        <div className="form-actions creation-submit">
+          <button className="primary" type="submit" disabled={pending || !client}>
+            {pending ? 'Registrando…' : 'Registrar envío'}
+          </button>
         </div>
       </form>
     </>
@@ -244,6 +414,16 @@ function Confirmation({ result }: { result: NonNullable<NuevoEnvioState['result'
         Envío registrado para <strong>{result.clientName}</strong> ({fmtEur(result.amountEur)} a{' '}
         {fmtRate(result.rateTasa)} · {result.payoutMethod}).
       </div>
+      {result.partCount > 1 ? (
+        <div style={{ marginTop: 6 }}>{result.partCount} partes comparten el mismo cobro.</div>
+      ) : null}
+      {result.codigo ? (
+        <div style={{ marginTop: 6 }}>
+          Código <strong>{result.codigo.code}</strong> por {fmtEur(result.codigo.amount)} registrado
+          en {result.codigo.bank}; el cliente queda cobrado en{' '}
+          {result.partCount === 1 ? 'el envío' : 'todas las partes'}.
+        </div>
+      ) : null}
       <div style={{ marginTop: 6 }}>Bolívares a pagar</div>
       <div className="big-number">{fmtVes(result.amountVesToPay)}</div>
     </div>

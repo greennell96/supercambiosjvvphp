@@ -15,10 +15,11 @@ export interface NuevoCodigoState {
  * Register a codigo.
  *
  * The optional "vincular a un envío abierto" picker is the one thing here that
- * reaches outside /codigos: linking marks that sending as paid by the client,
- * with method CODIGO. Blank means unlinked, which is the normal case and changes
- * nothing else. lib/queries.ts does that in one transaction and re-checks the
- * sending under a lock, so a stale pick is refused rather than acted on.
+ * reaches outside /codigos: linking marks that sending's whole payment group as
+ * paid by the client, with method CODIGO. Blank means unlinked, which is the
+ * normal case and changes nothing else. lib/queries.ts does that in one
+ * transaction and re-checks every sibling under a lock, so a stale pick is
+ * refused rather than acted on.
  */
 export async function crearCodigoAction(
   _prev: NuevoCodigoState,
