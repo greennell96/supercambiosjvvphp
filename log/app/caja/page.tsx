@@ -109,6 +109,10 @@ export default async function CajaPage() {
  */
 function detailFor(row: CajaLedgerRow): string | null {
   switch (row.source) {
+    // The runner's name, and nothing else: the reference that matters about an
+    // entrega is who handed it over, not which row it came from.
+    case 'entrega_retiro':
+      return row.note;
     case 'envio_efectivo':
       return row.note ? `Envío #${row.refId} · ${row.note}` : `Envío #${row.refId}`;
     case 'compra_usdt':

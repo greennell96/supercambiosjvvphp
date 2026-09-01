@@ -7,9 +7,12 @@ import { redirect } from 'next/navigation';
 import { parseDecimal, parseId, text, textOrNull } from '@/lib/parse';
 import {
   editSending,
+  findOrCreateRetiroAgente,
   markCodigoRetirado,
+  markCodigosRetiradosPorTercero,
   paySendingDirect,
   paySendingFromPool,
+  reassignCodigoRetirado,
   updateCodigo,
   updateRates,
   type EditSendingMoney,
@@ -273,6 +276,122 @@ export async function markCodigoRetiradoAction(formData: FormData): Promise<void
   revalidatePath('/');
   revalidatePath('/codigos');
   revalidatePath('/stats');
+}
+
+export interface MarcarRetiradoPorState {
+  error?: string;
+  /** Same timestamp-not-boolean as the other two: the form watches it to close. */
+  savedAt?: number;
+}
+
+/**
+ * Mark a selection of códigos retirado by somebody who is not Jose.
+ *
+ * The sibling of markCodigoRetiradoAction above, and deliberately a separate
+ * action rather than an optional argument to it. That one is the errand Jose ran
+ * himself, one row at a time, and its cash lands in la caja the moment he
+ * confirms the día. This one says the money is somewhere else — in a runner's
+ * pocket, or already spent on USDT — and every one of those códigos is excluded
+ * from that confirmation for good. Two different claims about where real money
+ * is should not share a code path where a missing field silently picks one.
+ *
+ * A batch and not a row, because that is how it happens: a runner comes back
+ * having emptied six codes in one trip.
+ *
+ * The "Otro" branch creates the agente before marking anything. That order
+ * matters — a failed name should leave the códigos untouched, not half-marked
+ * against nobody. It is not one transaction with the update, and does not need
+ * to be: an agente created and then never used is an unused name in a picker,
+ * which is harmless, whereas the reverse would be codigos attributed to an id
+ * that does not exist.
+ */
+export async function marcarRetiradoPorAction(
+  _prev: MarcarRetiradoPorState,
+  formData: FormData,
+): Promise<MarcarRetiradoPorState> {
+  const ids = formData
+    .getAll('ids')
+    .map((raw) => parseId(raw))
+    .filter((value): value is number => value !== null);
+  if (ids.length === 0) return { error: 'Selecciona al menos un código.' };
+
+  const kind = text(formData.get('kind'));
+  if (kind !== 'runner' && kind !== 'crypto_seller') {
+    return { error: 'Elige quién retiró el dinero.' };
+  }
+
+  try {
+    if (kind === 'crypto_seller') {
+      await markCodigosRetiradosPorTercero(ids, { kind: 'crypto_seller' });
+    } else {
+      // A typed name wins over the picker: the "Otro" option is what revealed
+      // the field, so anything in it is the answer.
+      const newName = text(formData.get('new_agente_name'));
+      const agenteId = newName
+        ? await findOrCreateRetiroAgente(newName)
+        : parseId(formData.get('agente_id'));
+      if (!agenteId) return { error: 'Elige quién retiró, o escribe un nombre.' };
+
+      await markCodigosRetiradosPorTercero(ids, { kind: 'runner', agenteId });
+    }
+
+    // revalidateEverything and not the narrower list the other códigos actions
+    // use: this moves what /stats says a runner is holding AND what /caja says
+    // is confirmable, on top of everything a plain retiro touches.
+    revalidateEverything();
+    return { savedAt: Date.now() };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo marcar el retiro.' };
+  }
+}
+
+export interface ReasignarRetiradoPorState {
+  error?: string;
+  savedAt?: number;
+  notice?: string;
+}
+
+/** Correct the actor on an already-retired codigo without deleting its record. */
+export async function reasignarRetiradoPorAction(
+  _prev: ReasignarRetiradoPorState,
+  formData: FormData,
+): Promise<ReasignarRetiradoPorState> {
+  const codigoId = parseId(formData.get('id'));
+  if (!codigoId) return { error: 'Código no válido.' };
+
+  const kind = text(formData.get('kind'));
+  try {
+    let confirmationRemoved = false;
+    if (kind === 'jose') {
+      ({ confirmationRemoved } = await reassignCodigoRetirado(codigoId, { kind: 'jose' }));
+    } else if (kind === 'crypto_seller') {
+      ({ confirmationRemoved } = await reassignCodigoRetirado(codigoId, {
+        kind: 'crypto_seller',
+      }));
+    } else if (kind === 'runner') {
+      const newName = text(formData.get('new_agente_name'));
+      const agenteId = newName
+        ? await findOrCreateRetiroAgente(newName)
+        : parseId(formData.get('agente_id'));
+      if (!agenteId) return { error: 'Elige quién retiró, o escribe un nombre.' };
+      ({ confirmationRemoved } = await reassignCodigoRetirado(codigoId, {
+        kind: 'runner',
+        agenteId,
+      }));
+    } else {
+      return { error: 'Elige quién retiró el dinero.' };
+    }
+
+    revalidateEverything();
+    return {
+      savedAt: Date.now(),
+      notice: confirmationRemoved
+        ? 'La confirmación de ese día se quitó. Vuelve a confirmarla en Estadísticas.'
+        : undefined,
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo corregir el retiro.' };
+  }
 }
 
 export interface RatesState {

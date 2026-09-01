@@ -34,6 +34,7 @@
 export type CajaSource =
   | 'apertura'
   | 'retiro_codigos'
+  | 'entrega_retiro'
   | 'envio_efectivo'
   | 'ajuste'
   | 'compra_usdt';
@@ -51,11 +52,12 @@ export interface CajaMovement {
 }
 
 /** The concepto column, per source. Kept beside the values, and typed as a
- * total Record, so a sixth source cannot be added without saying what it reads
- * as — the same guard CLIENT_PAYMENT_METHOD_LABELS uses in lib/types.ts. */
+ * total Record, so a seventh source cannot be added without saying what it
+ * reads as — the same guard CLIENT_PAYMENT_METHOD_LABELS uses in lib/types.ts. */
 export const CAJA_SOURCE_LABELS: Record<CajaSource, string> = {
   apertura: 'Saldo inicial de caja',
   retiro_codigos: 'Retiro de códigos confirmado',
+  entrega_retiro: 'Entrega de retiro recibida',
   envio_efectivo: 'Envío cobrado en efectivo',
   ajuste: 'Ajuste manual',
   compra_usdt: 'Compra de USDT pagada con caja',
@@ -67,13 +69,19 @@ export const CAJA_SOURCE_LABELS: Record<CajaSource, string> = {
  * so is every confirmed retiro, so the two collide whenever a retiro is
  * confirmed for the day the caja was opened. 'apertura' has to come first there
  * or the balance would open below its own starting line.
+ *
+ * 'entrega_retiro' sits between the two collections and the spending for the
+ * same reason 'retiro_codigos' sits where it does: a runner handing his notes
+ * over is money arriving, and money arriving is read before the money that goes
+ * out of the same pocket that day.
  */
 const SOURCE_ORDER: Record<CajaSource, number> = {
   apertura: 0,
   retiro_codigos: 1,
-  envio_efectivo: 2,
-  ajuste: 3,
-  compra_usdt: 4,
+  entrega_retiro: 2,
+  envio_efectivo: 3,
+  ajuste: 4,
+  compra_usdt: 5,
 };
 
 /** One line of the journal, with the balance as it stood after it. */

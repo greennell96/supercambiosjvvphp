@@ -1,11 +1,14 @@
 import Link from 'next/link';
 
 import ConsolidacionTable from '../components/consolidacion-table';
+import DeleteRowForm from '../components/delete-row-form';
+import EntregarDineroForm from '../components/entregar-dinero-form';
 import RetirosTable from '../components/retiros-table';
 import Shell from '../shell';
 import {
   fmtCount,
   fmtDayBucket,
+  fmtDateTimeShort,
   fmtEur,
   fmtMonthBucket,
   fmtPercent,
@@ -14,25 +17,33 @@ import {
   fmtVes,
 } from '@/lib/format';
 import {
+  getAgenteSaldos,
   getCodigoConsolidation,
   getCodigosPorBancoTotal,
+  getCryptoSellerSummary,
   getRetirosDias,
   getStats,
+  listRetiroEntregas,
 } from '@/lib/queries';
 import { averagePerItem, marginPercent } from '@/lib/stats';
+import { anularEntregaAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function StatsPage() {
-  // Four independent reads. The three códigos ones deliberately stay outside
+  // Seven independent reads. The six códigos/caja ones deliberately stay outside
   // getStats()'s repeatable-read snapshot: none is compared against the
   // earnings figures, so none needs to be in the same transaction as them.
-  const [stats, consolidacion, codigosPorBanco, retiros] = await Promise.all([
-    getStats(),
-    getCodigoConsolidation(),
-    getCodigosPorBancoTotal(),
-    getRetirosDias(),
-  ]);
+  const [stats, consolidacion, codigosPorBanco, retiros, agenteSaldos, cripto, entregas] =
+    await Promise.all([
+      getStats(),
+      getCodigoConsolidation(),
+      getCodigosPorBancoTotal(),
+      getRetirosDias(),
+      getAgenteSaldos(),
+      getCryptoSellerSummary(),
+      listRetiroEntregas(),
+    ]);
   const { current, earnings, inventory } = stats;
   const margin = marginPercent(earnings.profit_eur, earnings.revenue_eur);
   const averageProfit = averagePerItem(earnings.profit_eur, earnings.paid_count);
@@ -188,6 +199,130 @@ export default async function StatsPage() {
           <span className="section-note">Por fecha de retiro · últimos 4 días</span>
         </div>
         <RetirosTable dias={retiros} />
+      </section>
+
+      {/*
+        Directly under the confirmación, because it is what the confirmación
+        stopped counting. A código a runner withdrew is real money that is
+        genuinely owed to Jose, but it is in somebody else's pocket, so it is
+        deliberately left out of the día's total up there — and this is the only
+        place it is ever accounted for until he hands it over. Read together the
+        two panels say: this is the cash I counted, and this is the cash
+        somebody else is carrying for me.
+      */}
+      <section className="panel stats-panel" aria-labelledby="terceros-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Dinero en manos de terceros</p>
+            <h2 id="terceros-title">Retirado por otros</h2>
+          </div>
+          <span className="section-note">Retirado − entregado · todo el histórico</span>
+        </div>
+
+        {agenteSaldos.length === 0 ? (
+          <p className="empty-state">Nadie ha retirado un código por encargo todavía.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="stats-table compact-table">
+              <thead>
+                <tr>
+                  <th>Quién</th>
+                  <th className="num">Retirado</th>
+                  <th className="num">Entregado</th>
+                  <th className="num">Saldo pendiente</th>
+                  <th>Entrega</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agenteSaldos.map((saldo) => (
+                  <tr key={saldo.agenteId}>
+                    <td data-label="Quién" data-wide>
+                      {saldo.name}
+                    </td>
+                    <td className="num" data-label="Retirado">
+                      {fmtEur(saldo.retiradoEur)}
+                    </td>
+                    <td className="num" data-label="Entregado">
+                      {fmtEur(saldo.entregadoEur)}
+                    </td>
+                    {/* Negative is an advance — he handed over more than he was
+                        holding — and it is red because it is the row worth
+                        looking at, not because it is a loss. */}
+                    <td
+                      className={saldo.saldoEur < 0 ? 'num negative-value' : 'num'}
+                      data-label="Saldo pendiente"
+                    >
+                      {fmtEur(saldo.saldoEur)}
+                    </td>
+                    <td data-label="Entrega" data-actions>
+                      <EntregarDineroForm agenteId={saldo.agenteId} saldoEur={saldo.saldoEur} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/*
+          One line and no table, because there is nothing to track: these euros
+          paid a proveedor de USDT at the cajero, never entered the pocket and
+          are owed by nobody. It is here rather than beside the códigos-por-banco
+          tables because it is the same question those tables cannot answer —
+          where the retirado money went when it did not go into la caja.
+        */}
+        <p className="muted">
+          Vendedores cripto: {fmtCount(cripto.count)} código(s) por {fmtEur(cripto.amountEur)},
+          cobrados directamente como pago de USDT. Nunca pasan por la caja.
+        </p>
+
+        {entregas.length > 0 ? (
+          <div className="table-wrap">
+            <table className="stats-table compact-table">
+              <caption className="sr-only">Historial de dinero entregado por terceros</caption>
+              <thead>
+                <tr>
+                  <th>Entrega registrada</th>
+                  <th>Quién</th>
+                  <th className="num">Monto</th>
+                  <th>Estado</th>
+                  <th>Corrección</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entregas.map((entrega) => (
+                  <tr key={entrega.id}>
+                    <td data-label="Entrega registrada">{fmtDateTimeShort(entrega.delivered_at)}</td>
+                    <td data-label="Quién" data-wide>
+                      {entrega.agente_name}
+                    </td>
+                    <td className="num" data-label="Monto">
+                      {fmtEur(entrega.amount_eur)}
+                    </td>
+                    <td data-label="Estado">
+                      {entrega.voided_at ? (
+                        <span className="badge">anulada</span>
+                      ) : (
+                        <span className="badge paid">activa</span>
+                      )}
+                    </td>
+                    <td data-label="Corrección" data-actions>
+                      {entrega.voided_at ? (
+                        <span className="muted">Anulada {fmtDateTimeShort(entrega.voided_at)}</span>
+                      ) : (
+                        <DeleteRowForm
+                          id={entrega.id}
+                          action={anularEntregaAction}
+                          label="Anular entrega"
+                        />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </section>
 
       <section className="panel stats-panel" aria-labelledby="monthly-title">

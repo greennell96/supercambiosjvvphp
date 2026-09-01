@@ -36,6 +36,7 @@ import {
   type VesLot,
 } from './pricing';
 import type { CodigoConsolidacion } from './reconciliation';
+import { buildAgenteSaldos, sameSaldo, type AgenteSaldo } from './retiro-terceros';
 import { compraDeletionBlocker, restoreDrawnAmounts, ventaDeletionBlocker } from './reversal';
 import { computeSendingSplit } from './splitting';
 import type {
@@ -45,6 +46,9 @@ import type {
   CryptoPurchase,
   CurrentRates,
   PaidVia,
+  RetiradoPorKind,
+  RetiroAgente,
+  RetiroEntrega,
   Sending,
   StatsSnapshot,
   VesSale,
@@ -1629,6 +1633,9 @@ type RawCodigo = {
   status: 'pendiente' | 'retirado';
   created_at: Date;
   retired_at: Date | null;
+  retirado_por_kind: RetiradoPorKind | null;
+  retirado_por_agente_id: number | null;
+  retirado_por_agente_nombre: string | null;
   sending_id: number | null;
   sending_client_name: string | null;
   sending_amount_eur: string | null;
@@ -1641,7 +1648,9 @@ type RawCodigo = {
 /*
   The joined sending columns the three queries below all select are display only:
   /codigos shows the linked sending inline instead of naming its client twice,
-  and nothing is calculated from them.
+  and nothing is calculated from them. retirado_por_agente_nombre is the same
+  kind of thing from migration 016 — the runner's name, joined so the row can
+  say who took the money out, never written back through.
 */
 function toCodigo(r: RawCodigo): Codigo {
   return {
@@ -1649,6 +1658,8 @@ function toCodigo(r: RawCodigo): Codigo {
     id: id(r.id),
     client_id: id(r.client_id),
     amount: num(r.amount),
+    retirado_por_agente_id:
+      r.retirado_por_agente_id === null ? null : id(r.retirado_por_agente_id),
     sending_id: r.sending_id === null ? null : id(r.sending_id),
     sending_amount_eur: r.sending_amount_eur === null ? null : num(r.sending_amount_eur),
     sending_rate_tasa: r.sending_rate_tasa === null ? null : num(r.sending_rate_tasa),
@@ -1663,11 +1674,14 @@ export async function listCodigos(limit = 500): Promise<Codigo[]> {
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
            c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
+           g.retirado_por_kind, g.retirado_por_agente_id,
+           ra.name as retirado_por_agente_nombre,
            g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
            s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
            s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
     join clients c on c.id = g.client_id
+    left join retiro_agentes ra on ra.id = g.retirado_por_agente_id
     left join sendings s on s.id = g.sending_id
     left join clients sc on sc.id = s.client_id
     order by g.created_at desc, g.id desc
@@ -1682,11 +1696,14 @@ export async function listPendingCodigos(): Promise<Codigo[]> {
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
            c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
+           g.retirado_por_kind, g.retirado_por_agente_id,
+           ra.name as retirado_por_agente_nombre,
            g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
            s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
            s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
     join clients c on c.id = g.client_id
+    left join retiro_agentes ra on ra.id = g.retirado_por_agente_id
     left join sendings s on s.id = g.sending_id
     left join clients sc on sc.id = s.client_id
     where g.status = 'pendiente'
@@ -1712,11 +1729,14 @@ export async function listUnlinkedCodigos(): Promise<Codigo[]> {
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
            c.phone as client_phone,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
+           g.retirado_por_kind, g.retirado_por_agente_id,
+           ra.name as retirado_por_agente_nombre,
            g.sending_id, sc.name as sending_client_name, s.amount_eur as sending_amount_eur,
            s.rate_tasa as sending_rate_tasa, s.amount_ves_to_pay as sending_amount_ves_to_pay,
            s.payout_method as sending_payout_method, s.status as sending_status
     from codigos g
     join clients c on c.id = g.client_id
+    left join retiro_agentes ra on ra.id = g.retirado_por_agente_id
     left join sendings s on s.id = g.sending_id
     left join clients sc on sc.id = s.client_id
     where g.sending_id is null
@@ -1832,12 +1852,13 @@ export async function markCodigoRetirado(codigoId: number): Promise<void> {
 /**
  * Delete a codigo, and un-prove whatever it was proving.
  *
- * A codigo still touches neither pool, so there is nothing to hand back and
- * nothing to refuse: no money moves here and this never says no. What a codigo
- * can be is a client's proof of payment — a linked one is the entire reason its
- * sending says the client paid. Deleting the proof has to take the claim with
- * it, so the sending goes back to unpaid-by-client and reappears in both
- * pickers. Hence the transaction this did not need before.
+ * A codigo still touches neither pool, so there is nothing to hand back. A
+ * third-party-retired codigo is refused, however: that row is the source of the
+ * runner's outstanding balance and deleting it would erase cash still outside
+ * Jose's pocket. What a codigo can also be is a client's proof of payment — a
+ * linked one is the entire reason its sending says the client paid. Deleting the
+ * proof has to take the claim with it, so the sending goes back to
+ * unpaid-by-client and reappears in both pickers.
  *
  * client_payment_note is deliberately left alone, whatever the method was. It is
  * Jose's own free-text reminder, it feeds nothing, and it is not this codigo's
@@ -1846,10 +1867,18 @@ export async function markCodigoRetirado(codigoId: number): Promise<void> {
 export async function deleteCodigo(codigoId: number): Promise<void> {
   const sql = getSql();
   await sql.begin(async (tx) => {
-    const [codigo] = await tx<{ id: number; sending_id: number | null }[]>`
-      select id, sending_id from codigos where id = ${codigoId} for update
+    const [codigo] = await tx<
+      { id: number; sending_id: number | null; retirado_por_kind: RetiradoPorKind | null }[]
+    >`
+      select id, sending_id, retirado_por_kind
+      from codigos where id = ${codigoId} for update
     `;
     if (!codigo) throw new Error('Codigo no encontrado.');
+    if (codigo.retirado_por_kind !== null) {
+      throw new Error(
+        'Un código retirado por un tercero sostiene su saldo. Corrige primero quién retiró.',
+      );
+    }
 
     if (codigo.sending_id !== null) {
       await tx`
@@ -1861,6 +1890,367 @@ export async function deleteCodigo(codigoId: number): Promise<void> {
 
     await tx`delete from codigos where id = ${codigoId}`;
   });
+}
+
+/* ------------------------------------------------- retirado por terceros */
+
+/**
+ * Everybody who can retire a codigo for Jose, in the order they were added.
+ *
+ * created_at first so migration 016's five seeded names stay in the order Jose
+ * lists them; the id is the tie-break, because those five are inserted by one
+ * statement and therefore share an instant to the microsecond. Anybody added
+ * later through "Otro" comes after them, in the order he typed them.
+ */
+export async function listRetiroAgentes(): Promise<RetiroAgente[]> {
+  const sql = getSql();
+  const rows = await sql<{ id: number; name: string }[]>`
+    select id, name from retiro_agentes order by created_at, id
+  `;
+  return rows.map((r) => ({ id: id(r.id), name: r.name }));
+}
+
+/**
+ * The id for a name typed into the "Otro" box, creating the agente only if that
+ * name is genuinely new.
+ *
+ * The conflict target is the expression index from migration 016, so "andriu",
+ * "Andriu" and " Andriu " all land on the one person. That matching is the whole
+ * point of the function: a second row for a name that only differs in case would
+ * split one runner's saldo in two and neither half would look wrong.
+ *
+ * A blank name is refused here as well as in the action that calls this. The
+ * action's check is the one that produces a readable message; this one is what
+ * makes a nameless agente impossible to create from anywhere.
+ */
+export async function findOrCreateRetiroAgente(name: string): Promise<number> {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('Escribe el nombre de quien retiró.');
+
+  const sql = getSql();
+  const [created] = await sql<{ id: number }[]>`
+    insert into retiro_agentes (name) values (${trimmed})
+    on conflict (lower(trim(name))) do nothing
+    returning id
+  `;
+  if (created) return id(created.id);
+
+  const [existing] = await sql<{ id: number }[]>`
+    select id from retiro_agentes where lower(trim(name)) = lower(trim(${trimmed}))
+  `;
+  if (!existing) throw new Error('No se pudo registrar a quien retiró.');
+  return id(existing.id);
+}
+
+/**
+ * Mark a batch of codigos retirado by somebody who is not Jose.
+ *
+ * One statement for the whole selection, because it is one errand: Andriu came
+ * back with six codes, not six separate events. `status = 'pendiente'` is the
+ * same guard markCodigoRetirado carries. The affected-row check turns any stale
+ * id into a transaction rollback, so a batch is all attributed or none is.
+ *
+ * The two columns are written together and the check constraint in migration 016
+ * is what enforces that they agree — a runner always with an agente, a crypto
+ * seller never with one.
+ */
+export async function markCodigosRetiradosPorTercero(
+  ids: number[],
+  assignment: { kind: 'runner'; agenteId: number } | { kind: 'crypto_seller' },
+): Promise<void> {
+  if (ids.length === 0) return;
+
+  const sql = getSql();
+  const uniqueIds = [...new Set(ids)];
+  const agenteId = assignment.kind === 'runner' ? assignment.agenteId : null;
+  await sql.begin(async (tx) => {
+    if (agenteId !== null) {
+      const [agente] = await tx<{ id: number }[]>`
+        select id from retiro_agentes where id = ${agenteId} for update
+      `;
+      if (!agente) throw new Error('No encuentro a quien hizo el retiro.');
+    }
+
+    const updated = await tx<{ id: number }[]>`
+      update codigos
+      set status = 'retirado',
+          retired_at = now(),
+          retirado_por_kind = ${assignment.kind},
+          retirado_por_agente_id = ${agenteId}
+      where id = any(${tx.array(uniqueIds)}) and status = 'pendiente'
+      returning id
+    `;
+    if (updated.length !== uniqueIds.length) {
+      throw new Error('Algún código ya cambió. Actualiza la página y vuelve a seleccionar.');
+    }
+  });
+}
+
+export interface ReassignCodigoRetiradoResult {
+  confirmationRemoved: boolean;
+}
+
+/**
+ * Correct who withdrew a codigo after it has already been marked retirado.
+ *
+ * Runner rows and deliveries share the retiro_agentes row as their balance
+ * lock. Crossing the Jose/third-party boundary also invalidates an existing
+ * day confirmation: recent confirmations are removed so Jose must re-confirm
+ * the physical count, while archived confirmations are refused because their
+ * four-day UI can no longer restore the cash line.
+ */
+export async function reassignCodigoRetirado(
+  codigoId: number,
+  assignment:
+    | { kind: 'jose' }
+    | { kind: 'runner'; agenteId: number }
+    | { kind: 'crypto_seller' },
+): Promise<ReassignCodigoRetiradoResult> {
+  const sql = getSql();
+  const kind = assignment.kind === 'jose' ? null : assignment.kind;
+  const agenteId = assignment.kind === 'runner' ? assignment.agenteId : null;
+
+  return sql.begin(async (tx) => {
+    const [codigo] = await tx<
+      {
+        retirado_por_kind: RetiradoPorKind | null;
+        retirado_por_agente_id: number | null;
+        retired_day: string | null;
+      }[]
+    >`
+      select retirado_por_kind, retirado_por_agente_id,
+             to_char(retired_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') as retired_day
+      from codigos
+      where id = ${codigoId} and status = 'retirado'
+      for update
+    `;
+    if (!codigo || !codigo.retired_day) throw new Error('Código retirado no encontrado.');
+
+    const oldAgenteId =
+      codigo.retirado_por_agente_id === null ? null : id(codigo.retirado_por_agente_id);
+    const lockIds = [
+      ...new Set(
+        [oldAgenteId, agenteId].filter((value): value is number => value !== null),
+      ),
+    ].sort((a, b) => a - b);
+    if (lockIds.length > 0) {
+      const locked = await tx<{ id: number }[]>`
+        select id from retiro_agentes
+        where id = any(${tx.array(lockIds)})
+        order by id
+        for update
+      `;
+      if (locked.length !== lockIds.length) throw new Error('No encuentro a quien hizo el retiro.');
+    }
+
+    const changingOldRunner =
+      codigo.retirado_por_kind === 'runner' && oldAgenteId !== null && oldAgenteId !== agenteId;
+    if (changingOldRunner) {
+      const [delivery] = await tx<{ exists: boolean }[]>`
+        select exists(
+          select 1 from retiro_entregas
+          where agente_id = ${oldAgenteId} and voided_at is null
+        ) as exists
+      `;
+      if (delivery.exists) {
+        throw new Error(
+          'Ese tercero ya tiene entregas activas. Anúlalas antes de cambiar este retiro.',
+        );
+      }
+    }
+
+    let confirmationRemoved = false;
+    const crossesCajaBoundary = (codigo.retirado_por_kind === null) !== (kind === null);
+    if (crossesCajaBoundary) {
+      const [confirmation] = await tx<{ id: number }[]>`
+        select id from codigo_withdrawal_confirmations
+        where day = ${codigo.retired_day}::date
+        for update
+      `;
+      if (confirmation) {
+        if (!recentDayKeys(RETIRO_WINDOW_DAYS).includes(codigo.retired_day)) {
+          throw new Error(
+            'Ese día confirmado ya está archivado y no se puede volver a confirmar desde la app.',
+          );
+        }
+        await tx`delete from codigo_withdrawal_confirmations where id = ${confirmation.id}`;
+        confirmationRemoved = true;
+      }
+    }
+
+    await tx`
+      update codigos
+      set retirado_por_kind = ${kind},
+          retirado_por_agente_id = ${agenteId}
+      where id = ${codigoId}
+    `;
+
+    return { confirmationRemoved };
+  });
+}
+
+/**
+ * A runner handed cash over. The only thing that ever reduces what he holds, and
+ * a line of the libro de caja by itself.
+ *
+ * The agente row is the per-runner lock. The expected saldo came from the form
+ * that Jose is looking at; re-reading it under that lock rejects a second tab
+ * after the first delivery has moved the balance. operationKey separately makes
+ * a retry of the very same request idempotent.
+ */
+export async function createRetiroEntrega(
+  agenteId: number,
+  amountEur: number,
+  expectedSaldoEur: number,
+  operationKey: string,
+): Promise<void> {
+  const sql = getSql();
+  await sql.begin(async (tx) => {
+    const [agente] = await tx<{ id: number }[]>`
+      select id from retiro_agentes where id = ${agenteId} for update
+    `;
+    if (!agente) throw new Error('No encuentro a quien hizo la entrega.');
+
+    const [existing] = await tx<
+      { agente_id: number; amount_eur: string; expected_saldo_eur: string }[]
+    >`
+      select agente_id, amount_eur, expected_saldo_eur
+      from retiro_entregas where operation_key = ${operationKey}::uuid
+    `;
+    if (existing) {
+      if (
+        id(existing.agente_id) !== agenteId ||
+        !sameSaldo(num(existing.amount_eur), amountEur) ||
+        !sameSaldo(num(existing.expected_saldo_eur), expectedSaldoEur)
+      ) {
+        throw new Error('La entrega repetida no coincide con la original.');
+      }
+      return;
+    }
+
+    const [balance] = await tx<{ saldo_eur: string }[]>`
+      select
+        coalesce((select sum(amount) from codigos
+          where retirado_por_kind = 'runner' and retirado_por_agente_id = ${agenteId}), 0)
+        -
+        coalesce((select sum(amount_eur) from retiro_entregas
+          where agente_id = ${agenteId} and voided_at is null), 0)
+        as saldo_eur
+    `;
+    const currentSaldoEur = num(balance.saldo_eur);
+    if (!sameSaldo(currentSaldoEur, expectedSaldoEur)) {
+      throw new Error('El saldo cambió. Revisa la cifra actual antes de guardar.');
+    }
+
+    await tx`
+      insert into retiro_entregas
+        (agente_id, amount_eur, expected_saldo_eur, operation_key)
+      values (${agenteId}, ${amountEur}, ${expectedSaldoEur}, ${operationKey}::uuid)
+    `;
+  });
+}
+
+/** Keep the delivery as audit evidence while removing it from saldo and caja. */
+export async function voidRetiroEntrega(entregaId: number): Promise<void> {
+  const sql = getSql();
+  const result = await sql`
+    update retiro_entregas set voided_at = now()
+    where id = ${entregaId} and voided_at is null
+  `;
+  if (result.count !== 1) throw new Error('Entrega no encontrada o ya anulada.');
+}
+
+/** Delivery history, including voided corrections. */
+export async function listRetiroEntregas(): Promise<RetiroEntrega[]> {
+  const sql = getSql();
+  const rows = await sql<
+    {
+      id: number;
+      agente_id: number;
+      agente_name: string;
+      amount_eur: string;
+      delivered_at: Date;
+      voided_at: Date | null;
+    }[]
+  >`
+    select e.id, e.agente_id, a.name as agente_name, e.amount_eur,
+           e.delivered_at, e.voided_at
+    from retiro_entregas e
+    join retiro_agentes a on a.id = e.agente_id
+    order by e.delivered_at desc, e.id desc
+  `;
+  return rows.map((r) => ({
+    ...r,
+    id: id(r.id),
+    agente_id: id(r.agente_id),
+    amount_eur: num(r.amount_eur),
+  }));
+}
+
+/**
+ * What each runner is holding, right now.
+ *
+ * Two grouped sums and no arithmetic: the subtraction, the merge and the order
+ * are buildAgenteSaldos's, the same split listCajaMovements keeps from
+ * buildCajaLedger. Neither query filters by date — a saldo is the whole history
+ * of one person by definition, and a window would report part of a debt as the
+ * whole of it.
+ */
+export async function getAgenteSaldos(): Promise<AgenteSaldo[]> {
+  const sql = getSql();
+
+  const retirados = await sql<
+    { agente_id: number; agente_name: string; retirado_eur: string }[]
+  >`
+    select a.id as agente_id, a.name as agente_name,
+           coalesce(sum(g.amount), 0) as retirado_eur
+    from codigos g
+    join retiro_agentes a on a.id = g.retirado_por_agente_id
+    where g.retirado_por_kind = 'runner'
+    group by a.id, a.name
+  `;
+
+  const entregados = await sql<
+    { agente_id: number; agente_name: string; entregado_eur: string }[]
+  >`
+    select a.id as agente_id, a.name as agente_name,
+           coalesce(sum(e.amount_eur), 0) as entregado_eur
+    from retiro_entregas e
+    join retiro_agentes a on a.id = e.agente_id
+    where e.voided_at is null
+    group by a.id, a.name
+  `;
+
+  return buildAgenteSaldos(
+    retirados.map((r) => ({
+      agente_id: id(r.agente_id),
+      agente_name: r.agente_name,
+      retirado_eur: num(r.retirado_eur),
+    })),
+    entregados.map((r) => ({
+      agente_id: id(r.agente_id),
+      agente_name: r.agente_name,
+      entregado_eur: num(r.entregado_eur),
+    })),
+  );
+}
+
+/**
+ * Everything ever taken by a crypto seller, all time.
+ *
+ * A count and a sum and nothing else, because there is nothing else to know: the
+ * money paid a USDT provider at the cajero and never entered the pocket, so it
+ * has no saldo, no delivery and no place in la caja. It is worth reporting only
+ * so the gap between "codigos retirados" and "efectivo en caja" has a name.
+ */
+export async function getCryptoSellerSummary(): Promise<{ count: number; amountEur: number }> {
+  const sql = getSql();
+  const [row] = await sql<{ count: string; amount_eur: string }[]>`
+    select count(*) as count, coalesce(sum(amount), 0) as amount_eur
+    from codigos
+    where retirado_por_kind = 'crypto_seller'
+  `;
+  return { count: Number(row.count), amountEur: num(row.amount_eur) };
 }
 
 /* ------------------------------------------------------- cuadre de codigos */
@@ -2022,6 +2412,13 @@ export async function getCodigosPorBancoTotal(): Promise<
  * clauses are needed — retired_at is null on pendiente rows, so the filter is
  * belt and braces, but the index it uses is the partial one on status.
  *
+ * `retirado_por_kind is null` is the third, from migration 016, and it is the
+ * one that keeps this panel about JOSE's pocket. A código a runner withdrew is
+ * money he is holding, not money to be counted at the end of the day; one a
+ * crypto seller took never became cash at all. Including either would make every
+ * día look short by their amount and invite Jose to "correct" a figure that was
+ * already right.
+ *
  * The Europe/Madrid day is resolved through lib/day-buckets.ts and matched with
  * the same to_char idiom the cuadre and the stats buckets use, so a código can
  * never land on one day here and another one there.
@@ -2037,6 +2434,7 @@ export async function getRetirosDias(): Promise<RetiroDia[]> {
     from codigos
     where status = 'retirado'
       and retired_at is not null
+      and retirado_por_kind is null
       and to_char(retired_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') >= ${oldestKey}
     group by 1
   `;
@@ -2085,6 +2483,10 @@ export interface ConfirmarRetiroResult {
  * second one. A día contributing its counted euros to the caja twice would be a
  * silent duplication of real money, which is exactly what unique (day) and this
  * `on conflict` exist to make impossible.
+ *
+ * The `retirado_por_kind is null` clause is getRetirosDias's, word for word and
+ * for its reason: this is the same sum, and the audit figure stored here has to
+ * be the one the panel was comparing against or the trail lies.
  */
 export async function confirmarRetiroDia(
   day: string,
@@ -2097,6 +2499,7 @@ export async function confirmarRetiroDia(
       from codigos
       where status = 'retirado'
         and retired_at is not null
+        and retirado_por_kind is null
         and to_char(retired_at at time zone 'Europe/Madrid', 'YYYY-MM-DD') = ${day}
     `;
     const systemEur = num(total.system_eur);
@@ -2129,7 +2532,7 @@ export async function createCajaManualEntry(input: {
 }
 
 /**
- * Every line of the caja journal, from the four places money enters or leaves
+ * Every line of the caja journal, from the five places money enters or leaves
  * Jose's pocket.
  *
  * Nothing here is a balance and nothing is stored as one — see lib/caja.ts for
@@ -2137,7 +2540,7 @@ export async function createCajaManualEntry(input: {
  * the opening balance and the running total, and it owns the ordering including
  * the tie-breaks, so no `order by` is imposed on the union.
  *
- * The four branches, and what each one is:
+ * The branches, and what each one is:
  *
  *   retiro_codigos — counted_eur, NOT system_eur. What came out of the cajero is
  *     what went into the pocket; what the códigos were worth is the audit trail
@@ -2145,6 +2548,15 @@ export async function createCajaManualEntry(input: {
  *     about a whole day and has no hour of its own — that also makes it sort
  *     ahead of the movements that happened during the day, which is the right
  *     place for money collected before anything was spent out of it.
+ *
+ *   entrega_retiro — a runner handed his notes over. The other half of the
+ *     exclusion getRetirosDias applies: a código he withdrew is deliberately
+ *     kept out of that día's confirmable total, so this is the one and only way
+ *     it ever reaches the caja, and it reaches it on the day he actually
+ *     delivered rather than the day he stood at the cajero. His name rides along
+ *     as the note, so the journal says who paid it in. Read live, like every
+ *     other branch: voiding an entrega removes its line while preserving the
+ *     audit row.
  *
  *   envio_efectivo — the client handed over notes, so the notes are in the
  *     pocket. Restricted to EFECTIVO on purpose: CODIGO reaches the caja through
@@ -2178,6 +2590,13 @@ export async function listCajaMovements(): Promise<CajaMovement[]> {
            null::text                                      as note,
            w.counted_eur                                   as amount_eur
     from codigo_withdrawal_confirmations w
+
+    union all
+
+    select e.delivered_at, 'entrega_retiro'::text, e.id, a.name, e.amount_eur
+    from retiro_entregas e
+    join retiro_agentes a on a.id = e.agente_id
+    where e.voided_at is null
 
     union all
 

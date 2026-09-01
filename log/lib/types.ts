@@ -151,6 +151,39 @@ export interface Sending {
 
 export type CodigoStatus = 'pendiente' | 'retirado';
 
+/**
+ * Somebody who can retire a codigo on Jose's behalf and hold the cash until he
+ * hands it over. A row rather than free text, so a name is an identity a saldo
+ * can be attached to; see migration 016.
+ */
+export interface RetiroAgente {
+  id: number;
+  name: string;
+}
+
+/** One recorded hand-off from a runner to Jose. */
+export interface RetiroEntrega {
+  id: number;
+  agente_id: number;
+  agente_name: string;
+  amount_eur: number;
+  delivered_at: Date;
+  /** A void keeps the audit record but removes the money from saldo and caja. */
+  voided_at: Date | null;
+}
+
+/**
+ * Who retired a codigo, when it was not Jose himself.
+ *
+ *   null          — Jose. Cash straight into the pocket, counted into la caja
+ *                   through the confirmacion de retiros like it always was.
+ *   runner        — a retiro_agentes row is holding it. Out of la caja until an
+ *                   entrega says it arrived.
+ *   crypto_seller — it paid a USDT provider at the cajero. Never in the pocket,
+ *                   so out of la caja for good; informational only.
+ */
+export type RetiradoPorKind = 'runner' | 'crypto_seller';
+
 export interface Codigo {
   id: number;
   client_id: number;
@@ -164,6 +197,18 @@ export interface Codigo {
   status: CodigoStatus;
   created_at: Date;
   retired_at: Date | null;
+
+  /**
+   * Who took the money out, when it was not Jose. Null on every codigo he
+   * retired himself, which is the normal case and the one that feeds la caja.
+   *
+   * retirado_por_agente_nombre is a read-only joined copy, exactly like the
+   * sending_* fields below: it exists so /codigos can name the runner in the
+   * row instead of only holding his id, and nothing is ever written through it.
+   */
+  retirado_por_kind: RetiradoPorKind | null;
+  retirado_por_agente_id: number | null;
+  retirado_por_agente_nombre: string | null;
 
   /**
    * The sending this codigo paid for, when Jose linked one. A linked codigo is

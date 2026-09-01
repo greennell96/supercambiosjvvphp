@@ -776,12 +776,18 @@ button.danger {
 /* ------------------------------------------------ confirming a día's retiros */
 
 /*
-  The "Confirmar" cell of the retiros panel on /stats. The same reveal-a-confirm
-  shape as .client-paid above, narrower because it opens exactly one field, and
-  it sits in a .stats-table cell — which sets white-space: nowrap on every cell —
-  so the wrapping is re-enabled here rather than left to fight the table.
+  The "Confirmar" cell of the retiros panel on /stats, and the "Dinero entregado
+  a José" cell of the terceros panel under it. The same reveal-a-confirm shape as
+  .client-paid above, narrower because each opens exactly one field, and both sit
+  in a .stats-table cell — which sets white-space: nowrap on every cell — so the
+  wrapping is re-enabled here rather than left to fight the table.
+
+  One block for the two of them because they are the same control in the same
+  kind of cell; a second copy under another name would only be a chance for them
+  to drift apart.
 */
-.confirmar-retiro {
+.confirmar-retiro,
+.entregar-dinero {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -798,16 +804,53 @@ button.danger {
   white-space: normal;
 }
 
-.confirmar-retiro input[type="text"] {
+.confirmar-retiro input[type="text"],
+.entregar-dinero input[type="text"] {
   width: 96px;
   padding: 2px 6px;
   font-size: 16px;
 }
 
-.confirmar-retiro .pay-error {
+.confirmar-retiro .pay-error,
+.entregar-dinero .pay-error {
   flex-basis: 100%;
   margin: 2px 0 0;
   font-size: 12px;
+  font-weight: 600;
+  color: var(--red-text);
+}
+
+/* -------------------------------------------- who retired a código, /codigos */
+
+/*
+  The "Retirado por…" control in the pendientes toolbar, next to "Exportar".
+  Unlike the two above it lives in a .form-actions row rather than a table cell,
+  so it only has to line its own fields up — the toolbar already wraps — but the
+  branch to a name field means it can grow to three controls wide.
+*/
+.retirado-por {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.retirado-por select,
+.retirado-por input[type="text"] {
+  width: auto;
+  max-width: 200px;
+  padding: 2px 6px;
+  font-size: 16px;
+}
+
+.retirado-por .muted,
+.retirado-por .pay-error {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.retirado-por .pay-error {
   font-weight: 600;
   color: var(--red-text);
 }

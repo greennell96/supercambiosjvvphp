@@ -1,16 +1,22 @@
 'use client';
 
-import { useState, useTransition, type FormEvent } from 'react';
+import { useActionState, useEffect, useState, useTransition, type FormEvent } from 'react';
 
 import { eliminarCodigoAction } from './actions';
-import { markCodigoRetiradoAction } from '../actions';
+import {
+  marcarRetiradoPorAction,
+  markCodigoRetiradoAction,
+  reasignarRetiradoPorAction,
+  type MarcarRetiradoPorState,
+  type ReasignarRetiradoPorState,
+} from '../actions';
 import DeleteRowForm from '../components/delete-row-form';
 import EditCodigoForm from '../components/edit-codigo-form';
 import LedgerList from '../components/ledger-list';
 import { bankColorClass, compareBankNames, requiresDniReminder } from '@/lib/banks';
 import { formatCodigosForExport } from '@/lib/export-codigos';
 import { fmtDateTimeShort, fmtEur, fmtRate, fmtVes } from '@/lib/format';
-import type { Codigo } from '@/lib/types';
+import type { Codigo, RetiroAgente } from '@/lib/types';
 
 /** Matches the number of <th> below: the linked-sending panel spans the card. */
 const COLUMNS = 8;
@@ -24,6 +30,17 @@ const MARCADO_MS = 460;
 
 /** How long "Exportar" stays "Copiado ✓" before it goes back to offering itself. */
 const COPIADO_MS = 1400;
+
+/**
+ * The two options in the "Retirado por" picker that are not a person.
+ *
+ * Strings, and deliberately not numbers, so they can never collide with an
+ * agente id — the same <select> carries both, and the value is what tells the
+ * form which of the three shapes to submit.
+ */
+const OTRO = 'OTRO';
+const VENDEDOR_CRIPTO = 'CRIPTO';
+const JOSE = 'JOSE';
 
 const HEAD_CELLS = (
   <>
@@ -83,7 +100,14 @@ const PENDING_HEAD = (
  * The split is what stops a código appearing twice: LedgerList only ever sees
  * the retirados.
  */
-export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
+export default function CodigosList({
+  codigos,
+  agentes,
+}: {
+  codigos: Codigo[];
+  /** Everybody who can retire a código for Jose, for the "Retirado por" picker. */
+  agentes: RetiroAgente[];
+}) {
   const pending = codigos
     .filter((c) => c.status === 'pendiente')
     .sort(
@@ -145,6 +169,7 @@ export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
               >
                 {copyLabel ?? `Exportar (${selected.length})`}
               </button>
+              <RetiradoPorControl agentes={agentes} ids={selected.map((c) => c.id)} />
             </div>
             <div className="table-wrap">
               <table>
@@ -154,6 +179,7 @@ export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
                     <CodigoRow
                       key={c.id}
                       codigo={c}
+                      agentes={agentes}
                       selectable={{ checked: ticked.has(c.id), onChange: () => toggle(c.id) }}
                     />
                   ))}
@@ -178,10 +204,212 @@ export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
         })}
         rowClass={(c) => `row-${c.status}`}
         head={HEAD}
-        renderFull={(c) => <CodigoRow codigo={c} />}
+        renderFull={(c) => <CodigoRow codigo={c} agentes={agentes} />}
         searchLabel="Cliente o código"
       />
     </>
+  );
+}
+
+/** Correct a retired codigo's actor without deleting and recreating the codigo. */
+function ReasignarRetiradoPorControl({
+  codigo,
+  agentes,
+}: {
+  codigo: Codigo;
+  agentes: RetiroAgente[];
+}) {
+  const [state, formAction, pending] = useActionState<ReasignarRetiradoPorState, FormData>(
+    reasignarRetiradoPorAction,
+    {},
+  );
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState('');
+
+  const currentChoice =
+    codigo.retirado_por_kind === 'runner' && codigo.retirado_por_agente_id !== null
+      ? String(codigo.retirado_por_agente_id)
+      : codigo.retirado_por_kind === 'crypto_seller'
+        ? VENDEDOR_CRIPTO
+        : JOSE;
+
+  useEffect(() => {
+    if (state.savedAt) setOpen(false);
+  }, [state.savedAt]);
+
+  if (!open) {
+    return (
+      <div className="retirado-por">
+        <button
+          className="small quiet"
+          type="button"
+          onClick={() => {
+            setChoice(currentChoice);
+            setOpen(true);
+          }}
+        >
+          Corregir quién retiró
+        </button>
+        {state.notice ? <p className="muted">{state.notice}</p> : null}
+        {state.error ? <p className="pay-error">{state.error}</p> : null}
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="retirado-por open">
+      <input type="hidden" name="id" value={codigo.id} />
+      <input
+        type="hidden"
+        name="kind"
+        value={choice === JOSE ? 'jose' : choice === VENDEDOR_CRIPTO ? 'crypto_seller' : 'runner'}
+      />
+      <select
+        aria-label="Corregir quién retiró el código"
+        value={choice}
+        onChange={(event) => setChoice(event.target.value)}
+      >
+        <option value={JOSE}>José</option>
+        {agentes.map((a) => (
+          <option key={a.id} value={String(a.id)}>
+            {a.name}
+          </option>
+        ))}
+        <option value={OTRO}>Otro</option>
+        <option value={VENDEDOR_CRIPTO}>Vendedor cripto</option>
+      </select>
+      {choice && choice !== JOSE && choice !== OTRO && choice !== VENDEDOR_CRIPTO ? (
+        <input type="hidden" name="agente_id" value={choice} />
+      ) : null}
+      {choice === OTRO ? (
+        <input
+          name="new_agente_name"
+          type="text"
+          placeholder="Nombre de quien retiró"
+          aria-label="Nombre de quien retiró"
+          autoFocus
+        />
+      ) : null}
+      <button className="small action-success" type="submit" disabled={pending || !choice}>
+        {pending ? 'Guardando…' : 'Guardar corrección'}
+      </button>
+      <button className="small quiet" type="button" onClick={() => setOpen(false)}>
+        Cancelar
+      </button>
+      <p className="muted">Si ese día ya fue confirmado, revisa de nuevo su cuadre.</p>
+      {state.error ? <p className="pay-error">{state.error}</p> : null}
+    </form>
+  );
+}
+
+/**
+ * "Retirado por" — the selected códigos were withdrawn by somebody who is not
+ * Jose, and the money is therefore not in his pocket.
+ *
+ * Sits beside "Exportar" and reads off the exact same selection, because it is
+ * the other half of the same errand: you tick the codes you are sending Andriu
+ * to empty, you copy them into WhatsApp, and when he comes back you tick them
+ * again and say it was him. Building a second way to choose rows would let the
+ * two disagree about what "selected" means.
+ *
+ * Same reveal-a-picker shape as ClientPaidActions, including the branch: choose
+ * a name, or choose "Otro" and the name field appears. The two trailing options
+ * are deliberately at the bottom, after every real person — "Vendedor cripto" is
+ * not a person at all and must never be the thing a fast hand lands on.
+ *
+ * There is no selection-clearing code here on purpose. Marking the códigos
+ * retirado takes them out of `pending`, and `selected` is derived from
+ * `pending`, so the count empties by itself the moment the server re-renders.
+ */
+function RetiradoPorControl({ agentes, ids }: { agentes: RetiroAgente[]; ids: number[] }) {
+  const [state, formAction, pending] = useActionState<MarcarRetiradoPorState, FormData>(
+    marcarRetiradoPorAction,
+    {},
+  );
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState('');
+
+  // Close on a successful save, and forget the choice: the next batch is a new
+  // question, and the códigos this one was about are already gone from the list.
+  useEffect(() => {
+    if (state.savedAt) {
+      setOpen(false);
+      setChoice('');
+    }
+  }, [state.savedAt]);
+
+  if (!open) {
+    return (
+      <div className="retirado-por">
+        <button
+          className="small secondary"
+          type="button"
+          disabled={ids.length === 0}
+          onClick={() => setOpen(true)}
+        >
+          Retirado por…
+        </button>
+        {state.error ? <p className="pay-error">{state.error}</p> : null}
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="retirado-por open">
+      {ids.map((codigoId) => (
+        <input key={codigoId} type="hidden" name="ids" value={codigoId} />
+      ))}
+      <input
+        type="hidden"
+        name="kind"
+        value={choice === VENDEDOR_CRIPTO ? 'crypto_seller' : 'runner'}
+      />
+
+      <select
+        aria-label="Quién retiró los códigos"
+        value={choice}
+        onChange={(event) => setChoice(event.target.value)}
+      >
+        <option value="">¿Quién retiró?</option>
+        {agentes.map((a) => (
+          <option key={a.id} value={String(a.id)}>
+            {a.name}
+          </option>
+        ))}
+        <option value={OTRO}>Otro</option>
+        <option value={VENDEDOR_CRIPTO}>Vendedor cripto</option>
+      </select>
+
+      {/* An id was picked, so it travels as the id. The two non-person options
+          are not ids and send nothing here. */}
+      {choice && choice !== OTRO && choice !== VENDEDOR_CRIPTO ? (
+        <input type="hidden" name="agente_id" value={choice} />
+      ) : null}
+
+      {choice === OTRO ? (
+        <input
+          name="new_agente_name"
+          type="text"
+          placeholder="Nombre de quien retiró"
+          aria-label="Nombre de quien retiró"
+          autoFocus
+        />
+      ) : null}
+
+      <button className="small action-success" type="submit" disabled={pending || !choice}>
+        {pending ? 'Guardando…' : `Confirmar (${ids.length})`}
+      </button>
+      <button className="small quiet" type="button" onClick={() => setOpen(false)}>
+        Cancelar
+      </button>
+
+      {choice === VENDEDOR_CRIPTO ? (
+        <p className="muted">
+          Ese dinero pagó USDT en el cajero: no entra en la caja ni queda pendiente de nadie.
+        </p>
+      ) : null}
+      {state.error ? <p className="pay-error">{state.error}</p> : null}
+    </form>
   );
 }
 
@@ -201,9 +429,11 @@ export default function CodigosList({ codigos }: { codigos: Codigo[] }) {
  */
 function CodigoRow({
   codigo: c,
+  agentes,
   selectable,
 }: {
   codigo: Codigo;
+  agentes: RetiroAgente[];
   selectable?: { checked: boolean; onChange: () => void };
 }) {
   const [showSending, setShowSending] = useState(false);
@@ -320,11 +550,28 @@ function CodigoRow({
             <form action={markCodigoRetiradoAction} onSubmit={handleMarcarRetirado}>
               <input type="hidden" name="id" value={c.id} />
               <button className="small action-success" type="submit" disabled={marcado}>
-                Marcar retirado
+                Retirado por José
               </button>
             </form>
           ) : (
-            <span className="muted">{fmtDateTimeShort(c.retired_at)}</span>
+            /*
+              When and, if it was not Jose, who. The who is the whole point of
+              the cell for a runner's código: that money is not in the caja and
+              will not be until he hands it over, so the row has to say whose
+              pocket it is in. A código Jose retired himself says nothing extra —
+              that is the normal case and the date is the whole story.
+            */
+            <div className="retiro-resuelto">
+              <span className="muted">
+                {fmtDateTimeShort(c.retired_at)}
+                {c.retirado_por_kind === 'runner'
+                  ? ` · ${c.retirado_por_agente_nombre ?? '—'}`
+                  : c.retirado_por_kind === 'crypto_seller'
+                    ? ' · Vendedor cripto'
+                    : ' · José'}
+              </span>
+              <ReasignarRetiradoPorControl codigo={c} agentes={agentes} />
+            </div>
           )}
         </td>
         <td data-label="Acciones" data-wide data-actions>
