@@ -14,7 +14,15 @@ export default async function ComprasPage() {
 
   return (
     <Shell>
-      <h1>Compras de cripto</h1>
+      <header className="page-heading">
+        <div>
+          <h1>Compras de cripto</h1>
+          <p className="page-description">Inventario USDT, coste y saldo disponible.</p>
+        </div>
+        <p className="page-count">
+          {purchases.length} compra{purchases.length === 1 ? '' : 's'}
+        </p>
+      </header>
 
       <div className={balance < 0 ? 'stat negative' : 'stat'}>
         <div className="label">Saldo del pool</div>
@@ -24,7 +32,12 @@ export default async function ComprasPage() {
       <NuevaCompraForm />
 
       <div className="panel">
-        <h2>Todas las compras ({purchases.length})</h2>
+        <div className="panel-heading">
+          <h2>Todas las compras</h2>
+          <span className="panel-count">
+            {purchases.length} compra{purchases.length === 1 ? '' : 's'}
+          </span>
+        </div>
         {purchases.length === 0 ? (
           <p className="muted">Todavía no hay compras.</p>
         ) : (

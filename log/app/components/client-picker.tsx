@@ -55,7 +55,7 @@ export default function ClientPicker({
         <div className="chosen picker">
           <span className="name">{value.name}</span>
           <span className="muted">{value.phone ?? 'sin teléfono'}</span>
-          <span className="spacer" style={{ flex: 1 }} />
+          <span className="picker-spacer" aria-hidden="true" />
           <button
             type="button"
             className="link"

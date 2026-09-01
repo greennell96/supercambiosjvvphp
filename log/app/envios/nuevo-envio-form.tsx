@@ -40,7 +40,7 @@ export default function NuevoEnvioForm({
       <div className={styles.creationHeader}>
         <div>
           <h2>Registrar un envío</h2>
-          <p>Abre el formulario solo cuando tengas un nuevo movimiento.</p>
+          <p>Abre para registrar un movimiento.</p>
         </div>
         <button
           className={`primary ${styles.creationToggle}`}
@@ -350,7 +350,7 @@ function ClienteEnvioForm({
           ) : null}
         </fieldset>
 
-        <div className="form-actions creation-submit">
+        <div className={`form-actions creation-submit ${styles.creationSubmit}`}>
           <button className="primary" type="submit" disabled={pending || !client}>
             {pending ? 'Registrando…' : 'Registrar envío'}
           </button>
@@ -419,11 +419,11 @@ function PropioEnvioForm({ mode, onMode }: { mode: Mode; onMode: (mode: Mode) =>
               placeholder="a mi hermana"
             />
           </div>
-          <div className="form-actions">
-            <button className="primary" type="submit" disabled={pending}>
-              {pending ? 'Registrando…' : 'Registrar envío'}
-            </button>
-          </div>
+        </div>
+        <div className={`form-actions creation-submit ${styles.creationSubmit}`}>
+          <button className="primary" type="submit" disabled={pending}>
+            {pending ? 'Registrando…' : 'Registrar envío'}
+          </button>
         </div>
       </form>
     </>
@@ -438,16 +438,18 @@ function Confirmation({ result }: { result: NonNullable<NuevoEnvioState['result'
         {fmtRate(result.rateTasa)} · {result.payoutMethod}).
       </div>
       {result.partCount > 1 ? (
-        <div style={{ marginTop: 6 }}>{result.partCount} partes comparten el mismo cobro.</div>
+        <div className={styles.confirmationDetail}>
+          {result.partCount} partes comparten el mismo cobro.
+        </div>
       ) : null}
       {result.codigo ? (
-        <div style={{ marginTop: 6 }}>
+        <div className={styles.confirmationDetail}>
           Código <strong>{result.codigo.code}</strong> por {fmtEur(result.codigo.amount)} registrado
           en {result.codigo.bank}; el cliente queda cobrado en{' '}
           {result.partCount === 1 ? 'el envío' : 'todas las partes'}.
         </div>
       ) : null}
-      <div style={{ marginTop: 6 }}>Bolívares a pagar</div>
+      <div className={styles.confirmationAmountLabel}>Bolívares a pagar</div>
       <div className="big-number">{fmtVes(result.amountVesToPay)}</div>
     </div>
   );
@@ -464,7 +466,7 @@ function PropioConfirmation({
       <div>
         Envío propio registrado (<strong>{result.personalNote}</strong> · {result.payoutMethod}).
       </div>
-      <div style={{ marginTop: 6 }}>Bolívares a pagar</div>
+      <div className={styles.confirmationAmountLabel}>Bolívares a pagar</div>
       <div className="big-number">{fmtVes(result.amountVesToPay)}</div>
     </div>
   );

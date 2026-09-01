@@ -270,7 +270,7 @@ export default function EnviosList({
           </h3>
           <p>
             {filter === 'all'
-              ? 'Cada envío aparece una vez; una fila puede deber ambos pagos.'
+              ? 'Cada envío aparece una vez; puede faltar uno o ambos pagos.'
               : 'Este filtro muestra solo la tarea elegida.'}
           </p>
         </div>

@@ -486,12 +486,14 @@ function CodigoRow({
       <tr className={rowClass}>
         {selectable ? (
           <td data-label="Seleccionar">
-            <input
-              type="checkbox"
-              checked={selectable.checked}
-              onChange={selectable.onChange}
-              aria-label={`Seleccionar ${c.client_name}`}
-            />
+            <label className="checkbox-hit">
+              <input
+                type="checkbox"
+                checked={selectable.checked}
+                onChange={selectable.onChange}
+                aria-label={`Seleccionar ${c.client_name}`}
+              />
+            </label>
           </td>
         ) : null}
         <td data-lead>{c.client_name}</td>

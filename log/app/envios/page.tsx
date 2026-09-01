@@ -16,10 +16,10 @@ export default async function EnviosPage() {
 
   return (
     <Shell>
-      <div className={styles.workspaceHeading}>
+      <div className={styles.pageHeading}>
         <div>
           <h1>Envíos</h1>
-          <p>La vista de trabajo: lo que falta cobrar, pagar y cerrar.</p>
+          <p>Pendientes de cobro, pago y cierre.</p>
         </div>
         <p>
           {sendings.length} registro{sendings.length === 1 ? '' : 's'} en el log
@@ -27,9 +27,9 @@ export default async function EnviosPage() {
       </div>
 
       <div className={`panel ${styles.workspacePanel}`}>
-        <div className={styles.workspaceHeading}>
+        <div className={styles.operationHeading}>
           <h2>Operación</h2>
-          <p>Primero lo que necesita una acción. El registro cerrado queda debajo.</p>
+          <p>Primero lo pendiente; lo cerrado queda debajo.</p>
         </div>
         {sendings.length === 0 ? (
           <p className="muted">Todavía no hay envíos.</p>

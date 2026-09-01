@@ -24,7 +24,15 @@ export default async function CajaPage() {
 
   return (
     <Shell>
-      <h1>Caja</h1>
+      <header className="page-heading">
+        <div>
+          <h1>Caja</h1>
+          <p className="page-description">Efectivo disponible y movimientos que lo explican.</p>
+        </div>
+        <p className="page-count">
+          {rows.length} movimiento{rows.length === 1 ? '' : 's'}
+        </p>
+      </header>
 
       {/*
         Same headline box /compras gives the pool balance, and negative in red
@@ -40,7 +48,12 @@ export default async function CajaPage() {
       <NuevaEntradaCajaForm />
 
       <div className="panel">
-        <h2>Libro de caja ({rows.length})</h2>
+        <div className="panel-heading">
+          <h2>Libro de caja</h2>
+          <span className="panel-count">
+            {rows.length} movimiento{rows.length === 1 ? '' : 's'}
+          </span>
+        </div>
         {rows.length === 0 ? (
           <p className="muted">Todavía no hay movimientos.</p>
         ) : (

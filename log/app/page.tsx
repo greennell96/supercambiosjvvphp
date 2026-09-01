@@ -32,14 +32,19 @@ export default async function DashboardPage() {
 
   return (
     <Shell>
-      <h1>Resumen</h1>
+      <header className="page-heading">
+        <div>
+          <h1>Resumen</h1>
+          <p className="page-description">Saldos, pendientes y control del día.</p>
+        </div>
+      </header>
 
       <div className="grid2">
         <div className={cryptoNegative ? 'stat negative' : 'stat'}>
           <div className="label">Cripto (USDT) disponible</div>
           <div className="value">{fmtUsdt(totals.cryptoBalanceUsdt)}</div>
           {cryptoNegative ? (
-            <div className="muted" style={{ color: 'inherit' }}>
+            <div className="muted stat-negative-note">
               Saldo negativo: USDT gastado que aún no has comprado.
             </div>
           ) : null}
@@ -49,7 +54,7 @@ export default async function DashboardPage() {
           <div className="label">VES en tu cuenta (pool)</div>
           <div className="value">{fmtVes(totals.vesPoolBalance)}</div>
           {vesNegative ? (
-            <div className="muted" style={{ color: 'inherit' }}>
+            <div className="muted stat-negative-note">
               Saldo negativo: bolívares pagados que ninguna venta cubre todavía.
             </div>
           ) : null}
@@ -59,7 +64,8 @@ export default async function DashboardPage() {
           <div className="label">Bolívares pendientes de pagar</div>
           <div className="value">{fmtVes(totals.bolivaresPendientes)}</div>
           <div className="muted">
-            {totals.pendingPayoutSendingsCount} envío(s) sin pagar por ti
+            {totals.pendingPayoutSendingsCount} envío
+            {totals.pendingPayoutSendingsCount === 1 ? '' : 's'} sin pagar por ti
             {gap > 0 ? ` · te faltan ${fmtVes(gap)} por vender` : ' · el pool los cubre'}
           </div>
         </div>
@@ -106,12 +112,18 @@ export default async function DashboardPage() {
         the ones already logged.
       */}
       <div className="panel">
-        <h2>Cuadre de códigos</h2>
+        <div className="panel-heading">
+          <h2>Cuadre de códigos</h2>
+          <span className="panel-count">Control diario</span>
+        </div>
         <ConsolidacionTable data={consolidacion} />
       </div>
 
       <div className="panel">
-        <h2>Tasa sugerida</h2>
+        <div className="panel-heading">
+          <h2>Tasa sugerida</h2>
+          <span className="panel-count">EUR → Bs</span>
+        </div>
         <RatesForm
           tasa={rates.tasa_eur_ves}
           updatedAt={rates.updated_at}

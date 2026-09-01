@@ -89,15 +89,18 @@ export default async function StatsPage() {
       </section>
 
       {stats.zero_cost_paid_sendings > 0 ? (
-        <p className="notice warn">
+        <p className={`notice warn ${styles.notice}`}>
           {fmtCount(stats.zero_cost_paid_sendings)} grupo
-          {stats.zero_cost_paid_sendings === 1 ? '' : 's'} con pagos usaron inventario con costo EUR
+          {stats.zero_cost_paid_sendings === 1 ? '' : 's'} con pagos{' '}
+          {stats.zero_cost_paid_sendings === 1 ? 'usó' : 'usaron'} inventario con costo EUR
           cero; revisa el cálculo antes de tomar la ganancia histórica como definitiva.
         </p>
       ) : null}
       {earnings.negative_profit_count > 0 ? (
-        <p className="notice warn">
-          {fmtCount(earnings.negative_profit_count)} grupo(s) con pagos registraron una pérdida.
+        <p className={`notice warn ${styles.notice}`}>
+          {fmtCount(earnings.negative_profit_count)} grupo
+          {earnings.negative_profit_count === 1 ? '' : 's'} con pagos{' '}
+          {earnings.negative_profit_count === 1 ? 'registró' : 'registraron'} una pérdida.
         </p>
       ) : null}
 
@@ -176,7 +179,7 @@ export default async function StatsPage() {
 
       <div className={`stats-columns ${styles.insights}`}>
         <section className="panel stats-panel" aria-labelledby="clients-title">
-          <div className="section-heading compact">
+          <div className={`section-heading compact ${styles.compactHeading}`}>
             <div>
               <p className="eyebrow">Rendimiento por cliente</p>
               <h2 id="clients-title">Clientes principales</h2>
@@ -229,7 +232,7 @@ export default async function StatsPage() {
         </section>
 
         <section className="panel stats-panel" aria-labelledby="methods-title">
-          <div className="section-heading compact">
+          <div className={`section-heading compact ${styles.compactHeading}`}>
             <div>
               <p className="eyebrow">Cobros registrados</p>
               <h2 id="methods-title">Cómo pagan los clientes</h2>
@@ -277,7 +280,7 @@ export default async function StatsPage() {
           </div>
         </div>
         <section className="panel stats-panel" aria-labelledby="cuadre-title">
-          <div className="section-heading compact">
+          <div className={`section-heading compact ${styles.compactHeading}`}>
             <div>
               <p className="eyebrow">Cuadre diario</p>
               <h3 id="cuadre-title">Envíos vs. códigos</h3>
@@ -287,7 +290,7 @@ export default async function StatsPage() {
           <ConsolidacionTable data={consolidacion} />
         </section>
         <section className="panel stats-panel" aria-labelledby="retiros-title">
-          <div className="section-heading compact">
+          <div className={`section-heading compact ${styles.compactHeading}`}>
             <div>
               <p className="eyebrow">Confirmación de retiros</p>
               <h3 id="retiros-title">Códigos retirados vs. efectivo</h3>
@@ -312,7 +315,7 @@ export default async function StatsPage() {
           <MonthlyTable rows={stats.monthly} />
           <InventoryDetail inventory={inventory} unsettled={current.unsettled_ves_eur} />
           <PendingCodesTable rows={stats.pending_codes_by_bank} />
-          <p className="muted">
+          <p className={`muted ${styles.footnote}`}>
             Margen total registrado: {fmtPercent(marginPercent(earnings.profit_eur, earnings.revenue_eur))}.
             Los conteos de grupos no afirman que todas las partes de un split estén pagadas; los
             importes suman las filas reales.
@@ -385,7 +388,7 @@ type ThirdPartyProps = {
 function ThirdPartyControl({ agenteSaldos, cripto, entregas }: ThirdPartyProps) {
   return (
     <section className="panel stats-panel" aria-labelledby="terceros-title">
-      <div className="section-heading compact">
+      <div className={`section-heading compact ${styles.compactHeading}`}>
         <div>
           <p className="eyebrow">Dinero en manos de terceros</p>
           <h3 id="terceros-title">Retirado por otros</h3>
@@ -424,9 +427,11 @@ function ThirdPartyControl({ agenteSaldos, cripto, entregas }: ThirdPartyProps) 
           </table>
         </div>
       )}
-      <p className="muted">
-        Vendedores cripto: {fmtCount(cripto.count)} código(s) por {fmtEur(cripto.amountEur)};
-        cobrados directamente como pago de USDT y nunca pasan por la caja.
+      <p className={`muted ${styles.footnote}`}>
+        Vendedores cripto: {fmtCount(cripto.count)} código
+        {cripto.count === 1 ? '' : 's'} por {fmtEur(cripto.amountEur)};{' '}
+        {cripto.count === 1 ? 'se cobró' : 'se cobraron'} directamente como pago de USDT y nunca
+        {cripto.count === 1 ? 'pasa' : 'pasan'} por la caja.
       </p>
       {entregas.length > 0 ? (
         <div className="table-wrap">
@@ -478,7 +483,7 @@ function ThirdPartyControl({ agenteSaldos, cripto, entregas }: ThirdPartyProps) 
 function FundingTable({ rows }: { rows: import('@/lib/types').StatsFunding[] }) {
   return (
     <section aria-labelledby="funding-title">
-      <div className="section-heading compact">
+      <div className={`section-heading compact ${styles.compactHeading}`}>
         <div>
           <p className="eyebrow">Cómo se pagó</p>
           <h3 id="funding-title">Ganancia por origen</h3>
@@ -521,7 +526,7 @@ function FundingTable({ rows }: { rows: import('@/lib/types').StatsFunding[] }) 
 function MonthlyTable({ rows }: { rows: StatsPeriod[] }) {
   return (
     <section aria-labelledby="monthly-title">
-      <div className="section-heading compact">
+      <div className={`section-heading compact ${styles.compactHeading}`}>
         <div>
           <p className="eyebrow">Por fecha de pago</p>
           <h3 id="monthly-title">Rendimiento mensual</h3>
@@ -569,7 +574,7 @@ function MonthlyTable({ rows }: { rows: StatsPeriod[] }) {
 function InventoryDetail({ inventory, unsettled }: { inventory: import('@/lib/types').StatsSnapshot['inventory']; unsettled: number }) {
   return (
     <section aria-labelledby="inventory-title">
-      <div className="section-heading compact">
+      <div className={`section-heading compact ${styles.compactHeading}`}>
         <div>
           <p className="eyebrow">Movimientos acumulados</p>
           <h3 id="inventory-title">Origen del inventario</h3>
@@ -611,7 +616,7 @@ function InventoryDetail({ inventory, unsettled }: { inventory: import('@/lib/ty
 function PendingCodesTable({ rows }: { rows: import('@/lib/types').StatsCodeBank[] }) {
   return (
     <section aria-labelledby="codes-title">
-      <div className="section-heading compact">
+      <div className={`section-heading compact ${styles.compactHeading}`}>
         <div>
           <p className="eyebrow">Carga operativa</p>
           <h3 id="codes-title">Códigos pendientes por banco</h3>

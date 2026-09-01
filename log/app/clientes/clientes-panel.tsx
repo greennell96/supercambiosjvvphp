@@ -113,6 +113,12 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
       </form>
 
       <div className="panel">
+        <div className="panel-heading">
+          <h2>Directorio</h2>
+          <span className="panel-count">
+            {filtered.length} de {clients.length} clientes
+          </span>
+        </div>
         <div className="field">
           <label htmlFor="client-filter">Buscar por nombre o teléfono</label>
           <input
@@ -123,10 +129,6 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
             placeholder="Escribe para filtrar…"
           />
         </div>
-
-        <p className="muted">
-          {filtered.length} de {clients.length} clientes
-        </p>
 
         <div className="table-wrap">
           <table>
@@ -156,7 +158,7 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
                     {c.banks.length ? c.banks.join(', ') : '—'}
                   </td>
                   <td data-label="DNI / NIE">{c.dni_nie ?? '—'}</td>
-                  <td className="num" data-label="Acción" data-wide data-actions>
+                  <td data-label="Acción" data-wide data-actions>
                     <button
                       className="small secondary"
                       type="button"

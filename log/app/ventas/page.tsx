@@ -12,7 +12,15 @@ export default async function VentasPage() {
 
   return (
     <Shell>
-      <h1>Ventas · pool de bolívares</h1>
+      <header className="page-heading">
+        <div>
+          <h1>Ventas · pool de bolívares</h1>
+          <p className="page-description">Entradas de bolívares y saldo disponible del pool.</p>
+        </div>
+        <p className="page-count">
+          {sales.length} movimiento{sales.length === 1 ? '' : 's'}
+        </p>
+      </header>
 
       <div className={balance < 0 ? 'stat negative' : 'stat'}>
         <div className="label">Bolívares disponibles en tu cuenta</div>
@@ -22,7 +30,12 @@ export default async function VentasPage() {
       <NuevaVentaForm />
 
       <div className="panel">
-        <h2>Movimientos ({sales.length})</h2>
+        <div className="panel-heading">
+          <h2>Movimientos</h2>
+          <span className="panel-count">
+            {sales.length} movimiento{sales.length === 1 ? '' : 's'}
+          </span>
+        </div>
         {sales.length === 0 ? (
           <p className="muted">Todavía no hay entradas.</p>
         ) : (

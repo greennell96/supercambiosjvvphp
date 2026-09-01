@@ -23,7 +23,15 @@ export default async function ClientesPage({
 
   return (
     <Shell>
-      <h1>Clientes</h1>
+      <header className="page-heading">
+        <div>
+          <h1>Clientes</h1>
+          <p className="page-description">Fichas para registrar envíos y códigos.</p>
+        </div>
+        <p className="page-count">
+          {clients.length} cliente{clients.length === 1 ? '' : 's'}
+        </p>
+      </header>
       {backTo ? (
         <p className="notice warn">
           <Link href={backTo.href}>{backTo.label}</Link>
