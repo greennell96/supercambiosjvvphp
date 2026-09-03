@@ -26,6 +26,7 @@ import {
   computeCreatedSendingParts,
   type AdditionalSendingPart,
 } from './grouped-sendings';
+import { normalizePhone } from './phone';
 import {
   poolWeightedAveragePrice,
   purchasePriceEurPerUsdt,
@@ -126,6 +127,38 @@ export async function updateClient(
         dni_nie = ${input.dni_nie}
     where id = ${clientId}
   `;
+}
+
+/**
+ * Every client already on file whose stored phone normalizes to the same key
+ * as `phone`, so /clientes can warn before it re-registers somebody who was
+ * simply typed with different spacing or a country code the other row lacks.
+ *
+ * There is no way to ask Postgres for "phones that normalize the same" without
+ * either a generated column or duplicating the phone.ts rule in SQL, and this
+ * table is small enough that reading every non-internal phone and comparing
+ * in TypeScript keeps the one rule in the one file that owns it.
+ *
+ * excludeId lets the edit path compare a client against everyone ELSE: without
+ * it, saving a client's own unchanged phone would "collide" with itself.
+ */
+export async function findClientsByNormalizedPhone(
+  phone: string,
+  excludeId?: number,
+): Promise<{ id: number; name: string }[]> {
+  const target = normalizePhone(phone);
+  if (!target) return [];
+  const sql = getSql();
+  const rows = await sql<{ id: number; name: string; phone: string | null }[]>`
+    select id, name, phone
+    from clients
+    where is_internal = false
+      and phone is not null
+      and id != ${excludeId ?? -1}
+  `;
+  return rows
+    .filter((r) => normalizePhone(r.phone) === target)
+    .map((r) => ({ id: id(r.id), name: r.name }));
 }
 
 /* -------------------------------------------------------------------- rates */

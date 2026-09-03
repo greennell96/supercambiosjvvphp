@@ -99,6 +99,44 @@ const BANK_COLOURS: ReadonlyArray<readonly [needle: string, className: string]> 
 ];
 
 /**
+ * The fixed banks the /clientes checkboxes offer. Exactly the five
+ * BANK_COLOURS above knows how to colour — if one list changes, the other
+ * has to change with it, or a bank could get a colour with no checkbox to
+ * pick it from, or a checkbox with no colour on the /codigos board.
+ */
+export const BANKS = ['BBVA', 'Sabadell', 'Santander', 'CaixaBank', 'Halcash'] as const;
+
+/**
+ * The checkboxes to offer a /clientes bank picker, built for one client's
+ * currently stored banks.
+ *
+ * 664 clients were imported with whatever bank spelling the old spreadsheet
+ * had — "Banesco", "Pago Movil", and others this fixed five does not name.
+ * If the picker only ever offered the five, editing that client's phone
+ * would silently drop the stored bank the moment the form saved, because
+ * there would be no checkbox left to keep it checked. So any stored spelling
+ * that is not one of the five is kept, verbatim, ahead of the fixed list —
+ * same shape as payoutMethodOptions in lib/pricing.ts.
+ *
+ * Matching is EXACT on purpose, for the same reason as payoutMethodOptions:
+ * fuzzy-matching "banesco" against "Banesco" would fold them into one
+ * checkbox, which is fine to look at but wrong to save — it would rewrite
+ * the client's stored spelling to whichever the fixed list does not even
+ * have, silently, the next time the form is submitted.
+ */
+export function bankOptions(stored: string[]): string[] {
+  const known = new Set<string>(BANKS);
+  const extras: string[] = [];
+  const seen = new Set<string>();
+  for (const bank of stored) {
+    if (known.has(bank) || seen.has(bank)) continue;
+    seen.add(bank);
+    extras.push(bank);
+  }
+  return [...extras, ...BANKS];
+}
+
+/**
  * The colour class for a código's bank, or '' for a bank with no colour of its
  * own.
  *

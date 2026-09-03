@@ -4,9 +4,16 @@ import { useActionState, useEffect, useRef, useState } from 'react';
 
 import { crearCodigoAction, type NuevoCodigoState } from './actions';
 import ClientPicker, { type PickerClient } from '../components/client-picker';
-import { requiresDniReminder } from '@/lib/banks';
+import { BANKS, requiresDniReminder } from '@/lib/banks';
 import { fmtDate, fmtEur } from '@/lib/format';
 import { openSendingsForClient } from '@/lib/linking';
+
+/**
+ * The option value that means "the fixed five don't have it, let me type it",
+ * inside the free-text-fallback <select>. Not a real bank name, so it can
+ * never collide with a stored one.
+ */
+const BANK_OTRO = '__otro__';
 
 /**
  * Just the fields the link picker shows for one open sending.
@@ -40,18 +47,24 @@ export default function NuevoCodigoForm({
   );
   const [client, setClient] = useState<PickerClient | null>(null);
   const [bank, setBank] = useState('');
+  // Only meaningful in the free-text-fallback case (client on file with no
+  // banks at all): which <option> the select is on, so choosing "Otro" can
+  // reveal the escape-hatch text input without that input's own value being
+  // mistaken for a select choice.
+  const [bankChoice, setBankChoice] = useState('');
   const [sendingId, setSendingId] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
 
   // Picking a client decides how the bank field behaves:
   //  - exactly one bank on file -> filled in automatically
   //  - several -> a picker limited to those banks
-  //  - none -> free text
+  //  - none -> a select over the fixed BANKS, with an "Otro" escape hatch
   //
   // It also drops any sending already picked: the link list is that client's
   // own sendings, so a leftover pick would point at somebody else's.
   useEffect(() => {
     setSendingId('');
+    setBankChoice('');
     if (!client) {
       setBank('');
       return;
@@ -64,6 +77,7 @@ export default function NuevoCodigoForm({
       formRef.current?.reset();
       setClient(null);
       setBank('');
+      setBankChoice('');
       setSendingId('');
     }
   }, [state.ok]);
@@ -123,6 +137,41 @@ export default function NuevoCodigoForm({
                 </option>
               ))}
             </select>
+          ) : client && client.banks.length === 0 ? (
+            // The question here is still "which bank does this client's
+            // withdrawal code work with", not the client's own banks — he has
+            // none on file — so this offers the same fixed five /clientes
+            // does, plus an escape hatch for anything that is not among them.
+            <>
+              <select
+                id="bank"
+                name={bankChoice === BANK_OTRO ? undefined : 'bank'}
+                value={bankChoice}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setBankChoice(value);
+                  setBank(value === BANK_OTRO ? '' : value);
+                }}
+              >
+                <option value="">Elige banco…</option>
+                {BANKS.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+                <option value={BANK_OTRO}>Otro…</option>
+              </select>
+              {bankChoice === BANK_OTRO ? (
+                <input
+                  name="bank"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Escribe el banco"
+                  value={bank}
+                  onChange={(event) => setBank(event.target.value)}
+                />
+              ) : null}
+            </>
           ) : (
             <input
               id="bank"

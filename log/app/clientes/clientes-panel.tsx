@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 
 import { guardarClienteAction, type ClienteState } from './actions';
+import { bankOptions } from '@/lib/banks';
 import { digitsOnly, normalizeText } from '@/lib/text';
 
 export interface ClienteRow {
@@ -60,7 +61,6 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
             {state.ok.created ? 'Cliente añadido' : 'Cliente actualizado'}: {state.ok.name}.
           </p>
         ) : null}
-
         {editing ? <input type="hidden" name="id" value={editing.id} /> : null}
 
         <div className="form-row">
@@ -86,13 +86,32 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
             />
           </div>
           <div>
-            <label htmlFor="banks">Bancos (separados por coma)</label>
+            {/*
+              bankOptions() puts any spelling this client already has that is
+              not one of the fixed five FIRST, so it always gets a checkbox to
+              come back checked. Losing one on save would be silent data loss
+              — see lib/banks.ts.
+            */}
+            <fieldset className="source-picker">
+              <legend>Bancos</legend>
+              {bankOptions(editing?.banks ?? []).map((bank) => (
+                <label key={bank} className="checkbox-option">
+                  <input
+                    type="checkbox"
+                    name="banks"
+                    value={bank}
+                    defaultChecked={(editing?.banks ?? []).includes(bank)}
+                  />
+                  {bank}
+                </label>
+              ))}
+            </fieldset>
+            <label htmlFor="banks_otro">Otro banco</label>
             <input
-              id="banks"
-              name="banks"
+              id="banks_otro"
+              name="banks_otro"
               type="text"
-              defaultValue={(editing?.banks ?? []).join(', ')}
-              placeholder="BBVA, Santander"
+              placeholder="Si no está en la lista"
             />
           </div>
           <div>
@@ -109,6 +128,36 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
               </button>
             ) : null}
           </div>
+
+          {/*
+            Deliberately a warning, not a hard block: three real phone
+            collisions turned up in the 664 imported clients and at least two
+            are one household sharing a number, which a database constraint
+            would have rejected outright. "Guardar de todos modos" resubmits
+            this same form with confirm_duplicate set, so nothing typed above
+            is lost.
+
+            It sits AFTER the primary button, unlike the error/ok notices at
+            the top, and that position is load-bearing rather than cosmetic:
+            implicit submission (pressing Enter in a text field) picks the
+            FIRST submit button in the form. With this one above, Enter would
+            quietly submit confirm_duplicate and save the very duplicate the
+            warning exists to stop. Keep it below "Guardar".
+          */}
+          {state.duplicate ? (
+            <div className="notice warn">
+              <p>Ya existe un cliente con ese teléfono: {state.duplicate.name}.</p>
+              <button
+                className="small secondary"
+                type="submit"
+                name="confirm_duplicate"
+                value="1"
+                disabled={pending}
+              >
+                Guardar de todos modos
+              </button>
+            </div>
+          ) : null}
         </div>
       </form>
 

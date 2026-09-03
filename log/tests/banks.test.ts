@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { bankColorClass, compareBankNames, parseBanks, requiresDniReminder } from '../lib/banks';
+import {
+  BANKS,
+  bankColorClass,
+  bankOptions,
+  compareBankNames,
+  parseBanks,
+  requiresDniReminder,
+} from '../lib/banks';
 
 describe('requiresDniReminder - the CaixaBank reminder', () => {
   it('fires on any spelling of Caixa, case-insensitively and on partial matches', () => {
@@ -69,6 +76,27 @@ describe('bankColorClass - the /codigos row border', () => {
     expect(bankColorClass('Banco de Venezuela')).toBe('');
     expect(bankColorClass('')).toBe('');
     expect(bankColorClass(null)).toBe('');
+  });
+});
+
+describe('bankOptions - the /clientes checkbox list', () => {
+  it('offers exactly the five fixed banks for a client with none of them stored', () => {
+    expect(bankOptions([])).toEqual([...BANKS]);
+  });
+
+  it('keeps an unknown stored spelling and lists it first, so editing never drops it', () => {
+    expect(bankOptions(['Banesco'])).toEqual(['Banesco', ...BANKS]);
+    expect(bankOptions(['Pago Movil', 'BBVA'])).toEqual(['Pago Movil', ...BANKS]);
+  });
+
+  it('matches EXACT, so "banesco" and "Banesco" are two different stored spellings', () => {
+    // Same reasoning as payoutMethodOptions: folding them together would let
+    // a save silently rewrite one spelling to the other.
+    expect(bankOptions(['banesco', 'Banesco'])).toEqual(['banesco', 'Banesco', ...BANKS]);
+  });
+
+  it('does not duplicate a fixed bank already stored under its exact spelling', () => {
+    expect(bankOptions(['BBVA'])).toEqual([...BANKS]);
   });
 });
 
