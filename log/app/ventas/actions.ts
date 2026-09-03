@@ -24,7 +24,7 @@ type NuevaVentaOk =
       vesReceived: number;
       eurAmount: number;
       price: number;
-      eurPaid: boolean;
+      eurPaymentMethod: 'caja' | 'cliente';
       usedToPayBackorders: number;
       remainingForNewLot: number;
     };
@@ -57,19 +57,19 @@ export async function crearVentaAction(
   try {
     if (sourceType === 'ves_to_eur') {
       const eurAmount = parseDecimal(formData.get('eur_amount'));
-      const eurStatus = text(formData.get('eur_status'));
+      const eurPaymentMethod = text(formData.get('eur_payment_method'));
       if (eurAmount === null || !(eurAmount > 0)) {
         return { error: 'Escribe los EUR acordados (mayor que cero).' };
       }
-      if (eurStatus !== 'pending' && eurStatus !== 'paid') {
-        return { error: 'Indica si los EUR están pendientes o pagados.' };
+      if (eurPaymentMethod !== 'caja' && eurPaymentMethod !== 'cliente') {
+        return { error: 'Indica de dónde saldrán los EUR.' };
       }
 
       const created = await createVesToEur({
         eur_amount: eurAmount,
         ves_received: vesReceived,
         note: text(formData.get('note')),
-        eur_paid: eurStatus === 'paid',
+        eur_payment_method: eurPaymentMethod,
         sold_at: soldAt,
       });
       revalidatePath('/');
@@ -81,7 +81,7 @@ export async function crearVentaAction(
           vesReceived,
           eurAmount,
           price: created.priceVesPerEur,
-          eurPaid: eurStatus === 'paid',
+          eurPaymentMethod,
           usedToPayBackorders: created.usedToPayBackorders,
           remainingForNewLot: created.remainingForNewLot,
         },
@@ -124,6 +124,10 @@ export async function marcarEurPagadoAction(
   try {
     await markVesToEurSettled(saleId);
     revalidatePath('/ventas');
+    // Settling is what puts a 'caja' row's outflow into the libro de caja, so
+    // this is now a caja-mutating action and has to say so — the same reason
+    // /compras revalidates it when a compra pagada con caja is created.
+    revalidatePath('/caja');
     revalidatePath('/stats');
     return {};
   } catch (error) {
@@ -151,6 +155,9 @@ export async function eliminarVentaAction(
     revalidatePath('/');
     revalidatePath('/ventas');
     revalidatePath('/compras');
+    // A settled 'caja' entry had a line in the libro; deleting the row deletes
+    // the line, because the caja reads ves_sales live.
+    revalidatePath('/caja');
     revalidatePath('/stats');
     return {};
   } catch (error) {

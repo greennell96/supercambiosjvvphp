@@ -74,14 +74,19 @@ export default function VentasList({ sales }: { sales: VesSale[] }) {
         </td>
         <td data-label="Pago EUR" data-wide data-empty={directEur ? undefined : true}>
           {directEur ? (
-            s.eur_settled_at ? (
-              <span className="badge paid">pagado</span>
-            ) : (
-              <div className="settlement-actions">
-                <span className="badge pending">pendiente</span>
-                <SettleEurForm id={s.id} />
-              </div>
-            )
+            <div className="settlement-actions">
+              {s.eur_settled_at ? (
+                <span className="badge paid">pagado</span>
+              ) : (
+                <>
+                  <span className="badge pending">pendiente</span>
+                  <SettleEurForm id={s.id} />
+                </>
+              )}
+              <span className="badge">
+                {s.eur_payment_method === 'caja' ? 'caja' : 'cliente'}
+              </span>
+            </div>
           ) : (
             '—'
           )}

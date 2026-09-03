@@ -101,6 +101,29 @@ describe('el libro de caja', () => {
   it('is empty and flat with nothing to walk', () => {
     expect(buildCajaLedger([])).toEqual({ rows: [], balanceEur: 0 });
   });
+
+  it('orders a caja-settled VES -> EUR entry after compra_usdt on the same instant', () => {
+    // Both are outflows read live off a different table; entrada_ves_eur has
+    // to sort after compra_usdt on a tie the same way compra_usdt sorts after
+    // everything before it — see SOURCE_ORDER in lib/caja.ts.
+    const { rows } = buildCajaLedger([
+      move(APERTURA, 'apertura', 1740),
+      move('2026-09-01T09:00:00Z', 'compra_usdt', -500),
+      move('2026-09-01T09:00:00Z', 'entrada_ves_eur', -200),
+    ]);
+
+    expect(rows.map((r) => r.source)).toEqual(['entrada_ves_eur', 'compra_usdt', 'apertura']);
+  });
+
+  it('reduces the running balance for a caja-settled VES -> EUR entry', () => {
+    const { rows, balanceEur } = buildCajaLedger([
+      move(APERTURA, 'apertura', 1740),
+      move('2026-09-01T09:00:00Z', 'entrada_ves_eur', -200),
+    ]);
+
+    expect(balanceEur).toBe(1540);
+    expect(rows[0].balanceEur).toBe(1540);
+  });
 });
 
 /* ------------------------------------------------- confirmación de retiros */

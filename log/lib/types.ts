@@ -22,6 +22,9 @@ export interface CryptoPurchase {
 
 export type VesSaleSource = 'binance' | 'ves_to_eur';
 
+/** Where the EUR side of a ves_to_eur row comes from once settled. */
+export type VesToEurPaymentMethod = 'caja' | 'cliente';
+
 /**
  * A lot in the VES pool. Binance rows came from USDT; VES -> EUR rows carry
  * their agreed EUR cost directly and never touch the USDT pool.
@@ -36,6 +39,8 @@ export interface VesSale {
   eur_amount: number | null;
   note: string;
   eur_settled_at: Date | null;
+  /** Null for every Binance row, same convention as eur_amount and usdt_sold. */
+  eur_payment_method: VesToEurPaymentMethod | null;
   remaining_ves: number;
 }
 

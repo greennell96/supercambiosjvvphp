@@ -415,11 +415,12 @@ export async function listVesSales(): Promise<VesSale[]> {
       eur_amount: string | null;
       note: string;
       eur_settled_at: Date | null;
+      eur_payment_method: 'caja' | 'cliente' | null;
       remaining_ves: string;
     }[]
   >`
     select id, sold_at, source_type, usdt_sold, ves_received, price_ves_per_usdt,
-           eur_amount, note, eur_settled_at, remaining_ves
+           eur_amount, note, eur_settled_at, eur_payment_method, remaining_ves
     from ves_sales
     order by sold_at desc, id desc
   `;
@@ -434,6 +435,7 @@ export async function listVesSales(): Promise<VesSale[]> {
     eur_amount: r.eur_amount === null ? null : num(r.eur_amount),
     note: r.note,
     eur_settled_at: r.eur_settled_at,
+    eur_payment_method: r.eur_payment_method,
     remaining_ves: num(r.remaining_ves),
   }));
 }
@@ -516,12 +518,17 @@ export async function createVesSale(input: {
  * The VES joins the same FIFO pool immediately, even when the EUR reminder is
  * still pending. The full agreed EUR amount is its immutable cost basis. No
  * USDT lot is locked, drawn or allocated anywhere in this transaction.
+ *
+ * eur_payment_method only records where the EUR side WILL come from once
+ * settled — 'caja' for José's own cash, 'cliente' for money that never
+ * touches his pocket. It never moves anything by itself; settlement, and with
+ * it the caja line for 'caja' rows, waits for markVesToEurSettled.
  */
 export async function createVesToEur(input: {
   eur_amount: number;
   ves_received: number;
   note: string;
-  eur_paid: boolean;
+  eur_payment_method: 'caja' | 'cliente';
   sold_at: Date;
 }): Promise<{
   id: number;
@@ -540,15 +547,19 @@ export async function createVesToEur(input: {
       await tx`update ves_sales set remaining_ves = ${update.remaining} where id = ${update.id}`;
     }
 
-    const settledAt = input.eur_paid ? input.sold_at : null;
+    // Always pending at creation: eur_settled_at is set only by
+    // markVesToEurSettled, the one and only place that turns a promise into a
+    // caja movement (when the method is 'caja') or simply closes the reminder
+    // (when it is 'cliente').
     const [row] = await tx<{ id: number }[]>`
       insert into ves_sales
         (sold_at, source_type, usdt_sold, ves_received, price_ves_per_usdt,
-         remaining_ves, eur_cost, used_to_pay_backorders, eur_amount, note, eur_settled_at)
+         remaining_ves, eur_cost, used_to_pay_backorders, eur_amount, note,
+         eur_settled_at, eur_payment_method)
       values
         (${input.sold_at}, 'ves_to_eur', null, ${input.ves_received}, null,
          ${applied.remainingForNewLot}, ${input.eur_amount}, ${applied.usedToPayBackorders},
-         ${input.eur_amount}, ${input.note}, ${settledAt})
+         ${input.eur_amount}, ${input.note}, null, ${input.eur_payment_method})
       returning id
     `;
 
@@ -2607,6 +2618,13 @@ export async function createCajaManualEntry(input: {
  *   compra_usdt — negated here, because eur_paid is stored as a positive amount
  *     paid and the caja sees it as euros leaving. Read live off crypto_purchases
  *     with no reversal path anywhere: deleting the compra deletes the line.
+ *
+ *   entrada_ves_eur — a VES -> EUR entry José settled out of his own caja
+ *     instead of the client paying it directly. Negated for the same reason
+ *     compra_usdt is: eur_amount is stored positive (it is the lot's cost
+ *     basis) and the caja sees it as euros leaving. Restricted to settled rows
+ *     only — eur_settled_at is what markVesToEurSettled sets, and until that
+ *     happens no euros have actually left the pocket yet, only been promised.
  */
 export async function listCajaMovements(): Promise<CajaMovement[]> {
   const sql = getSql();
@@ -2654,6 +2672,14 @@ export async function listCajaMovements(): Promise<CajaMovement[]> {
     select p.purchased_at, 'compra_usdt'::text, p.id, p.provider, -p.eur_paid
     from crypto_purchases p
     where p.paid_from_cash
+
+    union all
+
+    select s.eur_settled_at, 'entrada_ves_eur'::text, s.id, s.note, -s.eur_amount
+    from ves_sales s
+    where s.source_type = 'ves_to_eur'
+      and s.eur_payment_method = 'caja'
+      and s.eur_settled_at is not null
   `;
 
   return rows.map((r) => ({

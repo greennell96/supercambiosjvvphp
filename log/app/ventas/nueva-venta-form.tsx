@@ -43,7 +43,8 @@ export default function NuevaVentaForm() {
           ) : (
             <>
               Entrada registrada: {fmtVes(state.ok.vesReceived)} por {fmtEur(state.ok.eurAmount)} a{' '}
-              {fmtRate(state.ok.price)} Bs/EUR · EUR {state.ok.eurPaid ? 'pagados' : 'pendientes'}.
+              {fmtRate(state.ok.price)} Bs/EUR · EUR a pagar{' '}
+              {state.ok.eurPaymentMethod === 'caja' ? 'con caja' : 'por el cliente'}.
             </>
           )}
           {state.ok.usedToPayBackorders > 0 ? (
@@ -103,14 +104,14 @@ export default function NuevaVentaForm() {
               <input id="note" name="note" type="text" autoComplete="off" />
             </div>
             <fieldset className="payment-picker">
-              <legend>Pago de EUR</legend>
+              <legend>Pago de los EUR</legend>
               <label className="radio-option compact">
-                <input type="radio" name="eur_status" value="pending" defaultChecked />
-                <span>Pendiente</span>
+                <input type="radio" name="eur_payment_method" value="caja" />
+                <span>Efectivo de caja</span>
               </label>
               <label className="radio-option compact">
-                <input type="radio" name="eur_status" value="paid" />
-                <span>Pagado</span>
+                <input type="radio" name="eur_payment_method" value="cliente" defaultChecked />
+                <span>Del cliente</span>
               </label>
             </fieldset>
           </>

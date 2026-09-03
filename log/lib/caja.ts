@@ -37,7 +37,8 @@ export type CajaSource =
   | 'entrega_retiro'
   | 'envio_efectivo'
   | 'ajuste'
-  | 'compra_usdt';
+  | 'compra_usdt'
+  | 'entrada_ves_eur';
 
 /** One line as the union query in lib/queries.ts hands it over. */
 export interface CajaMovement {
@@ -61,6 +62,7 @@ export const CAJA_SOURCE_LABELS: Record<CajaSource, string> = {
   envio_efectivo: 'Envío cobrado en efectivo',
   ajuste: 'Ajuste manual',
   compra_usdt: 'Compra de USDT pagada con caja',
+  entrada_ves_eur: 'Entrada Bs → EUR pagada con caja',
 };
 
 /**
@@ -82,6 +84,8 @@ const SOURCE_ORDER: Record<CajaSource, number> = {
   envio_efectivo: 3,
   ajuste: 4,
   compra_usdt: 5,
+  // Same reasoning as compra_usdt: money leaving the caja, so it sorts after it.
+  entrada_ves_eur: 6,
 };
 
 /** One line of the journal, with the balance as it stood after it. */
