@@ -231,6 +231,36 @@ async function readUsdtLots(): Promise<Lot[]> {
   return rows.map(toUsdtLot);
 }
 
+/**
+ * The USDT pool, minimally, for the Envío USDT preview to run client-side.
+ *
+ * Only the three numbers lib/usdt-preview.ts actually draws against — id,
+ * price, remaining — never a whole crypto_purchases row: no purchased_at, no
+ * provider, no eur_paid crosses into a browser prop for this.
+ *
+ * `orderMs` here is NOT a real timestamp — it is each row's position in the
+ * same purchased_at/id order the real draw locks its lots in (lockUsdtLots,
+ * above), which is all costUsdtDraw needs to reproduce the very same FIFO
+ * allocation the real payment would make. Every row is included, active or
+ * not: a depleted or already-negative lot is still the one a real shortfall
+ * would be charged against as the newest lot, and leaving it out here would
+ * let the preview name a different lot than the real draw will.
+ */
+export async function listActiveUsdtLots(): Promise<Lot[]> {
+  const sql = getSql();
+  const rows = await sql<{ id: number; price_eur_per_usdt: string; remaining_usdt: string }[]>`
+    select id, price_eur_per_usdt, remaining_usdt
+    from crypto_purchases
+    order by purchased_at, id
+  `;
+  return rows.map((r, index) => ({
+    id: id(r.id),
+    orderMs: index,
+    price: num(r.price_eur_per_usdt),
+    remaining: num(r.remaining_usdt),
+  }));
+}
+
 type RawVesLot = {
   id: number;
   sold_at: Date;
@@ -653,13 +683,14 @@ type RawSending = {
   client_name: string;
   created_at: Date;
   is_personal: boolean;
+  is_usdt: boolean;
   personal_note: string | null;
   amount_eur: string | null;
   payout_method: string;
   status: 'pending' | 'paid';
   paid_at: Date | null;
   rate_tasa: string | null;
-  amount_ves_to_pay: string;
+  amount_ves_to_pay: string | null;
   client_payment_note: string | null;
   client_paid_at: Date | null;
   client_payment_method: ClientPaymentMethod | null;
@@ -684,13 +715,15 @@ function toSending(r: RawSending): Sending {
     client_name: r.client_name,
     created_at: r.created_at,
     is_personal: r.is_personal,
+    is_usdt: r.is_usdt,
     personal_note: r.personal_note,
     amount_eur: r.amount_eur === null ? null : num(r.amount_eur),
     payout_method: r.payout_method,
     status: r.status,
     paid_at: r.paid_at,
     rate_tasa: r.rate_tasa === null ? null : num(r.rate_tasa),
-    amount_ves_to_pay: num(r.amount_ves_to_pay),
+    // Null only on an Envío USDT, exactly like amount_eur / rate_tasa above.
+    amount_ves_to_pay: r.amount_ves_to_pay === null ? null : num(r.amount_ves_to_pay),
     client_payment_note: r.client_payment_note,
     client_paid_at: r.client_paid_at,
     client_payment_method: r.client_payment_method,
@@ -706,7 +739,7 @@ export async function listSendings(limit = 500): Promise<Sending[]> {
   const sql = getSql();
   const rows = await sql<RawSending[]>`
     select s.id, s.payment_group_id, s.client_id, c.name as client_name, s.created_at,
-           s.is_personal, s.personal_note, s.amount_eur,
+           s.is_personal, s.is_usdt, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
            s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
@@ -722,7 +755,7 @@ export async function listPendingSendings(): Promise<Sending[]> {
   const sql = getSql();
   const rows = await sql<RawSending[]>`
     select s.id, s.payment_group_id, s.client_id, c.name as client_name, s.created_at,
-           s.is_personal, s.personal_note, s.amount_eur,
+           s.is_personal, s.is_usdt, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
            s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
@@ -745,6 +778,10 @@ export async function listPendingSendings(): Promise<Sending[]> {
  * Envios propios are excluded, and permanently: their client_paid_at is null
  * forever because there is no client, so they would otherwise fill this picker
  * up with rows no codigo can ever pay for.
+ *
+ * Envios USDT are excluded too, deliberately: this operation is not linked to
+ * a codigo either at creation (createUsdtSending never offers one) or through
+ * this picker afterwards, so it never appears here in the first place.
  */
 export interface OpenSendingGroup {
   /** Representative sending id used to select and lock the whole group. */
@@ -779,7 +816,7 @@ export async function listOpenSendings(): Promise<OpenSendingGroup[]> {
            case when count(*) = 1 then min(s.payout_method)
                 else count(*)::text || ' partes' end as payout_method
     from sendings s
-    where s.client_paid_at is null and s.is_personal = false
+    where s.client_paid_at is null and s.is_personal = false and s.is_usdt = false
     group by s.payment_group_id, s.client_id
     order by min(s.created_at) desc, min(s.id) desc
   `;
@@ -950,6 +987,104 @@ export async function createPersonalSending(input: {
       payoutMethod: input.payout_method,
       personalNote: input.personal_note,
       amountVesToPay,
+    };
+  });
+}
+
+export interface CreateUsdtSendingResult {
+  id: number;
+  clientName: string;
+  amountEur: number;
+  usdtUsed: number;
+  costEur: number;
+  profitEur: number;
+  /** USDT the pool could not cover, booked as a backorder on the newest lot. */
+  usdtShortfall: number;
+}
+
+/**
+ * Log an ENVÍO USDT: José pays the client's EUR by sending USDT straight to a
+ * Binance account the client gave him, instead of bolívares into a Venezuelan
+ * bank. See migration 019.
+ *
+ * Unlike createSending / createPersonalSending, nothing here is left for a
+ * later payment step. Those two log the client-facing side first and draw a
+ * pool only when Jose later marks the beneficiary paid, because until then
+ * the funding is not decided. Here it already is: the USDT leave Binance the
+ * moment this is logged, so the draw — through computeDirectPayment, the same
+ * function paySendingDirect uses — happens right here, in the same
+ * transaction as the insert, and the row is written already status = 'paid'.
+ *
+ * The client side stays completely independent: client_paid_at is not set by
+ * this at all, and is recorded later exactly like any other sending, through
+ * the existing "marcar cobrado" flow.
+ */
+export async function createUsdtSending(input: {
+  client_id: number;
+  amount_eur: number;
+  usdt_delivered: number;
+  created_at: Date;
+}): Promise<CreateUsdtSendingResult> {
+  if (!(input.amount_eur > 0)) {
+    throw new Error('El monto en EUR debe ser mayor que cero.');
+  }
+
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const [client] = await tx<{ id: number; name: string }[]>`
+      select id, name from clients where id = ${input.client_id}
+    `;
+    if (!client) throw new Error('Cliente no encontrado.');
+
+    const usdtLots = await lockUsdtLots(tx);
+
+    // Same function paySendingDirect calls when a client sending is settled by
+    // selling straight into a beneficiary's account. usdtSold here means USDT
+    // delivered to the CLIENT's own Binance account instead, but there are no
+    // bolivares in either case and the arithmetic is identical.
+    const payment = computeDirectPayment({
+      amountEur: input.amount_eur,
+      usdtSold: input.usdt_delivered,
+      usdtLots,
+    });
+
+    const [sending] = await tx<{ id: number }[]>`
+      insert into sendings
+        (payment_group_id, client_id, amount_eur, is_usdt, payout_method, status,
+         created_at, paid_at, paid_via, fee_applied, usdt_used, cost_eur, profit_eur)
+      values
+        (${randomUUID()}, ${input.client_id}, ${input.amount_eur}, true, 'Binance', 'paid',
+         ${input.created_at}, ${input.created_at}, 'usdt', false, ${payment.usdtUsed},
+         ${payment.costEur}, ${payment.profitEur})
+      returning id
+    `;
+    const sendingId = id(sending.id);
+
+    // After the insert: these rows point at the sending that was just created.
+    for (const allocation of payment.usdtAllocations) {
+      await tx`
+        insert into sending_lot_allocations
+          (sending_id, crypto_purchase_id, usdt_amount, price_eur_per_usdt)
+        values (${sendingId}, ${allocation.lotId}, ${allocation.amount}, ${allocation.price})
+      `;
+    }
+    for (const update of payment.usdtLotUpdates) {
+      await tx`
+        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
+      `;
+    }
+
+    return {
+      id: sendingId,
+      clientName: client.name,
+      amountEur: input.amount_eur,
+      usdtUsed: payment.usdtUsed,
+      costEur: payment.costEur,
+      // amountEur was passed in non-null above, so computeDirectPayment always
+      // returns a real profitEur here, never the null it uses for an envio
+      // propio's absent amountEur.
+      profitEur: payment.profitEur as number,
+      usdtShortfall: payment.usdtShortfall,
     };
   });
 }
@@ -2769,6 +2904,7 @@ type RawStatsPeriod = {
   usdt_used: string;
   pool_count: string;
   direct_count: string;
+  usdt_count: string;
 };
 
 function toStatsPeriod(row: RawStatsPeriod) {
@@ -2782,6 +2918,7 @@ function toStatsPeriod(row: RawStatsPeriod) {
     usdt_used: num(row.usdt_used),
     pool_count: Number(row.pool_count),
     direct_count: Number(row.direct_count),
+    usdt_count: Number(row.usdt_count),
   };
 }
 
@@ -2899,7 +3036,8 @@ export async function getStats(): Promise<StatsSnapshot> {
         coalesce(sum(amount_ves_to_pay), 0) as ves_paid,
         coalesce(sum(usdt_used), 0) as usdt_used,
         count(*) filter (where paid_via = 'pool') as pool_count,
-        count(*) filter (where paid_via = 'direct') as direct_count
+        count(*) filter (where paid_via = 'direct') as direct_count,
+        count(*) filter (where paid_via = 'usdt') as usdt_count
       from sendings
       where status = 'paid' and paid_at is not null and profit_eur is not null
       group by 1
@@ -2916,7 +3054,8 @@ export async function getStats(): Promise<StatsSnapshot> {
         coalesce(sum(amount_ves_to_pay), 0) as ves_paid,
         coalesce(sum(usdt_used), 0) as usdt_used,
         count(*) filter (where paid_via = 'pool') as pool_count,
-        count(*) filter (where paid_via = 'direct') as direct_count
+        count(*) filter (where paid_via = 'direct') as direct_count,
+        count(*) filter (where paid_via = 'usdt') as usdt_count
       from sendings
       where status = 'paid' and paid_at is not null and profit_eur is not null
       group by 1
@@ -2933,7 +3072,8 @@ export async function getStats(): Promise<StatsSnapshot> {
         coalesce(sum(amount_ves_to_pay), 0) as ves_paid,
         coalesce(sum(usdt_used), 0) as usdt_used,
         count(*) filter (where paid_via = 'pool') as pool_count,
-        count(*) filter (where paid_via = 'direct') as direct_count
+        count(*) filter (where paid_via = 'direct') as direct_count,
+        count(*) filter (where paid_via = 'usdt') as usdt_count
       from sendings
       where status = 'paid' and paid_at is not null and profit_eur is not null
         and (paid_at at time zone 'Europe/Madrid')::date >=
@@ -3083,6 +3223,7 @@ export async function getStats(): Promise<StatsSnapshot> {
           usdt_used: '0',
           pool_count: '0',
           direct_count: '0',
+          usdt_count: '0',
         }),
       },
       inventory: {

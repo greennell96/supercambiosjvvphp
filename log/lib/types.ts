@@ -52,8 +52,12 @@ export interface CurrentRates {
 
 export type SendingStatus = 'pending' | 'paid';
 
-/** How a paid sending was funded. */
-export type PaidVia = 'pool' | 'direct';
+/**
+ * How a paid sending was funded. 'usdt' is its own value rather than folded
+ * into 'direct': 'direct' means sold into a beneficiary's VES account, and an
+ * Envío USDT has no VES account anywhere in it. See migration 019.
+ */
+export type PaidVia = 'pool' | 'direct' | 'usdt';
 
 /**
  * How the client handed Jose the money here in Spain. Jose's own six options,
@@ -115,6 +119,17 @@ export interface Sending {
    */
   is_personal: boolean;
 
+  /**
+   * An "Envío USDT": Jose pays the client's EUR by sending USDT straight to a
+   * Binance account the client gave him, instead of bolívares into a
+   * Venezuelan bank. Unlike is_personal there IS a client and there IS a
+   * profit line — amount_eur and profit_eur behave exactly as they do on a
+   * normal sending. What is null instead is everything Venezuelan: rate_tasa
+   * and amount_ves_to_pay, because nothing here was ever converted into
+   * bolívares. See migration 019.
+   */
+  is_usdt: boolean;
+
   /** Who the money went to ("a mi hermana"). Only ever set on a propio. */
   personal_note: string | null;
 
@@ -126,9 +141,11 @@ export interface Sending {
   payout_method: string;
   status: SendingStatus;
   paid_at: Date | null;
-  /** The tasa agreed for this transfer. Null on an envío propio: none was. */
+  /** The tasa agreed for this transfer. Null on an envío propio or an Envío
+   *  USDT: neither one has bolívares to convert into. */
   rate_tasa: number | null;
-  amount_ves_to_pay: number;
+  /** Null only on an Envío USDT: no bolívares are ever paid out. */
+  amount_ves_to_pay: number | null;
 
   /**
    * How the client handed the money over in Spain (codigo de cajero, efectivo,
@@ -249,6 +266,13 @@ export interface StatsPeriod {
   pool_count: number;
   /** Number of payout rows funded by a direct sale. */
   direct_count: number;
+  /**
+   * Number of Envío USDT rows. Its own count and not folded into direct_count:
+   * a direct sale puts bolívares in a beneficiary's Venezuelan account, an
+   * Envío USDT sends USDT to the client's Binance. Without this the three
+   * counts would not add up to paid_count and the gap would look like a bug.
+   */
+  usdt_count: number;
 }
 
 export interface StatsFunding {

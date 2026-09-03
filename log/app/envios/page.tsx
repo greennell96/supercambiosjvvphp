@@ -2,16 +2,25 @@ import EnviosList from './envios-list';
 import styles from './envios.module.css';
 import NuevoEnvioForm from './nuevo-envio-form';
 import Shell from '../shell';
-import { getRates, listClients, listSendings, listUnlinkedCodigos } from '@/lib/queries';
+import {
+  getRates,
+  listActiveUsdtLots,
+  listClients,
+  listSendings,
+  listUnlinkedCodigos,
+} from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EnviosPage() {
-  const [clients, sendings, rates, unlinkedCodigos] = await Promise.all([
+  const [clients, sendings, rates, unlinkedCodigos, usdtLots] = await Promise.all([
     listClients(),
     listSendings(),
     getRates(),
     listUnlinkedCodigos(),
+    // Read once, server-side, for the Envío USDT calculator — the same pattern
+    // app/page.tsx uses to hand RatesForm the pool it prices.
+    listActiveUsdtLots(),
   ]);
 
   return (
@@ -42,7 +51,7 @@ export default async function EnviosPage() {
         )}
       </div>
 
-      <NuevoEnvioForm clients={clients} suggestedTasa={rates.tasa_eur_ves} />
+      <NuevoEnvioForm clients={clients} suggestedTasa={rates.tasa_eur_ves} usdtLots={usdtLots} />
     </Shell>
   );
 }

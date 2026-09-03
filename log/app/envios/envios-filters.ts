@@ -43,8 +43,13 @@ export function sortEnvios<T extends Pick<Sending, 'id' | 'created_at' | 'amount
 ): T[] {
   return [...sendings].sort((a, b) => {
     if (sort === 'amount') {
+      // Null only on an Envío USDT, which has no bolívares to rank by "Mayor Bs
+      // primero" in the first place. Treated as 0, the same as if it owed
+      // nothing over there — which, in bolívares, is exactly true.
+      const aVes = a.amount_ves_to_pay ?? 0;
+      const bVes = b.amount_ves_to_pay ?? 0;
       return (
-        b.amount_ves_to_pay - a.amount_ves_to_pay ||
+        bVes - aVes ||
         a.created_at.getTime() - b.created_at.getTime() ||
         a.id - b.id
       );

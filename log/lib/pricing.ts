@@ -207,12 +207,16 @@ export interface UsdtCost {
 /**
  * Cost a batch of USDT against the crypto_purchases pool.
  *
- * This runs at the two moments USDT actually leaves Binance, and only there:
+ * This runs at the three moments USDT actually leaves Binance, and only there:
  *
  *   - a P2P sale whose bolivares land in Jose's account (createVesSale in
  *     lib/queries.ts). The cost is stored on the sale and becomes the cost basis
  *     of the bolivares it put in the pool.
  *   - a sale straight into a beneficiary's account (computeDirectPayment).
+ *   - an Envio USDT, where the USDT go straight to a Binance account the
+ *     CLIENT gave Jose instead of into anybody's Venezuelan bank — no
+ *     bolivares exist anywhere in that operation (createUsdtSending in
+ *     lib/queries.ts, through this same computeDirectPayment).
  *
  * Paying a sending out of the pool does NOT come through here: its USDT were
  * spent, and costed, by the sale that produced those bolivares.
@@ -371,6 +375,11 @@ export interface DirectPaymentInput {
  * (b) Sell straight into the beneficiary's account.
  * No VES pool draw and no interbank fee — Jose is giving the real USDT figure,
  * and these USDT are leaving Binance right now, so here is where they cost.
+ *
+ * createUsdtSending reuses this unchanged for an Envio USDT: usdtSold there
+ * means USDT delivered to the CLIENT's own Binance account rather than sold
+ * into a beneficiary's VES account, but no bolivares exist in either case and
+ * the arithmetic — draw, cost, profit — is exactly the same.
  */
 export function computeDirectPayment(input: DirectPaymentInput): DirectPaymentResult {
   const { amountEur, usdtSold, usdtLots } = input;

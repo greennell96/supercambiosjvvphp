@@ -18,7 +18,14 @@ export interface EditableSending {
   /** Null on an envío propio, where the bolívares below are the typed figure. */
   amount_eur: number | null;
   rate_tasa: number | null;
-  amount_ves_to_pay: number;
+  /**
+   * Null only on an Envío USDT. Only ever read below inside the `is_personal`
+   * branch, which an Envío USDT can never take (is_personal is always false on
+   * one), so this stays type-honest with Sending without this form growing a
+   * third branch of its own — see the file-level comment on why one is not
+   * needed at all.
+   */
+  amount_ves_to_pay: number | null;
   payout_method: string;
   client_payment_note: string | null;
 }
@@ -56,6 +63,18 @@ export interface EditableSending {
  * cuadre de códigos. That is why it is editable in every status: a client who
  * sends today and pays tomorrow leaves the sending sitting on the wrong day,
  * and the cuadre then reports a difference that does not exist.
+ *
+ * An Envío USDT deliberately gets NO third branch here, and needs none. It is
+ * always is_personal = false (so it renders the client branch: monto, tasa,
+ * método) and always status = 'paid' from the moment it is created (see
+ * migration 019) — so editMoney is always false on one, the money fields
+ * always render disabled, and the "money" input the action reads is never
+ * sent. What stays open is exactly la fecha and "Cómo pagó el cliente" — the
+ * same two fields any paid client sending can still correct — and neither
+ * touches amount_eur, rate_tasa, amount_ves_to_pay, usdt_used, cost_eur or
+ * profit_eur. Opening this form on one is therefore already safe with no code
+ * change: the existing pending-only guard on editSending's money branch is
+ * what protects it, exactly as it protects any other already-paid sending.
  */
 export default function EditSendingForm({ sending }: { sending: EditableSending }) {
   const [state, formAction, pending] = useActionState<EditSendingState, FormData>(

@@ -82,6 +82,10 @@ export default async function StatsPage() {
             <dd>{fmtCount(recent.direct_count)}</dd>
           </div>
           <div>
+            <dt>Envíos USDT</dt>
+            <dd>{fmtCount(recent.usdt_count)}</dd>
+          </div>
+          <div>
             <dt>Ganancia acumulada</dt>
             <dd>{fmtEur(earnings.profit_eur)}</dd>
           </div>
@@ -545,7 +549,7 @@ function MonthlyTable({ rows }: { rows: StatsPeriod[] }) {
                 <th className="num">EUR</th>
                 <th className="num">Ganancia</th>
                 <th className="num">Margen</th>
-                <th className="num">Operaciones pool/directas</th>
+                <th className="num">Operaciones pool/directas/USDT</th>
               </tr>
             </thead>
             <tbody>
@@ -558,8 +562,9 @@ function MonthlyTable({ rows }: { rows: StatsPeriod[] }) {
                     {fmtEur(period.profit_eur)}
                   </td>
                   <td className="num" data-label="Margen">{fmtPercent(marginPercent(period.profit_eur, period.revenue_eur))}</td>
-                  <td className="num" data-label="Operaciones pool/directas">
-                    {fmtCount(period.pool_count)} / {fmtCount(period.direct_count)}
+                  <td className="num" data-label="Operaciones pool/directas/USDT">
+                    {fmtCount(period.pool_count)} / {fmtCount(period.direct_count)} /{' '}
+                    {fmtCount(period.usdt_count)}
                   </td>
                 </tr>
               ))}

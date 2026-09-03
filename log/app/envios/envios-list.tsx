@@ -124,9 +124,23 @@ export default function EnviosList({
         Coloured so it is found rather than read past — see .payout-amount, which
         is only ever this number. The cell's own attributes are untouched;
         data-money is the mobile card's sizing hook and says nothing about colour.
+
+        Null, not zero, on an Envío USDT: no bolívares exist anywhere in that
+        operation, and it must read exactly as empty as it is — see the USDT
+        column further down for what a USDT row shows instead.
       */}
-      <td className="num" data-label="Bs a pagar" data-wide data-money>
-        <span className="payout-amount">{fmtVes(s.amount_ves_to_pay)}</span>
+      <td
+        className="num"
+        data-label="Bs a pagar"
+        data-wide
+        data-money
+        data-empty={s.amount_ves_to_pay === null ? true : undefined}
+      >
+        {s.amount_ves_to_pay === null ? (
+          '—'
+        ) : (
+          <span className="payout-amount">{fmtVes(s.amount_ves_to_pay)}</span>
+        )}
       </td>
       <td data-label="Fecha">{fmtDateTime(s.created_at)}</td>
       <td data-label="Estado">
@@ -143,7 +157,13 @@ export default function EnviosList({
         data-secondary-accounting
         data-empty={s.paid_via === null ? true : undefined}
       >
-        {s.paid_via === 'pool' ? 'pool' : s.paid_via === 'direct' ? 'directo' : '—'}
+        {s.paid_via === 'pool'
+          ? 'pool'
+          : s.paid_via === 'direct'
+            ? 'directo'
+            : s.paid_via === 'usdt'
+              ? 'USDT'
+              : '—'}
         {s.fee_applied ? <span className="muted"> +0,3%</span> : null}
       </td>
       {/*
@@ -190,7 +210,25 @@ export default function EnviosList({
         data-secondary-accounting
         data-empty={s.usdt_used === null ? true : undefined}
       >
-        {s.usdt_used === null ? '—' : fmtUsdt(s.usdt_used)}
+        {s.usdt_used === null ? (
+          '—'
+        ) : (
+          <>
+            {fmtUsdt(s.usdt_used)}
+            {/*
+              A price, never a tasa: an Envío USDT has no bolívares anywhere in
+              it, so there is no VES/EUR rate to show — see the "Tasa" and "Bs a
+              pagar" cells above, both dashes on this row. What it DOES have is
+              a EUR/USDT price, and exactly like every price in lib/pools.ts it
+              is derived from the two real amounts that changed hands rather
+              than stored: amount_eur is never null on this kind of row (see
+              migration 019), so this division is always safe here.
+            */}
+            {s.is_usdt && s.amount_eur !== null && s.usdt_used > 0 ? (
+              <span className="muted"> · {fmtRate(s.amount_eur / s.usdt_used)} €/USDT</span>
+            ) : null}
+          </>
+        )}
       </td>
       <td
         className="num"
@@ -325,7 +363,10 @@ export default function EnviosList({
           // not what Jose owes, and .payout-amount means exactly the second.
           value:
             s.amount_eur === null ? (
-              <span className="payout-amount">{fmtVes(s.amount_ves_to_pay)}</span>
+              // This branch is an envío propio (an Envío USDT always has an
+              // amount_eur), and a propio always has bolívares to pay — the
+              // ?? 0 only satisfies the type, it is never actually reached.
+              <span className="payout-amount">{fmtVes(s.amount_ves_to_pay ?? 0)}</span>
             ) : (
               fmtEur(s.amount_eur)
             ),

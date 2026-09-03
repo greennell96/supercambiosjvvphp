@@ -8,6 +8,7 @@ const base = {
   client_id: 1,
   client_name: 'Cliente',
   is_personal: false,
+  is_usdt: false,
   personal_note: null,
   amount_eur: 10,
   payout_method: 'ZELLE',

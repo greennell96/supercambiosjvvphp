@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { applyIncomingToBackorders, drawFifo, poolBalance, type Lot } from '../lib/fifo';
+import { computeDirectPayment } from '../lib/pricing';
 import {
   compraDeletionBlocker,
   restoreDrawnAmounts,
@@ -89,6 +90,26 @@ describe('restoreDrawnAmounts', () => {
 
     expect(back).toEqual(start);
     expect(poolBalance(back)).toBeCloseTo(30500, 10);
+  });
+
+  /**
+   * An Envío USDT (migration 019) draws crypto_purchases through
+   * computeDirectPayment, exactly like a direct client payout does — see
+   * createUsdtSending. deleteSendingInTx gives that draw back through this
+   * very restoreDrawnAmounts, against the sending_lot_allocations rows the
+   * draw itself wrote, with no code of its own: this test is the proof that
+   * reversing one really does fall out of the existing mechanism for free.
+   */
+  it("undoes an Envío USDT's draw the same way any other direct draw is undone", () => {
+    const start = [lot(1, 1, 0.9, 200), lot(2, 2, 0.95, 1000)];
+    const payment = computeDirectPayment({ amountEur: 250, usdtSold: 250, usdtLots: start });
+    const afterDraw = applyUpdates(start, payment.usdtLotUpdates);
+    expect(poolBalance(afterDraw)).toBeCloseTo(950, 10);
+
+    const back = applyUpdates(afterDraw, restoreDrawnAmounts(afterDraw, payment.usdtAllocations));
+
+    expect(back).toEqual(start);
+    expect(poolBalance(back)).toBeCloseTo(1200, 10);
   });
 
   /**
