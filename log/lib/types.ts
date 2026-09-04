@@ -329,10 +329,12 @@ export interface StatsSnapshot {
     profit_eur: number;
     paid_count: number;
     today_profit_eur: number;
+    today_revenue_eur: number;
+    today_count: number;
     month_profit_eur: number;
     negative_profit_count: number;
-    /** Realized row-level performance across the last seven Madrid calendar days. */
-    seven_day: StatsPeriod;
+    /** Client envíos where both sides are settled; a split payment counts once. */
+    completed: { count: number; revenue_eur: number; profit_eur: number };
   };
   inventory: {
     purchase_eur: number;

@@ -27,7 +27,7 @@ import {
   getStats,
   listRetiroEntregas,
 } from '@/lib/queries';
-import { marginPercent } from '@/lib/stats';
+import { averagePerItem, marginPercent } from '@/lib/stats';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +43,9 @@ export default async function StatsPage() {
       listRetiroEntregas(),
     ]);
   const { current, earnings, inventory } = stats;
-  const recent = earnings.seven_day;
+  // averagePerItem returns null on a zero-count set; fmtEur does not accept
+  // null, so render that case as an em dash instead of dividing by zero.
+  const fmtEurOrDash = (value: number | null) => (value === null ? '—' : fmtEur(value));
 
   return (
     <Shell>
@@ -55,41 +57,60 @@ export default async function StatsPage() {
         <p>Decisiones de hoy primero; el detalle histórico queda a mano cuando haga falta.</p>
       </header>
 
-      <section className={`earnings-summary ${styles.hero}`} aria-labelledby="recent-title">
+      <section className={`earnings-summary ${styles.hero}`} aria-labelledby="today-title">
         <div className="earnings-primary">
-          <p className="eyebrow" id="recent-title">
-            Últimos 7 días
+          <p className="eyebrow" id="today-title">
+            Hoy
           </p>
-          <div className={recent.profit_eur < 0 ? 'money-xl negative-value' : 'money-xl'}>
-            {fmtEur(recent.profit_eur)}
+          <div
+            className={
+              earnings.today_profit_eur < 0 ? 'money-xl negative-value' : 'money-xl'
+            }
+          >
+            {fmtEur(earnings.today_profit_eur)}
           </div>
           <p>
-            {fmtCount(recent.paid_count)} grupos con pagos ·{' '}
-            {fmtEur(recent.revenue_eur)} gestionados
+            {fmtCount(earnings.today_count)} envíos pagados ·{' '}
+            {fmtEur(earnings.today_revenue_eur)} gestionados
           </p>
         </div>
-        <dl className="earnings-strip">
-          <div>
-            <dt>Margen</dt>
-            <dd>{fmtPercent(marginPercent(recent.profit_eur, recent.revenue_eur))}</dd>
-          </div>
-          <div>
-            <dt>Operaciones pool VES</dt>
-            <dd>{fmtCount(recent.pool_count)}</dd>
-          </div>
-          <div>
-            <dt>Operaciones directas</dt>
-            <dd>{fmtCount(recent.direct_count)}</dd>
-          </div>
-          <div>
-            <dt>Envíos USDT</dt>
-            <dd>{fmtCount(recent.usdt_count)}</dd>
-          </div>
-          <div>
-            <dt>Ganancia acumulada</dt>
-            <dd>{fmtEur(earnings.profit_eur)}</dd>
-          </div>
-        </dl>
+        <div>
+          <dl className="earnings-strip">
+            <div>
+              <dt>Mes en curso</dt>
+              <dd>{fmtEur(earnings.month_profit_eur)}</dd>
+            </div>
+            <div>
+              <dt>Ganancia total</dt>
+              <dd>{fmtEur(earnings.profit_eur)}</dd>
+            </div>
+            <div>
+              <dt>Ganancia media %</dt>
+              <dd>
+                {fmtPercent(
+                  marginPercent(earnings.completed.profit_eur, earnings.completed.revenue_eur),
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Envíos completados</dt>
+              <dd>{fmtCount(earnings.completed.count)}</dd>
+            </div>
+            <div>
+              <dt>Ticket medio</dt>
+              <dd>{fmtEurOrDash(averagePerItem(earnings.completed.revenue_eur, earnings.completed.count))}</dd>
+            </div>
+            <div>
+              <dt>Ganancia media</dt>
+              <dd>{fmtEurOrDash(averagePerItem(earnings.completed.profit_eur, earnings.completed.count))}</dd>
+            </div>
+          </dl>
+          <p className={styles.heroScope}>
+            Mes en curso desde el día 1; el resto, histórico completo. Los promedios cuentan solo
+            envíos de clientes completados —pagados por ti y cobrados al cliente— y un envío
+            dividido cuenta como uno.
+          </p>
+        </div>
       </section>
 
       {stats.zero_cost_paid_sendings > 0 ? (

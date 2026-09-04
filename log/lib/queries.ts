@@ -3073,7 +3073,7 @@ export async function getStats(): Promise<StatsSnapshot> {
       [earnings],
       monthlyRows,
       dailyRows,
-      [sevenDay],
+      [completed],
       fundingRows,
       [inventory],
       clientRows,
@@ -3139,6 +3139,8 @@ export async function getStats(): Promise<StatsSnapshot> {
           profit_eur: string;
           paid_count: string;
           today_profit_eur: string;
+          today_revenue_eur: string;
+          today_count: string;
           month_profit_eur: string;
           negative_profit_count: string;
         }[]
@@ -3152,6 +3154,14 @@ export async function getStats(): Promise<StatsSnapshot> {
           where (paid_at at time zone 'Europe/Madrid')::date =
                 (now() at time zone 'Europe/Madrid')::date
         ), 0) as today_profit_eur,
+        coalesce(sum(amount_eur) filter (
+          where (paid_at at time zone 'Europe/Madrid')::date =
+                (now() at time zone 'Europe/Madrid')::date
+        ), 0) as today_revenue_eur,
+        count(distinct payment_group_id) filter (
+          where (paid_at at time zone 'Europe/Madrid')::date =
+                (now() at time zone 'Europe/Madrid')::date
+        ) as today_count,
         coalesce(sum(profit_eur) filter (
           where date_trunc('month', paid_at at time zone 'Europe/Madrid') =
                 date_trunc('month', now() at time zone 'Europe/Madrid')
@@ -3196,24 +3206,28 @@ export async function getStats(): Promise<StatsSnapshot> {
       order by 1 desc
       limit 14
     `,
-      tx<RawStatsPeriod[]>`
+      // "Envio completado" = a client sending, grouped by payment_group_id, where
+      // every part is paid by Jose AND collected from the client. Grouping is what
+      // makes a split payment count once; bool_and is what makes "completado" mean
+      // EVERY part, not just one — a group with one part paid and one pending is
+      // not complete and must not contribute its revenue. Envios propios have no
+      // client and no profit, so they are excluded outright.
+      tx<{ completed_count: string; completed_revenue_eur: string; completed_profit_eur: string }[]>`
       select
-        '7d' as period,
-        count(distinct payment_group_id) as paid_count,
-        coalesce(sum(amount_eur), 0) as revenue_eur,
-        coalesce(sum(cost_eur), 0) as cost_eur,
-        coalesce(sum(profit_eur), 0) as profit_eur,
-        coalesce(sum(amount_ves_to_pay), 0) as ves_paid,
-        coalesce(sum(usdt_used), 0) as usdt_used,
-        count(*) filter (where paid_via = 'pool') as pool_count,
-        count(*) filter (where paid_via = 'direct') as direct_count,
-        count(*) filter (where paid_via = 'usdt') as usdt_count
-      from sendings
-      where status = 'paid' and paid_at is not null and profit_eur is not null
-        and (paid_at at time zone 'Europe/Madrid')::date >=
-            (now() at time zone 'Europe/Madrid')::date - 6
-        and (paid_at at time zone 'Europe/Madrid')::date <=
-            (now() at time zone 'Europe/Madrid')::date
+        count(*) as completed_count,
+        coalesce(sum(revenue_eur), 0) as completed_revenue_eur,
+        coalesce(sum(profit_eur), 0) as completed_profit_eur
+      from (
+        select payment_group_id,
+               sum(amount_eur) as revenue_eur,
+               sum(profit_eur) as profit_eur
+        from sendings
+        where is_personal = false
+        group by payment_group_id
+        having bool_and(status = 'paid')
+           and bool_and(client_paid_at is not null)
+           and bool_and(profit_eur is not null)
+      ) completed
     `,
       tx<
         {
@@ -3345,20 +3359,15 @@ export async function getStats(): Promise<StatsSnapshot> {
         profit_eur: num(earnings.profit_eur),
         paid_count: Number(earnings.paid_count),
         today_profit_eur: num(earnings.today_profit_eur),
+        today_revenue_eur: num(earnings.today_revenue_eur),
+        today_count: Number(earnings.today_count),
         month_profit_eur: num(earnings.month_profit_eur),
         negative_profit_count: Number(earnings.negative_profit_count),
-        seven_day: toStatsPeriod(sevenDay ?? {
-          period: '7d',
-          paid_count: '0',
-          revenue_eur: '0',
-          cost_eur: '0',
-          profit_eur: '0',
-          ves_paid: '0',
-          usdt_used: '0',
-          pool_count: '0',
-          direct_count: '0',
-          usdt_count: '0',
-        }),
+        completed: {
+          count: Number(completed.completed_count),
+          revenue_eur: num(completed.completed_revenue_eur),
+          profit_eur: num(completed.completed_profit_eur),
+        },
       },
       inventory: {
         purchase_eur: num(inventory.purchase_eur),

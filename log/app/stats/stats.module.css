@@ -6,6 +6,16 @@
   box-shadow: 0 10px 24px rgb(27 67 50 / 10%);
 }
 
+/* Makes the hero's scope (current month vs. all-time, completed envios only)
+   explicit on the card itself, at the same muted-on-green register as
+   .earnings-strip dt in globals.css. */
+.heroScope {
+  margin: 10px 0 0;
+  color: #cfe2d4;
+  font-size: 12px;
+  text-transform: none;
+}
+
 .sectionLink {
   display: inline-flex;
   min-height: 44px;
