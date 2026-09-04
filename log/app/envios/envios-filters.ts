@@ -59,6 +59,36 @@ export function sortEnvios<T extends Pick<Sending, 'id' | 'created_at' | 'amount
   });
 }
 
+/**
+ * The order the pending workspace stands in: what José still owes first, then
+ * what he is still owed.
+ *
+ * Both are unfinished, but they are not the same kind of unfinished. A sending
+ * José has not paid is a beneficiary in Venezuela who has not received money —
+ * it is work, and it is somebody else's problem until he does it. A sending he
+ * has paid but not collected is his own money outstanding: real, but nobody is
+ * waiting on him for it. So the first group goes on top whatever the sort.
+ *
+ * `status === 'pending'` is the whole test for the first group. It catches the
+ * rows where neither side has paid and the envíos propios alike, because both
+ * are money that still has to leave José's hands. Every row reaching here has
+ * already been filtered to the unfinished ones, so the remainder is exactly
+ * "José paid, the client has not" — see matchesEnviosFilter above.
+ *
+ * The chosen sort is applied FIRST and the split is a stable partition of that
+ * result, so "Más antiguos primero" still means oldest-first inside each group
+ * rather than being overridden by it.
+ */
+export function orderPendingEnvios<
+  T extends Pick<Sending, 'id' | 'created_at' | 'amount_ves_to_pay' | 'status'>,
+>(sendings: readonly T[], sort: EnviosSort): T[] {
+  const sorted = sortEnvios(sendings, sort);
+  return [
+    ...sorted.filter((sending) => sending.status === 'pending'),
+    ...sorted.filter((sending) => sending.status !== 'pending'),
+  ];
+}
+
 export const ENVIOS_FILTERS: readonly { value: EnviosFilter; label: string }[] = [
   { value: 'all', label: 'Todos' },
   { value: 'client', label: 'Falta cobrar' },

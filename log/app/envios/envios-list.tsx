@@ -8,14 +8,18 @@ import {
   filterEnvios,
   type EnviosFilter,
   type EnviosSort,
+  orderPendingEnvios,
   sortEnvios,
 } from './envios-filters';
 import styles from './envios.module.css';
+import NuevoEnvioForm from './nuevo-envio-form';
 import ClientPaidActions, { type PickerCodigo } from '../components/client-paid-actions';
+import { type PickerClient } from '../components/client-picker';
 import DeleteRowForm from '../components/delete-row-form';
 import EditSendingForm from '../components/edit-sending-form';
 import LedgerList from '../components/ledger-list';
 import PaySendingActions from '../components/pay-sending-actions';
+import type { Lot } from '@/lib/fifo';
 import { fmtDateTime, fmtEur, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
 import { sendingPaymentRowClass, sendingPaymentState } from '@/lib/sending-payment-state';
 import { CLIENT_PAYMENT_METHOD_LABELS, type Sending } from '@/lib/types';
@@ -67,17 +71,31 @@ export default function EnviosList({
   sendings,
   unlinkedCodigos,
   now,
+  clients,
+  suggestedTasa,
+  usdtLots,
 }: {
   sendings: Sending[];
   unlinkedCodigos: PickerCodigo[];
   /** Stable server-render instant so the Madrid-day colour cannot hydration-drift. */
   now: string;
+  /*
+    The creation form's three props, passed straight through. The form used to
+    be a sibling of this component, mounted below the whole log; it now opens
+    from the toolbar, so its open/closed state and this component's filters have
+    to live in the same place — here, the only client component on the page that
+    already owns state.
+  */
+  clients: PickerClient[];
+  suggestedTasa: number;
+  usdtLots: Lot[];
 }) {
   const [filter, setFilter] = useState<EnviosFilter>('all');
   const [sort, setSort] = useState<EnviosSort>('oldest');
+  const [creating, setCreating] = useState(false);
 
   const pendingRows = useMemo(
-    () => sortEnvios(filterEnvios(sendings, filter, now), sort),
+    () => orderPendingEnvios(filterEnvios(sendings, filter, now), sort),
     [filter, now, sendings, sort],
   );
   const complete = useMemo(
@@ -208,10 +226,24 @@ export default function EnviosList({
         className="num"
         data-label="USDT"
         data-secondary-accounting
-        data-empty={s.usdt_used === null ? true : undefined}
+        data-empty={s.usdt_used === null && s.usdt_to_deliver === null ? true : undefined}
       >
         {s.usdt_used === null ? (
-          '—'
+          s.usdt_to_deliver === null ? (
+            '—'
+          ) : (
+            <>
+              {/*
+                A pending Envío USDT (migration 020): nothing has been drawn
+                yet, so this is what José undertook to deliver, not what it
+                cost — hence the muted suffix, same voice as the " +0,3%" and
+                " €/USDT" suffixes below, so it reads as a qualifier and not a
+                second number.
+              */}
+              {fmtUsdt(s.usdt_to_deliver)}
+              <span className="muted"> a entregar</span>
+            </>
+          )
         ) : (
           <>
             {fmtUsdt(s.usdt_used)}
@@ -222,7 +254,8 @@ export default function EnviosList({
               a EUR/USDT price, and exactly like every price in lib/pools.ts it
               is derived from the two real amounts that changed hands rather
               than stored: amount_eur is never null on this kind of row (see
-              migration 019), so this division is always safe here.
+              migration 020), so this division is always safe here. Only shown
+              once usdt_used is real — while pending there is no cost yet.
             */}
             {s.is_usdt && s.amount_eur !== null && s.usdt_used > 0 ? (
               <span className="muted"> · {fmtRate(s.amount_eur / s.usdt_used)} €/USDT</span>
@@ -249,7 +282,7 @@ export default function EnviosList({
       <td data-label="Acciones" data-wide data-actions>
         <div className={`row-actions ${styles.actionRail}`}>
           {s.status === 'pending' ? (
-            <PaySendingActions sendingId={s.id} isPersonal={s.is_personal} />
+            <PaySendingActions sendingId={s.id} isPersonal={s.is_personal} isUsdt={s.is_usdt} />
           ) : null}
           {/* Nothing to collect on an envío propio; markClientPaid refuses one too. */}
           {!s.is_personal && s.client_paid_at === null ? (
@@ -268,21 +301,39 @@ export default function EnviosList({
       <div className={styles.toolbar} role="toolbar" aria-label="Filtros y orden de envíos">
         <div className={styles.filterBlock}>
           <span className={styles.filterLabel}>Trabajo pendiente</span>
-          <div className={styles.filterButtons} role="group" aria-label="Filtrar pendientes">
-            {ENVIOS_FILTERS.map(({ value, label }) => (
-              <button
-                className={`${styles.filterButton} ${
-                  filter === value ? styles.filterButtonActive : ''
-                }`}
-                key={value}
-                type="button"
-                aria-pressed={filter === value}
-                onClick={() => setFilter(value)}
-              >
-                {label}
-                <span className={styles.filterCount}>{pendingCounts[value]}</span>
-              </button>
-            ))}
+          <div className={styles.filterRow}>
+            <div className={styles.filterButtons} role="group" aria-label="Filtrar pendientes">
+              {ENVIOS_FILTERS.map(({ value, label }) => (
+                <button
+                  className={`${styles.filterButton} ${
+                    filter === value ? styles.filterButtonActive : ''
+                  }`}
+                  key={value}
+                  type="button"
+                  aria-pressed={filter === value}
+                  onClick={() => setFilter(value)}
+                >
+                  {label}
+                  <span className={styles.filterCount}>{pendingCounts[value]}</span>
+                </button>
+              ))}
+            </div>
+            {/*
+              Deliberately OUTSIDE the filter group above: it is the one control
+              here that does not filter anything, and putting it inside would
+              announce it as a fifth filter to a screen reader. It sits beside
+              them because that is where the work starts — logging an envío is
+              the first thing José does on this page, and the form used to be
+              below the entire log.
+            */}
+            <button
+              className={styles.newSendingButton}
+              type="button"
+              aria-expanded={creating}
+              onClick={() => setCreating((shown) => !shown)}
+            >
+              {creating ? 'Cerrar formulario' : 'Nuevo envío'}
+            </button>
           </div>
         </div>
         <div className={styles.sortControl}>
@@ -300,6 +351,13 @@ export default function EnviosList({
           </select>
         </div>
       </div>
+
+      <NuevoEnvioForm
+        clients={clients}
+        suggestedTasa={suggestedTasa}
+        usdtLots={usdtLots}
+        open={creating}
+      />
 
       <section className={styles.pendingSection} aria-labelledby="pending-heading">
         <div className={styles.pendingHeader}>
@@ -325,9 +383,11 @@ export default function EnviosList({
           </div>
         ) : (
           <p className={styles.pendingEmpty}>
-            {filter === 'all'
-              ? 'Todo al día. No hay pagos pendientes.'
-              : 'No hay envíos en este filtro.'}
+            {sendings.length === 0
+              ? 'Todavía no hay envíos.'
+              : filter === 'all'
+                ? 'Todo al día. No hay pagos pendientes.'
+                : 'No hay envíos en este filtro.'}
           </p>
         )}
       </section>

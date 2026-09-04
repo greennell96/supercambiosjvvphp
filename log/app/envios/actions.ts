@@ -158,16 +158,15 @@ export interface NuevoEnvioUsdtState {
 /**
  * Log an "Envío USDT": José pays a client's EUR by sending USDT straight to a
  * Binance account the client gave him, instead of bolívares into a Venezuelan
- * bank. See migration 019 and createUsdtSending.
+ * bank. See migration 020 and createUsdtSending.
  *
- * Unlike crearEnvioAction this writes an already-paid row: the USDT leave
- * Binance the moment this is logged, so there is no separate "marcar pagado"
- * step and no método de pago to choose — that concept does not exist here,
- * the way it does not for a normal sending's "Pago Móvil"/"Otro"/"Directa"
- * choice, because the funding is not a later decision at all.
- *
- * Revalidates /compras too, on top of the usual three: the USDT pool moved,
- * exactly as paying a client sending directly already does.
+ * Like crearEnvioAction and crearEnvioPersonalAction, and unlike its own
+ * previous version under migration 019, this writes an ordinary pending row:
+ * José logs the obligation now and sends the USDT later, so nothing is drawn
+ * here and there is a separate "marcar pagado" step — paySendingUsdtAction —
+ * exactly like the other two kinds get. There is still no método de pago to
+ * choose here: an Envío USDT is always Binance, and that never was a later
+ * funding decision the way a client sending's payout method is.
  */
 export async function crearEnvioUsdtAction(
   _prev: NuevoEnvioUsdtState,
@@ -175,15 +174,15 @@ export async function crearEnvioUsdtAction(
 ): Promise<NuevoEnvioUsdtState> {
   const clientId = parseId(formData.get('client_id'));
   const amountEur = parseDecimal(formData.get('amount_eur'));
-  const usdtDelivered = parseDecimal(formData.get('usdt_delivered'));
+  const usdtToDeliver = parseDecimal(formData.get('usdt_to_deliver'));
   const createdAtRaw = text(formData.get('created_at'));
 
   if (!clientId) return { error: 'Elige un cliente de la lista.' };
   if (amountEur === null || !(amountEur > 0)) {
     return { error: 'Escribe un monto en EUR mayor que cero.' };
   }
-  if (usdtDelivered === null || !(usdtDelivered > 0)) {
-    return { error: 'Escribe los USDT entregados (mayor que cero).' };
+  if (usdtToDeliver === null || !(usdtToDeliver > 0)) {
+    return { error: 'Escribe los USDT a entregar (mayor que cero).' };
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(createdAtRaw)) return { error: 'Elige una fecha válida.' };
   // Noon UTC, not midnight — same reason editSendingAction picks it: Madrid is
@@ -196,13 +195,11 @@ export async function crearEnvioUsdtAction(
     const result = await createUsdtSending({
       client_id: clientId,
       amount_eur: amountEur,
-      usdt_delivered: usdtDelivered,
+      usdt_to_deliver: usdtToDeliver,
       created_at: createdAt,
     });
     revalidatePath('/');
     revalidatePath('/envios');
-    // The USDT pool moved, exactly as a direct payout does.
-    revalidatePath('/compras');
     revalidatePath('/stats');
     return { result };
   } catch (error) {

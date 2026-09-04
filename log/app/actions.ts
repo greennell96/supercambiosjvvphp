@@ -12,6 +12,7 @@ import {
   markCodigosRetiradosPorTercero,
   paySendingDirect,
   paySendingFromPool,
+  paySendingUsdt,
   reassignCodigoRetirado,
   updateCodigo,
   updateRates,
@@ -99,6 +100,24 @@ export async function paySendingDirectAction(
   }
 }
 
+/**
+ * (c) Pay a pending Envío USDT. One click, like the pool button: the amount
+ * was fixed when the sending was logged (usdt_to_deliver), so there is
+ * nothing left to ask José for, only the id of what to draw.
+ */
+export async function paySendingUsdtAction(_prev: PayState, formData: FormData): Promise<PayState> {
+  const sendingId = parseId(formData.get('id'));
+  if (!sendingId) return { error: 'Envío no válido.' };
+
+  try {
+    await paySendingUsdt(sendingId);
+    revalidateEverything();
+    return {};
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'No se pudo pagar el envío.' };
+  }
+}
+
 export interface EditSendingState {
   error?: string;
   /**
@@ -140,6 +159,7 @@ export async function editSendingAction(
   if (!sendingId) return { error: 'Envío no válido.' };
 
   const personal = text(formData.get('is_personal')) === '1';
+  const usdt = text(formData.get('is_usdt')) === '1';
   const clientPaymentNote = personal ? null : textOrNull(formData.get('client_payment_note'));
 
   // Read whatever the status: it is the only record of who received the money,
@@ -181,6 +201,18 @@ export async function editSendingAction(
     if (!payoutMethod) return { error: 'Elige un método de pago.' };
 
     moneyInput = { kind: 'personal', amount_ves: amountVes, payout_method: payoutMethod };
+  } else if (money && usdt) {
+    const amountEur = parseDecimal(formData.get('amount_eur'));
+    const usdtToDeliver = parseDecimal(formData.get('usdt_to_deliver'));
+
+    if (amountEur === null || !(amountEur > 0)) {
+      return { error: 'Escribe un monto en EUR mayor que cero.' };
+    }
+    if (usdtToDeliver === null || !(usdtToDeliver > 0)) {
+      return { error: 'Escribe los USDT a entregar (mayor que cero).' };
+    }
+
+    moneyInput = { kind: 'usdt', amount_eur: amountEur, usdt_to_deliver: usdtToDeliver };
   } else if (money) {
     const amountEur = parseDecimal(formData.get('amount_eur'));
     const rateTasa = parseDecimal(formData.get('rate_tasa'));

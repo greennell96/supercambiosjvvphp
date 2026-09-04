@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterEnvios, sortEnvios } from '../app/envios/envios-filters';
+import { filterEnvios, orderPendingEnvios, sortEnvios } from '../app/envios/envios-filters';
 import type { Sending } from '../lib/types';
 
 const base = {
@@ -9,6 +9,7 @@ const base = {
   client_name: 'Cliente',
   is_personal: false,
   is_usdt: false,
+  usdt_to_deliver: null,
   personal_note: null,
   amount_eur: 10,
   payout_method: 'ZELLE',
@@ -80,5 +81,30 @@ describe('envios sorting', () => {
     expect(sortEnvios(rows, 'newest').map((row) => row.id)).toEqual([1, 3, 2]);
     expect(sortEnvios(rows, 'amount').map((row) => row.id)).toEqual([2, 3, 1]);
     expect(rows.map((row) => row.id)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('pending work order', () => {
+  it('puts what José still owes above what he is still owed', () => {
+    // Newest first, so the sort alone would put the collected-but-unpaid row
+    // (id 3) on top; the grouping has to override that and it alone.
+    const oldestUnpaid = sending(1, '2026-08-28T10:00:00.000Z');
+    const paidUncollected = sending(2, '2026-08-29T10:00:00.000Z', {
+      status: 'paid',
+    });
+    const newestUnpaid = sending(3, '2026-08-30T10:00:00.000Z');
+
+    const rows = [paidUncollected, oldestUnpaid, newestUnpaid];
+    expect(orderPendingEnvios(rows, 'newest').map((row) => row.id)).toEqual([3, 1, 2]);
+    expect(orderPendingEnvios(rows, 'oldest').map((row) => row.id)).toEqual([1, 3, 2]);
+  });
+
+  it('keeps an envío propio in the first group: it is money José has not sent', () => {
+    const propio = sending(1, '2026-08-28T10:00:00.000Z', { is_personal: true });
+    const paidUncollected = sending(2, '2026-08-20T10:00:00.000Z', { status: 'paid' });
+
+    expect(orderPendingEnvios([paidUncollected, propio], 'oldest').map((row) => row.id)).toEqual([
+      1, 2,
+    ]);
   });
 });

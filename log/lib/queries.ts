@@ -724,6 +724,7 @@ type RawSending = {
   paid_at: Date | null;
   rate_tasa: string | null;
   amount_ves_to_pay: string | null;
+  usdt_to_deliver: string | null;
   client_payment_note: string | null;
   client_paid_at: Date | null;
   client_payment_method: ClientPaymentMethod | null;
@@ -757,6 +758,9 @@ function toSending(r: RawSending): Sending {
     rate_tasa: r.rate_tasa === null ? null : num(r.rate_tasa),
     // Null only on an Envío USDT, exactly like amount_eur / rate_tasa above.
     amount_ves_to_pay: r.amount_ves_to_pay === null ? null : num(r.amount_ves_to_pay),
+    // Null on every kind except an Envío USDT — num() would turn that absence
+    // into a lying 0, same reasoning as amount_ves_to_pay just above.
+    usdt_to_deliver: r.usdt_to_deliver === null ? null : num(r.usdt_to_deliver),
     client_payment_note: r.client_payment_note,
     client_paid_at: r.client_paid_at,
     client_payment_method: r.client_payment_method,
@@ -774,6 +778,7 @@ export async function listSendings(limit = 500): Promise<Sending[]> {
     select s.id, s.payment_group_id, s.client_id, c.name as client_name, s.created_at,
            s.is_personal, s.is_usdt, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
+           s.usdt_to_deliver,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
            s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
     from sendings s
@@ -790,6 +795,7 @@ export async function listPendingSendings(): Promise<Sending[]> {
     select s.id, s.payment_group_id, s.client_id, c.name as client_name, s.created_at,
            s.is_personal, s.is_usdt, s.personal_note, s.amount_eur,
            s.payout_method, s.status, s.paid_at, s.rate_tasa, s.amount_ves_to_pay,
+           s.usdt_to_deliver,
            s.client_payment_note, s.client_paid_at, s.client_payment_method,
            s.paid_via, s.fee_applied, s.usdt_used, s.cost_eur, s.profit_eur
     from sendings s
@@ -1028,25 +1034,24 @@ export interface CreateUsdtSendingResult {
   id: number;
   clientName: string;
   amountEur: number;
-  usdtUsed: number;
-  costEur: number;
-  profitEur: number;
-  /** USDT the pool could not cover, booked as a backorder on the newest lot. */
-  usdtShortfall: number;
+  usdtToDeliver: number;
 }
 
 /**
  * Log an ENVÍO USDT: José pays the client's EUR by sending USDT straight to a
  * Binance account the client gave him, instead of bolívares into a Venezuelan
- * bank. See migration 019.
+ * bank. See migrations 019 and 020.
  *
- * Unlike createSending / createPersonalSending, nothing here is left for a
- * later payment step. Those two log the client-facing side first and draw a
- * pool only when Jose later marks the beneficiary paid, because until then
- * the funding is not decided. Here it already is: the USDT leave Binance the
- * moment this is logged, so the draw — through computeDirectPayment, the same
- * function paySendingDirect uses — happens right here, in the same
- * transaction as the insert, and the row is written already status = 'paid'.
+ * 019 wrote this already paid, drawing crypto_purchases in the same breath, on
+ * the reasoning that the USDT leave Binance the moment José logs it. Live use
+ * disproved that: he logs the envío when the client asks for it and sends the
+ * USDT afterwards, exactly like every other sending. So this is now the same
+ * ordinary "log the obligation, draw nothing" moment createSending /
+ * createPersonalSending already are — no lot is locked, no pool moves, and the
+ * row is written status = 'pending'. usdt_to_deliver records what was agreed,
+ * the exact analogue of amount_ves_to_pay on the other two kinds; the actual
+ * FIFO draw over crypto_purchases happens later, in paySendingUsdt, when José
+ * marks it paid.
  *
  * The client side stays completely independent: client_paid_at is not set by
  * this at all, and is recorded later exactly like any other sending, through
@@ -1055,11 +1060,14 @@ export interface CreateUsdtSendingResult {
 export async function createUsdtSending(input: {
   client_id: number;
   amount_eur: number;
-  usdt_delivered: number;
+  usdt_to_deliver: number;
   created_at: Date;
 }): Promise<CreateUsdtSendingResult> {
   if (!(input.amount_eur > 0)) {
     throw new Error('El monto en EUR debe ser mayor que cero.');
+  }
+  if (!(input.usdt_to_deliver > 0)) {
+    throw new Error('Escribe los USDT a entregar (mayor que cero).');
   }
 
   const sql = getSql();
@@ -1069,55 +1077,21 @@ export async function createUsdtSending(input: {
     `;
     if (!client) throw new Error('Cliente no encontrado.');
 
-    const usdtLots = await lockUsdtLots(tx);
-
-    // Same function paySendingDirect calls when a client sending is settled by
-    // selling straight into a beneficiary's account. usdtSold here means USDT
-    // delivered to the CLIENT's own Binance account instead, but there are no
-    // bolivares in either case and the arithmetic is identical.
-    const payment = computeDirectPayment({
-      amountEur: input.amount_eur,
-      usdtSold: input.usdt_delivered,
-      usdtLots,
-    });
-
     const [sending] = await tx<{ id: number }[]>`
       insert into sendings
         (payment_group_id, client_id, amount_eur, is_usdt, payout_method, status,
-         created_at, paid_at, paid_via, fee_applied, usdt_used, cost_eur, profit_eur)
+         created_at, usdt_to_deliver)
       values
-        (${randomUUID()}, ${input.client_id}, ${input.amount_eur}, true, 'Binance', 'paid',
-         ${input.created_at}, ${input.created_at}, 'usdt', false, ${payment.usdtUsed},
-         ${payment.costEur}, ${payment.profitEur})
+        (${randomUUID()}, ${input.client_id}, ${input.amount_eur}, true, 'Binance', 'pending',
+         ${input.created_at}, ${input.usdt_to_deliver})
       returning id
     `;
-    const sendingId = id(sending.id);
-
-    // After the insert: these rows point at the sending that was just created.
-    for (const allocation of payment.usdtAllocations) {
-      await tx`
-        insert into sending_lot_allocations
-          (sending_id, crypto_purchase_id, usdt_amount, price_eur_per_usdt)
-        values (${sendingId}, ${allocation.lotId}, ${allocation.amount}, ${allocation.price})
-      `;
-    }
-    for (const update of payment.usdtLotUpdates) {
-      await tx`
-        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
-      `;
-    }
 
     return {
-      id: sendingId,
+      id: id(sending.id),
       clientName: client.name,
       amountEur: input.amount_eur,
-      usdtUsed: payment.usdtUsed,
-      costEur: payment.costEur,
-      // amountEur was passed in non-null above, so computeDirectPayment always
-      // returns a real profitEur here, never the null it uses for an envio
-      // propio's absent amountEur.
-      profitEur: payment.profitEur as number,
-      usdtShortfall: payment.usdtShortfall,
+      usdtToDeliver: input.usdt_to_deliver,
     };
   });
 }
@@ -1125,10 +1099,10 @@ export async function createUsdtSending(input: {
 /**
  * The money fields, in the shape the sending actually has.
  *
- * Two variants rather than two functions: the lock, the pending-only rule and
- * the result are identical for both, and only the lines that recompute and write
- * differ. The kind is checked against the locked row, so a client sending can
- * never be edited through the personal form or the other way round.
+ * Three variants rather than three functions: the lock, the pending-only rule
+ * and the result are identical for all of them, and only the lines that
+ * recompute and write differ. The kind is checked against the locked row, so no
+ * kind can ever be edited through another kind's form.
  *
  * Only what actually fed the draw is in here. personal_note describes who
  * received the money and decides nothing, so it sits outside, beside
@@ -1136,7 +1110,8 @@ export async function createUsdtSending(input: {
  */
 export type EditSendingMoney =
   | { kind: 'client'; amount_eur: number; rate_tasa: number; payout_method: string }
-  | { kind: 'personal'; amount_ves: number; payout_method: string };
+  | { kind: 'personal'; amount_ves: number; payout_method: string }
+  | { kind: 'usdt'; amount_eur: number; usdt_to_deliver: number };
 
 export interface EditSendingInput {
   /**
@@ -1210,10 +1185,11 @@ export async function editSending(
         client_name: string;
         status: 'pending' | 'paid';
         is_personal: boolean;
+        is_usdt: boolean;
         amount_ves_to_pay: string;
       }[]
     >`
-      select s.id, c.name as client_name, s.status, s.is_personal, s.amount_ves_to_pay
+      select s.id, c.name as client_name, s.status, s.is_personal, s.is_usdt, s.amount_ves_to_pay
       from sendings s
       join clients c on c.id = s.client_id
       where s.id = ${sendingId}
@@ -1226,10 +1202,17 @@ export async function editSending(
         'Ese envio ya esta pagado: el monto, la tasa y el metodo no se pueden cambiar. Solo la nota.',
       );
     }
-    if (input.money && (input.money.kind === 'personal') !== row.is_personal) {
-      throw new Error(
-        'Ese envio no es del tipo que el formulario esta editando. Actualiza la pagina.',
-      );
+    // The row's real kind, derived rather than trusted from the form — same
+    // discipline as the status check just above. A client sending can never be
+    // edited through the personal or usdt form, and neither of those through
+    // the other two.
+    if (input.money) {
+      const rowKind = row.is_personal ? 'personal' : row.is_usdt ? 'usdt' : 'client';
+      if (input.money.kind !== rowKind) {
+        throw new Error(
+          'Ese envio no es del tipo que el formulario esta editando. Actualiza la pagina.',
+        );
+      }
     }
     // The schema requires it on these rows, and it is the only record of who the
     // money went to. Caught here rather than left to the check constraint, so a
@@ -1292,6 +1275,30 @@ export async function editSending(
       };
     }
 
+    if (input.money.kind === 'usdt') {
+      // No rate_tasa, no amount_ves_to_pay, no payout_method: an Envío USDT
+      // has no bolivares anywhere in it and is always Binance — see migration
+      // 020. client_payment_note rides along here for the same reason it does
+      // on the client branch below: this is the only submit that can reach it
+      // while the row is still pending.
+      await tx`
+        update sendings
+        set amount_eur = ${input.money.amount_eur},
+            usdt_to_deliver = ${input.money.usdt_to_deliver},
+            client_payment_note = ${input.client_payment_note},
+            created_at = ${input.created_at}
+        where id = ${sendingId}
+      `;
+
+      return {
+        id: sendingId,
+        clientName: row.client_name,
+        status: row.status,
+        moneyChanged: true,
+        amountVesToPay: 0,
+      };
+    }
+
     const { amountVesToPay } = computeNewSending({
       amountEur: input.money.amount_eur,
       rateTasa: input.money.rate_tasa,
@@ -1342,6 +1349,8 @@ type PendingRow = {
   amount_eur: string | null;
   amount_ves_to_pay: string;
   payout_method: string;
+  is_usdt: boolean;
+  usdt_to_deliver: string | null;
 };
 
 /** Lock the sending and refuse if it is already paid. */
@@ -1350,7 +1359,8 @@ async function lockPendingSending(
   sendingId: number,
 ): Promise<PendingRow> {
   const [row] = await tx<PendingRow[]>`
-    select s.id, c.name as client_name, s.amount_eur, s.amount_ves_to_pay, s.payout_method
+    select s.id, c.name as client_name, s.amount_eur, s.amount_ves_to_pay, s.payout_method,
+           s.is_usdt, s.usdt_to_deliver
     from sendings s
     join clients c on c.id = s.client_id
     where s.id = ${sendingId} and s.status = 'pending'
@@ -1383,6 +1393,12 @@ export async function paySendingFromPool(sendingId: number): Promise<PaySendingR
   const sql = getSql();
   return sql.begin(async (tx) => {
     const sending = await lockPendingSending(tx, sendingId);
+    // A pending Envío USDT has no bolivares anywhere in it (amount_ves_to_pay
+    // is null); without this guard num(null) would silently draw a
+    // zero-bolívar payment instead of refusing the wrong button.
+    if (sending.is_usdt) {
+      throw new Error('Un Envío USDT no se paga desde el pool de bolívares.');
+    }
 
     const vesLots = await lockVesLots(tx);
 
@@ -1455,6 +1471,12 @@ export async function paySendingDirect(
   const sql = getSql();
   return sql.begin(async (tx) => {
     const sending = await lockPendingSending(tx, sendingId);
+    // Same reasoning as the pool guard above: an Envío USDT is settled through
+    // the USDT button, not this one.
+    if (sending.is_usdt) {
+      throw new Error('Un Envío USDT se paga con el botón de USDT, no con este.');
+    }
+
     const usdtLots = await lockUsdtLots(tx);
 
     const payment = computeDirectPayment({
@@ -1494,6 +1516,85 @@ export async function paySendingDirect(
       paidVia: 'direct',
       amountEur: pendingAmountEur(sending),
       amountVesToPay: num(sending.amount_ves_to_pay),
+      feeApplied: payment.feeApplied,
+      vesDrawn: 0,
+      vesShortfall: 0,
+      usdtUsed: payment.usdtUsed,
+      usdtShortfall: payment.usdtShortfall,
+      costEur: payment.costEur,
+      profitEur: payment.profitEur,
+    };
+  });
+}
+
+/**
+ * (c) Pay a pending Envío USDT: José sends the USDT agreed at creation
+ * straight to the CLIENT's own Binance account, instead of selling them into
+ * a beneficiary's VES account the way paySendingDirect does. That is the
+ * whole difference — the draw itself is the same computeDirectPayment this
+ * and (b) both call — which is why it gets its own paid_via ('usdt') rather
+ * than reusing 'direct'.
+ *
+ * Unlike (b), nothing is typed here: the amount was fixed at creation
+ * (usdt_to_deliver, see migration 020), so there is no figure left for José
+ * to supply, only a confirmation to draw it. This is the only payment path
+ * that still touches crypto_purchases and sending_lot_allocations, exactly
+ * as (b) is, and for the same reason: the USDT actually leave Binance here.
+ */
+export async function paySendingUsdt(sendingId: number): Promise<PaySendingResult> {
+  const sql = getSql();
+  return sql.begin(async (tx) => {
+    const sending = await lockPendingSending(tx, sendingId);
+    if (!sending.is_usdt) {
+      throw new Error('Ese envio no es un Envío USDT.');
+    }
+    const usdtToDeliver = num(sending.usdt_to_deliver);
+    if (!(usdtToDeliver > 0)) {
+      throw new Error('Este Envío USDT no tiene un monto de USDT a entregar válido.');
+    }
+
+    const usdtLots = await lockUsdtLots(tx);
+
+    // The same pure function paySendingDirect calls: the arithmetic of
+    // drawing USDT out of the pool is identical whether they end up in a
+    // beneficiary's account or the client's own one.
+    const payment = computeDirectPayment({
+      amountEur: pendingAmountEur(sending),
+      usdtSold: usdtToDeliver,
+      usdtLots,
+    });
+
+    for (const allocation of payment.usdtAllocations) {
+      await tx`
+        insert into sending_lot_allocations
+          (sending_id, crypto_purchase_id, usdt_amount, price_eur_per_usdt)
+        values (${sendingId}, ${allocation.lotId}, ${allocation.amount}, ${allocation.price})
+      `;
+    }
+    for (const update of payment.usdtLotUpdates) {
+      await tx`
+        update crypto_purchases set remaining_usdt = ${update.remaining} where id = ${update.id}
+      `;
+    }
+
+    await tx`
+      update sendings
+      set status = 'paid',
+          paid_at = now(),
+          paid_via = 'usdt',
+          fee_applied = ${payment.feeApplied},
+          usdt_used = ${payment.usdtUsed},
+          cost_eur = ${payment.costEur},
+          profit_eur = ${payment.profitEur}
+      where id = ${sendingId}
+    `;
+
+    return {
+      id: sendingId,
+      clientName: sending.client_name,
+      paidVia: 'usdt',
+      amountEur: pendingAmountEur(sending),
+      amountVesToPay: 0,
       feeApplied: payment.feeApplied,
       vesDrawn: 0,
       vesShortfall: 0,

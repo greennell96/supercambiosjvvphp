@@ -7,7 +7,12 @@ import {
   previewPagoPoolAction,
   type PreviewPagoState,
 } from '../envios/actions';
-import { paySendingDirectAction, paySendingPoolAction, type PayState } from '../actions';
+import {
+  paySendingDirectAction,
+  paySendingPoolAction,
+  paySendingUsdtAction,
+  type PayState,
+} from '../actions';
 import { fmtEur, fmtUsdt, fmtVes } from '@/lib/format';
 import { parseDecimal } from '@/lib/parse';
 
@@ -26,13 +31,21 @@ import { parseDecimal } from '@/lib/parse';
  * already been paid. So on those rows the pool button reveals the figures and
  * asks again, in the same reveal-then-confirm shape "Pagar directo" already
  * uses. Nothing about the client path changes.
+ *
+ * An ENVIO USDT gets a third shape instead, simpler than either: one form, one
+ * "Pagar con USDT" button, no pool button and no "Pagar directo" box. There is
+ * nothing to type and nothing to preview — the amount was fixed when the
+ * sending was logged (usdt_to_deliver, see migration 020) — so this is a
+ * single click, exactly like the pool button on a client sending.
  */
 export default function PaySendingActions({
   sendingId,
   isPersonal = false,
+  isUsdt = false,
 }: {
   sendingId: number;
   isPersonal?: boolean;
+  isUsdt?: boolean;
 }) {
   const [poolState, poolAction, poolPending] = useActionState<PayState, FormData>(
     paySendingPoolAction,
@@ -42,7 +55,25 @@ export default function PaySendingActions({
     paySendingDirectAction,
     {},
   );
+  const [usdtState, usdtAction, usdtPending] = useActionState<PayState, FormData>(
+    paySendingUsdtAction,
+    {},
+  );
   const [showDirect, setShowDirect] = useState(false);
+
+  if (isUsdt) {
+    return (
+      <div className="pay-actions">
+        <form action={usdtAction}>
+          <input type="hidden" name="id" value={sendingId} />
+          <button className="small action-primary" type="submit" disabled={usdtPending}>
+            {usdtPending ? 'Pagando…' : 'Pagar con USDT'}
+          </button>
+        </form>
+        {usdtState.error ? <p className="pay-error">{usdtState.error}</p> : null}
+      </div>
+    );
+  }
 
   // One preview box per path. Each holds the numbers, or the reason there are
   // none. Server Actions called from onClick, so useTransition supplies the

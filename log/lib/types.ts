@@ -146,6 +146,10 @@ export interface Sending {
   rate_tasa: number | null;
   /** Null only on an Envío USDT: no bolívares are ever paid out. */
   amount_ves_to_pay: number | null;
+  /** The USDT José undertook to deliver, agreed at creation. Null on every
+   *  kind except an Envío USDT — the direct analogue of amount_ves_to_pay,
+   *  written once and never recomputed. See migration 020. */
+  usdt_to_deliver: number | null;
 
   /**
    * How the client handed the money over in Spain (codigo de cajero, efectivo,

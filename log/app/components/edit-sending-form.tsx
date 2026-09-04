@@ -12,20 +12,19 @@ export interface EditableSending {
   id: number;
   status: SendingStatus;
   is_personal: boolean;
+  is_usdt: boolean;
   /** The day the sending is filed under. Editable in every status. */
   created_at: Date;
   personal_note: string | null;
   /** Null on an envío propio, where the bolívares below are the typed figure. */
   amount_eur: number | null;
   rate_tasa: number | null;
-  /**
-   * Null only on an Envío USDT. Only ever read below inside the `is_personal`
-   * branch, which an Envío USDT can never take (is_personal is always false on
-   * one), so this stays type-honest with Sending without this form growing a
-   * third branch of its own — see the file-level comment on why one is not
-   * needed at all.
-   */
+  /** Null only on an Envío USDT: it has no bolívares anywhere in it. Only ever
+   *  read below inside the `is_personal` branch. */
   amount_ves_to_pay: number | null;
+  /** Null on every kind except an Envío USDT, where it is the money field the
+   *  usdt branch below reads instead of rate_tasa. See migration 020. */
+  usdt_to_deliver: number | null;
   payout_method: string;
   client_payment_note: string | null;
 }
@@ -43,10 +42,12 @@ export interface EditableSending {
  *             they were; rewriting them afterwards would leave the ledger saying
  *             one thing and the pools another.
  *
- * Which fields those are depends on the kind of sending, because the two hold
- * different facts. A client sending has monto, tasa and método. An envío propio
- * has the bolívares themselves — nothing to derive them from ever existed — and
- * the método.
+ * Which fields those are depends on the kind of sending, because the three
+ * hold different facts. A client sending has monto, tasa and método. An envío
+ * propio has the bolívares themselves — nothing to derive them from ever
+ * existed — and the método. An Envío USDT has monto (EUR) and "USDT a
+ * entregar" — no tasa, because there are no bolívares to convert, and no
+ * método, because it is always Binance (see migration 020).
  *
  * The note is editable in both states, and each kind has its own. "Cómo pagó el
  * cliente" is about the SPANISH side — código de cajero, efectivo,
@@ -64,17 +65,13 @@ export interface EditableSending {
  * sends today and pays tomorrow leaves the sending sitting on the wrong day,
  * and the cuadre then reports a difference that does not exist.
  *
- * An Envío USDT deliberately gets NO third branch here, and needs none. It is
- * always is_personal = false (so it renders the client branch: monto, tasa,
- * método) and always status = 'paid' from the moment it is created (see
- * migration 019) — so editMoney is always false on one, the money fields
- * always render disabled, and the "money" input the action reads is never
- * sent. What stays open is exactly la fecha and "Cómo pagó el cliente" — the
- * same two fields any paid client sending can still correct — and neither
- * touches amount_eur, rate_tasa, amount_ves_to_pay, usdt_used, cost_eur or
- * profit_eur. Opening this form on one is therefore already safe with no code
- * change: the existing pending-only guard on editSending's money branch is
- * what protects it, exactly as it protects any other already-paid sending.
+ * An Envío USDT now gets its own third branch, because migration 020 made it
+ * an ordinary pending sending like the other two: it is created pending and
+ * stays open to editing exactly as long as they do, so editMoney behaves the
+ * same way on it (open while pending, frozen once paid). It shares la fecha
+ * and "Cómo pagó el cliente" with the client branch — both mean the same
+ * thing on a row that has a real client — and is_personal is always false on
+ * one, so it never takes the personal branch by mistake.
  */
 export default function EditSendingForm({ sending }: { sending: EditableSending }) {
   const [state, formAction, pending] = useActionState<EditSendingState, FormData>(
@@ -118,6 +115,7 @@ export default function EditSendingForm({ sending }: { sending: EditableSending 
         locked row and refuses a mismatch, exactly as it does for the status.
       */}
       <input type="hidden" name="is_personal" value={sending.is_personal ? '1' : '0'} />
+      <input type="hidden" name="is_usdt" value={sending.is_usdt ? '1' : '0'} />
 
       {/*
         The money fields are always shown, so it is visible what the sending
@@ -137,6 +135,31 @@ export default function EditSendingForm({ sending }: { sending: EditableSending 
             defaultValue={String(sending.amount_ves_to_pay)}
           />
         </div>
+      ) : sending.is_usdt ? (
+        <>
+          <div className="edit-field">
+            <label htmlFor={`amount_eur_${sending.id}`}>Monto (EUR)</label>
+            <input
+              id={`amount_eur_${sending.id}`}
+              name="amount_eur"
+              type="text"
+              inputMode="decimal"
+              disabled={!editMoney}
+              defaultValue={sending.amount_eur === null ? '' : String(sending.amount_eur)}
+            />
+          </div>
+          <div className="edit-field">
+            <label htmlFor={`usdt_to_deliver_${sending.id}`}>USDT a entregar</label>
+            <input
+              id={`usdt_to_deliver_${sending.id}`}
+              name="usdt_to_deliver"
+              type="text"
+              inputMode="decimal"
+              disabled={!editMoney}
+              defaultValue={sending.usdt_to_deliver === null ? '' : String(sending.usdt_to_deliver)}
+            />
+          </div>
+        </>
       ) : (
         <>
           <div className="edit-field">
@@ -164,21 +187,25 @@ export default function EditSendingForm({ sending }: { sending: EditableSending 
         </>
       )}
 
-      <div className="edit-field">
-        <label htmlFor={`payout_method_${sending.id}`}>Método de pago</label>
-        <select
-          id={`payout_method_${sending.id}`}
-          name="payout_method"
-          disabled={!editMoney}
-          defaultValue={storedMethod}
-        >
-          {methods.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* No método de pago on an Envío USDT: it is always Binance, never a
+          later funding decision the way the other two kinds' payout is. */}
+      {sending.is_usdt ? null : (
+        <div className="edit-field">
+          <label htmlFor={`payout_method_${sending.id}`}>Método de pago</label>
+          <select
+            id={`payout_method_${sending.id}`}
+            name="payout_method"
+            disabled={!editMoney}
+            defaultValue={storedMethod}
+          >
+            {methods.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {editMoney ? null : (
         <p className="muted">Envío pagado: solo puedes editar la fecha y la nota.</p>

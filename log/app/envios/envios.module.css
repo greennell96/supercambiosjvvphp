@@ -64,10 +64,43 @@
   text-transform: uppercase;
 }
 
+/* The filter pills and the one action that is not a filter, on one line. They
+   are separate elements rather than one flex list because only the pills are a
+   radio-like group; see the comment beside the button in envios-list.tsx. */
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 .filterButtons {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* Solid, and the only solid thing in the row that is not the active filter:
+   an action, not a state. The left margin separates it from the pills so the
+   two groups read apart even when the row wraps. */
+.newSendingButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  margin-left: 6px;
+  padding: 7px 15px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--panel);
+  font-size: 13px;
+  font-weight: 750;
+  white-space: nowrap;
+  transition: transform 100ms ease-out, opacity 100ms ease-out;
+}
+
+.newSendingButton:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .filterButton {
@@ -214,35 +247,6 @@
   margin-bottom: 16px;
 }
 
-.creationHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--panel);
-}
-
-.creationHeader h2,
-.creationHeader p {
-  margin: 0;
-}
-
-.creationHeader p {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.creationToggle {
-  flex: 0 0 auto;
-  min-height: 44px;
-  padding-inline: 16px;
-  font-weight: 750;
-}
-
 .creationDock :global(.panel) {
   margin-top: 10px;
 }
@@ -273,8 +277,7 @@
   .operationHeading,
   .toolbar,
   .pendingHeader,
-  .archiveHeading,
-  .creationHeader {
+  .archiveHeading {
     display: block;
   }
 
@@ -296,6 +299,12 @@
     padding-bottom: 12px;
   }
 
+  /* The pills go to a two-up grid; the action goes full width underneath them,
+     where a thumb reaches it without hunting between two shapes on one line. */
+  .filterRow {
+    display: block;
+  }
+
   .filterButtons {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -304,6 +313,13 @@
   .filterButton {
     width: 100%;
     padding-inline: 7px;
+  }
+
+  .newSendingButton {
+    width: 100%;
+    margin-top: 10px;
+    margin-left: 0;
+    justify-content: center;
   }
 
   .sortControl {
@@ -322,15 +338,6 @@
 
   .sendingRow :global(.payout-amount) {
     font-size: 20px;
-  }
-
-  .creationHeader {
-    padding: 14px 12px;
-  }
-
-  .creationToggle {
-    width: 100%;
-    margin-top: 12px;
   }
 
   .creationDock :global(.panel) {
@@ -366,6 +373,10 @@
     margin-top: 12px;
   }
 
+  .filterRow {
+    display: block;
+  }
+
   .filterButtons {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -373,6 +384,13 @@
 
   .filterButton {
     width: 100%;
+  }
+
+  .newSendingButton {
+    width: 100%;
+    margin-top: 10px;
+    margin-left: 0;
+    justify-content: center;
   }
 }
 

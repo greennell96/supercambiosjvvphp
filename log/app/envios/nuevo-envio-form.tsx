@@ -35,46 +35,39 @@ export default function NuevoEnvioForm({
   clients,
   suggestedTasa,
   usdtLots,
+  open,
 }: {
   clients: PickerClient[];
   suggestedTasa: number;
   /** The crypto pool, read once server-side, for the Envío USDT calculator. */
   usdtLots: Lot[];
+  /**
+   * Controlled from the toolbar in envios-list.tsx, which owns the button that
+   * opens this. It used to be a dock at the bottom of the page with its own
+   * header and its own toggle; the header went with the toggle, because the
+   * form inside already carries the "Nuevo envío" heading and a second one
+   * above it said the same thing twice.
+   */
+  open: boolean;
 }) {
   const [mode, setMode] = useState<Mode>('cliente');
-  const [open, setOpen] = useState(false);
+
+  if (!open) return null;
 
   return (
     <section className={styles.creationDock} aria-label="Registrar un envío">
-      <div className={styles.creationHeader}>
-        <div>
-          <h2>Registrar un envío</h2>
-          <p>Abre para registrar un movimiento.</p>
-        </div>
-        <button
-          className={`primary ${styles.creationToggle}`}
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((shown) => !shown)}
-        >
-          {open ? 'Cerrar formulario' : 'Nuevo envío'}
-        </button>
-      </div>
-
-      {open ? (
-        mode === 'cliente' ? (
-          <ClienteEnvioForm
-            clients={clients}
-            suggestedTasa={suggestedTasa}
-            mode={mode}
-            onMode={setMode}
-          />
-        ) : mode === 'propio' ? (
-          <PropioEnvioForm mode={mode} onMode={setMode} />
-        ) : (
-          <UsdtEnvioForm clients={clients} usdtLots={usdtLots} mode={mode} onMode={setMode} />
-        )
-      ) : null}
+      {mode === 'cliente' ? (
+        <ClienteEnvioForm
+          clients={clients}
+          suggestedTasa={suggestedTasa}
+          mode={mode}
+          onMode={setMode}
+        />
+      ) : mode === 'propio' ? (
+        <PropioEnvioForm mode={mode} onMode={setMode} />
+      ) : (
+        <UsdtEnvioForm clients={clients} usdtLots={usdtLots} mode={mode} onMode={setMode} />
+      )}
     </section>
   );
 }
@@ -450,22 +443,26 @@ function PropioEnvioForm({ mode, onMode }: { mode: Mode; onMode: (mode: Mode) =>
 }
 
 /**
- * Money José sends by delivering USDT straight to a Binance account the
- * client gave him, instead of bolívares into a Venezuelan bank — see
- * migration 019. A client picker plus three fields: what the client paid in
- * EUR, what José is about to send in USDT, and the date.
+ * Log an obligation to send USDT straight to a Binance account the client
+ * gave him, instead of bolívares into a Venezuelan bank — see migration 020.
+ * A client picker plus three fields: what the client paid in EUR, what José
+ * is agreeing to deliver in USDT, and the date. Nothing is drawn from the
+ * pool by this form; that happens later, when the envío is marked paid.
  *
- * No método de pago here, unlike the other two forms: that field is how JOSE
- * FUNDS a later payout, and this has no later payout to fund — the USDT leave
- * Binance the instant this is submitted. There is no código section and no
- * split-parts section either, and deliberately so: both of those exist only
- * for a client sending whose payout is still an open decision, and an Envío
- * USDT never has one (see createUsdtSending and listOpenSendings).
+ * No método de pago here, unlike the other two forms: an Envío USDT is always
+ * Binance, never a choice among payout channels the way the other two kinds'
+ * later funding is. There is no código section and no split-parts section
+ * either, and deliberately so: both of those exist only for a client sending
+ * whose payout is still an open decision, and an Envío USDT is a fixed,
+ * single obligation from the moment it is logged (see createUsdtSending and
+ * paySendingUsdt).
  *
- * The preview underneath is the whole reason this form doubles as a
- * calculator: computeUsdtPreview runs synchronously against `usdtLots`, a
- * server-read prop, on every keystroke in either amount box — no server round
- * trip, exactly like app/rates-form.tsx's pool margin.
+ * The preview underneath is still a calculator, not a receipt — nothing here
+ * is drawn or booked: computeUsdtPreview runs synchronously against
+ * `usdtLots`, a server-read prop, on every keystroke in either amount box —
+ * no server round trip, exactly like app/rates-form.tsx's pool margin — to
+ * answer "what would marking this paid cost right now", knowing the real
+ * draw happens later against the pool as it stands then.
  */
 function UsdtEnvioForm({
   clients,
@@ -533,10 +530,10 @@ function UsdtEnvioForm({
             />
           </div>
           <div>
-            <label htmlFor="usdt_delivered">USDT entregados</label>
+            <label htmlFor="usdt_to_deliver">USDT a entregar</label>
             <input
-              id="usdt_delivered"
-              name="usdt_delivered"
+              id="usdt_to_deliver"
+              name="usdt_to_deliver"
               type="text"
               inputMode="decimal"
               value={usdtDeliveredText}
@@ -571,17 +568,22 @@ function UsdtEnvioForm({
 }
 
 /**
- * What this Envío USDT would cost and earn, against the pool as it stood when
- * the page was rendered. Three rows only — coste, ganancia, margen — because
- * there is no separate "bolívares obtenibles" step the way the tasa
- * calculator has: José already knows both real numbers, EUR and USDT, so
- * nothing here is hypothetical the way a candidate Binance price is.
+ * What this Envío USDT WOULD cost and earn if it were marked paid right now,
+ * against the pool as it stands at this instant — not what it already cost,
+ * because nothing has been drawn yet (see createUsdtSending): the real draw
+ * happens later, in paySendingUsdt, against the pool as it stands then, and
+ * can land on a different figure if it moves between now and that click.
+ * Three rows only — coste, ganancia, margen — because there is no separate
+ * "bolívares obtenibles" step the way the tasa calculator has: José already
+ * knows both real numbers, EUR and USDT, so nothing here is hypothetical the
+ * way a candidate Binance price is.
  */
 function UsdtPreviewPanel({ preview }: { preview: ReturnType<typeof computeUsdtPreview> }) {
   if (!preview) {
     return (
       <p className="muted rate-preview-hint">
-        Escribe los EUR recibidos y los USDT entregados para ver el coste y la ganancia.
+        Escribe los EUR recibidos y los USDT a entregar para ver cuánto costaría y ganarías al
+        marcarlo pagado.
       </p>
     );
   }
@@ -592,7 +594,7 @@ function UsdtPreviewPanel({ preview }: { preview: ReturnType<typeof computeUsdtP
     <div className="rate-preview">
       <dl>
         <div>
-          <dt>Te cuestan esos USDT</dt>
+          <dt>Te costarían esos USDT</dt>
           <dd>{fmtEur(preview.costEur)}</dd>
         </div>
         <div className="rate-preview-total">
@@ -663,25 +665,24 @@ function PropioConfirmation({
 }
 
 /**
- * No bolívares here either, and for the opposite reason a propio has none:
- * this row has a real client and a real profit, it just never touched a
- * Venezuelan account. The headline number is the ganancia, exactly as it is
- * for a client sending's own preview.
+ * No coste, no ganancia and no shortfall here — unlike the old already-paid
+ * confirmation, nothing was drawn (see createUsdtSending): the pool has not
+ * been touched, so there is nothing real to report yet, only the obligation
+ * that was just logged. The headline is the USDT to deliver, since that is
+ * the figure paySendingUsdt will draw later, exactly as agreed here.
  */
 function UsdtConfirmation({ result }: { result: NonNullable<NuevoEnvioUsdtState['result']> }) {
   return (
     <div className="notice ok">
       <div>
-        Envío USDT registrado para <strong>{result.clientName}</strong> ({fmtEur(result.amountEur)}{' '}
-        → {fmtUsdt(result.usdtUsed)}).
+        Envío USDT registrado para <strong>{result.clientName}</strong> (
+        {fmtEur(result.amountEur)} → {fmtUsdt(result.usdtToDeliver)}).
       </div>
-      {result.usdtShortfall > 0 ? (
-        <div className={styles.confirmationDetail}>
-          {fmtUsdt(result.usdtShortfall)} quedaron como saldo negativo en la compra más reciente.
-        </div>
-      ) : null}
-      <div className={styles.confirmationAmountLabel}>Ganancia</div>
-      <div className="big-number">{fmtEur(result.profitEur)}</div>
+      <div className={styles.confirmationDetail}>
+        Queda pendiente. Los USDT saldrán del pool cuando lo marques pagado.
+      </div>
+      <div className={styles.confirmationAmountLabel}>USDT a entregar</div>
+      <div className="big-number">{fmtUsdt(result.usdtToDeliver)}</div>
     </div>
   );
 }

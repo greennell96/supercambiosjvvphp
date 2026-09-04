@@ -1,6 +1,5 @@
 import EnviosList from './envios-list';
 import styles from './envios.module.css';
-import NuevoEnvioForm from './nuevo-envio-form';
 import Shell from '../shell';
 import {
   getRates,
@@ -40,18 +39,21 @@ export default async function EnviosPage() {
           <h2>Operación</h2>
           <p>Primero lo pendiente; lo cerrado queda debajo.</p>
         </div>
-        {sendings.length === 0 ? (
-          <p className="muted">Todavía no hay envíos.</p>
-        ) : (
-          <EnviosList
-            sendings={sendings}
-            unlinkedCodigos={unlinkedCodigos}
-            now={new Date().toISOString()}
-          />
-        )}
+        {/*
+          Rendered even with an empty log, unlike before: the "Nuevo envío"
+          button now lives inside this component's toolbar, so short-circuiting
+          it on zero rows would leave the page with no way to log the first
+          envío. The empty case is handled inside instead.
+        */}
+        <EnviosList
+          sendings={sendings}
+          unlinkedCodigos={unlinkedCodigos}
+          now={new Date().toISOString()}
+          clients={clients}
+          suggestedTasa={rates.tasa_eur_ves}
+          usdtLots={usdtLots}
+        />
       </div>
-
-      <NuevoEnvioForm clients={clients} suggestedTasa={rates.tasa_eur_ves} usdtLots={usdtLots} />
     </Shell>
   );
 }
