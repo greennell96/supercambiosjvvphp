@@ -112,11 +112,18 @@ export interface VentaDeletion {
  * drawn from this sale. The balance check is belt and suspenders — it catches a
  * row whose bolivares moved without leaving a trail, which should never happen,
  * and refuses rather than silently handing back bolivares that are not there.
+ *
+ * Order matters, and the backorder check has to come before that balance check.
+ * A sale that arrived into a hole keeps only what was left after the old debt
+ * was paid — createVesSale stores remainingForNewLot, not ves_received — so its
+ * balance is legitimately short and the belt-and-suspenders line would answer
+ * first, blaming bolivares that vanished without a trail for the one case where
+ * we know exactly where they went. Specific reason before the catch-all.
  */
 export function ventaDeletionBlocker(sale: VentaDeletion): string | null {
   if (sale.sendingAllocations > 0) return SALE_PAID_A_SENDING;
-  if (!isUntouched(sale.remainingVes, sale.vesReceived)) return SALE_PARTLY_SPENT;
   if (paidABackorder(sale.usedToPayBackorders)) return SALE_COVERED_A_BACKORDER;
+  if (!isUntouched(sale.remainingVes, sale.vesReceived)) return SALE_PARTLY_SPENT;
   return null;
 }
 
@@ -136,13 +143,13 @@ export interface CompraDeletion {
  *
  * A purchase is the root of the chain, so two different things can have drawn
  * from it — a directly paid sending, or a Binance sale — and each names the
- * thing to delete first. As with a sale, the balance check only exists to catch
- * a draw that left no trail.
+ * thing to delete first. As with a sale, the backorder check comes before the
+ * balance check, which only exists to catch a draw that left no trail.
  */
 export function compraDeletionBlocker(purchase: CompraDeletion): string | null {
   if (purchase.sendingAllocations > 0) return PURCHASE_PAID_A_SENDING;
   if (purchase.saleAllocations > 0) return PURCHASE_FUNDED_A_SALE;
-  if (!isUntouched(purchase.remainingUsdt, purchase.usdtReceived)) return PURCHASE_PARTLY_SPENT;
   if (paidABackorder(purchase.usedToPayBackorders)) return PURCHASE_COVERED_A_BACKORDER;
+  if (!isUntouched(purchase.remainingUsdt, purchase.usdtReceived)) return PURCHASE_PARTLY_SPENT;
   return null;
 }

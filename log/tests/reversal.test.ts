@@ -165,9 +165,13 @@ describe('ventaDeletionBlocker', () => {
   });
 
   it('refuses a sale that arrived into a hole and paid an older debt', () => {
-    expect(ventaDeletionBlocker({ ...untouched, usedToPayBackorders: 500 })).toMatch(
-      /venta anterior/i,
-    );
+    // What createVesSale really stores: 500 went to the old debt, so only
+    // 19.500 of the 20.000 stayed on this lot. The short balance is the normal
+    // consequence of paying a backorder, not a missing trail, so the reason
+    // given has to be the backorder — never the catch-all below it.
+    expect(
+      ventaDeletionBlocker({ ...untouched, remainingVes: 19500, usedToPayBackorders: 500 }),
+    ).toMatch(/venta anterior/i);
   });
 
   it('ignores a floating point crumb on either check', () => {
@@ -178,6 +182,12 @@ describe('ventaDeletionBlocker', () => {
         usedToPayBackorders: 0.00000001,
       }),
     ).toBeNull();
+  });
+
+  it('names the backorder even when the whole arrival went to the old debt', () => {
+    expect(
+      ventaDeletionBlocker({ ...untouched, remainingVes: 0, usedToPayBackorders: 20000 }),
+    ).toMatch(/venta anterior/i);
   });
 
   it('names the sending before anything else, because that is the way out', () => {
@@ -224,9 +234,11 @@ describe('compraDeletionBlocker', () => {
   });
 
   it('refuses a purchase that arrived into a hole and paid an older debt', () => {
-    expect(compraDeletionBlocker({ ...untouched, usedToPayBackorders: 25 })).toMatch(
-      /compra anterior/i,
-    );
+    // As above: 25 of the 500 went to the old debt, so 475 stayed. The reason
+    // is the backorder, not the short balance it necessarily produces.
+    expect(
+      compraDeletionBlocker({ ...untouched, remainingUsdt: 475, usedToPayBackorders: 25 }),
+    ).toMatch(/compra anterior/i);
   });
 
   it('ignores a floating point crumb on either check', () => {
