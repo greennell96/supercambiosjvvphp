@@ -303,14 +303,14 @@
     </div>
     <div class="rates-grid">
       <div class="rate-item">
-        <span class="rate-direction">EUR → Bs</span>
+        <span class="rate-direction">Envías € · recibe Bs</span>
         <span class="rate-value" id="rate-eur-ves"></span>
-        <span class="rate-basis">por 1 €</span>
+        <span class="rate-basis">por cada 1 €</span>
       </div>
       <div class="rate-item">
-        <span class="rate-direction">Bs → EUR</span>
+        <span class="rate-direction">Envías Bs · recibe €</span>
         <span class="rate-value" id="rate-ves-eur"></span>
-        <span class="rate-basis">por 1 €</span>
+        <span class="rate-basis">por cada 1 €</span>
       </div>
     </div>
     <p class="rate-updated" id="rate-updated"></p>
@@ -406,9 +406,18 @@
     && typeof cfg.vesToEur === 'number'
     && !!cfg.updated;
 
+  // 1050 -> "1.050", 1050.5 -> "1.050,5". Never a bare ".00" tail on a round rate.
+  function formatBs(n) {
+    try {
+      return n.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    } catch (e) {
+      return String(Math.round(n * 100) / 100).replace('.', ',');
+    }
+  }
+
   if (hasRates) {
-    document.getElementById('rate-eur-ves').textContent = cfg.eurToVes.toFixed(2) + ' Bs';
-    document.getElementById('rate-ves-eur').textContent = cfg.vesToEur.toFixed(2) + ' Bs';
+    document.getElementById('rate-eur-ves').textContent = formatBs(cfg.eurToVes) + ' Bs';
+    document.getElementById('rate-ves-eur').textContent = formatBs(cfg.vesToEur) + ' Bs';
     document.getElementById('rate-updated').textContent = 'Actualizado: ' + cfg.updated;
     document.getElementById('rates-section').hidden = false;
   }
