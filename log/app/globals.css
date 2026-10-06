@@ -101,10 +101,23 @@ select:focus-visible {
 
 /* ------------------------------------------------------------------ layout */
 
+/*
+  The cap only matters on a desktop. It used to be 1240px, which on a 1920
+  monitor left a third of the screen empty while the envíos table — fourteen
+  columns — scrolled sideways inside it. Wide enough now for that table to sit
+  flat on a common desktop, still capped so a line of text stays readable.
+*/
 .shell {
-  max-width: 1240px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 18px;
+}
+
+/* Side padding grows only where the envíos table no longer needs the width. */
+@media (min-width: 1500px) {
+  .shell {
+    padding-inline: 28px;
+  }
 }
 
 .topbar {
@@ -150,6 +163,28 @@ select:focus-visible {
 
 .topbar .spacer {
   flex: 1;
+}
+
+/*
+  On a desktop the nav stays on screen while a long log scrolls under it, so
+  changing page never means scrolling back to the top first. Not on a phone:
+  there the bar wraps to two or three lines and pinning it would eat the screen.
+  The negative margin pulls its background up over the shell's top padding so
+  rows never show through the gap above it.
+*/
+@media (min-width: 821px) {
+  html {
+    scroll-padding-top: 76px;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    margin-top: -18px;
+    padding-top: 18px;
+    background: var(--bg);
+  }
 }
 
 h1 {
@@ -495,6 +530,32 @@ input[readonly] {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
   align-items: end;
+}
+
+/*
+  The bank checkboxes are five pills in one cell of the Clientes form. In a
+  single auto-fit column they stacked one per line on a desktop and left the
+  rest of the form floating beside an empty block, so on a desktop they take a
+  line of their own with "Otro banco" beside them. A phone's form is one column
+  already and keeps the plain stacked cell.
+*/
+@media (min-width: 821px) {
+  .form-row > .bank-fields {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 1 / -1;
+    align-items: flex-end;
+    gap: 8px 14px;
+  }
+
+  .bank-fields > .source-picker {
+    margin-bottom: 0;
+  }
+
+  .bank-fields > .bank-otro {
+    flex: 1 1 240px;
+    max-width: 420px;
+  }
 }
 
 .form-actions {
@@ -2762,6 +2823,44 @@ tr.codigo-marcado {
 
   .shell > main > .stat + .panel {
     margin-top: 14px;
+  }
+}
+
+/*
+  Desktop tables have the width to keep short things on one line, so they do:
+  a badge, a date and a button label wrapping into three lines is what made a
+  row four times taller than its content. Phones keep wrapping — their cards
+  are narrow and the rules below 820px own that layout.
+*/
+@media (min-width: 821px) {
+  .table-wrap .badge,
+  .table-wrap td[data-actions] button,
+  .table-wrap td[data-actions] .button-link {
+    white-space: nowrap;
+  }
+
+  .table-wrap td[data-lead] {
+    min-width: 130px;
+  }
+}
+
+/*
+  The two half-width stats panels hold a name column beside three figures; the
+  name is the one cell allowed to wrap there, so a long client name no longer
+  pushes the figures out of a half-width panel.
+*/
+@media (min-width: 821px) {
+  .stats-columns .stats-table td[data-label="Cliente"] {
+    min-width: 140px;
+    white-space: normal;
+  }
+}
+
+/* A laptop screen is where the wide logs are tightest: give back 4px a column. */
+@media (min-width: 821px) and (max-width: 1499px) {
+  .table-wrap th,
+  .table-wrap td {
+    padding-inline: 8px;
   }
 }
 

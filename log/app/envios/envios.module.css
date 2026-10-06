@@ -394,8 +394,79 @@
   }
 }
 
+/*
+  The action rail on a desktop: the pay buttons on one line and everything else
+  on the line under it, so a pendiente row is two buttons tall instead of five.
+  The phone keeps its own two-column grid below; an open form (pagar directo,
+  cliente pagó, editar) still takes the rail's full width on both.
+*/
 @media (min-width: 821px) {
-  .sendingRow :global(td.num),
+  /*
+    Only a pendiente carries the pay buttons and needs the wide rail; a closed
+    row is just Editar and Eliminar side by side.
+  */
+  .sendingRow :global(td[data-actions]) {
+    min-width: 180px;
+  }
+
+  :global([data-pending-workspace]) .sendingRow :global(td[data-actions]) {
+    min-width: 304px;
+  }
+
+  .actionRail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .actionRail > :global(.pay-actions) {
+    flex: 1 0 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .actionRail > :global(.pay-actions) > :global(form.pay-direct),
+  .actionRail > :global(.pay-actions) > div,
+  .actionRail > :global(.pay-actions) > :global(.pay-preview),
+  .actionRail > :global(.pay-actions) > :global(.pay-error),
+  .actionRail > :global(.client-paid.open),
+  .actionRail > :global(.edit-sending.open) {
+    flex-basis: 100%;
+  }
+
+  .actionRail :global(form.pay-direct) {
+    flex-wrap: wrap;
+  }
+
+  .actionRail > :global(.client-paid.open) {
+    max-width: none;
+  }
+
+  /*
+    Pagado vía, cómo pagó, USDT, costo and ganancia are a dash on almost every
+    pendiente — nothing has been paid or drawn yet — so the pending table sheds
+    them, exactly as the phone cards already do. Even a 1920 monitor cannot hold
+    all fourteen columns beside the action rail without scrolling sideways. The
+    closed log below always shows them.
+  */
+  :global([data-pending-workspace] [data-secondary-accounting]) {
+    display: none;
+  }
+
+  .sendingRow :global(td.num) {
+    white-space: nowrap;
+  }
+
+  /* Date over time rather than one long line, until there is width to spare. */
+  .sendingRow :global(td[data-label='Fecha']) {
+    min-width: 11ch;
+  }
+}
+
+@media (min-width: 1600px) {
   .sendingRow :global(td[data-label='Fecha']) {
     white-space: nowrap;
   }

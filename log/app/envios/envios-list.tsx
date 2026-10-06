@@ -41,12 +41,18 @@ const HEAD = (
     <th>Fecha</th>
     <th>Estado</th>
     <th>Método</th>
-    <th>Pagado vía</th>
+    <th data-secondary-accounting>Pagado vía</th>
     <th>Cobrado</th>
-    <th>Cómo pagó</th>
-    <th className="num">USDT</th>
-    <th className="num">Costo</th>
-    <th className="num">Ganancia</th>
+    <th data-secondary-accounting>Cómo pagó</th>
+    <th className="num" data-secondary-accounting>
+      USDT
+    </th>
+    <th className="num" data-secondary-accounting>
+      Costo
+    </th>
+    <th className="num" data-secondary-accounting>
+      Ganancia
+    </th>
     <th className="actions-heading">Acciones</th>
   </tr>
 );

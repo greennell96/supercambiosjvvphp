@@ -86,6 +86,10 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
             />
           </div>
           <div>
+            <label htmlFor="dni_nie">DNI / NIE</label>
+            <input id="dni_nie" name="dni_nie" type="text" defaultValue={editing?.dni_nie ?? ''} />
+          </div>
+          <div className="bank-fields">
             {/*
               bankOptions() puts any spelling this client already has that is
               not one of the fixed five FIRST, so it always gets a checkbox to
@@ -106,17 +110,15 @@ export default function ClientesPanel({ clients }: { clients: ClienteRow[] }) {
                 </label>
               ))}
             </fieldset>
-            <label htmlFor="banks_otro">Otro banco</label>
-            <input
-              id="banks_otro"
-              name="banks_otro"
-              type="text"
-              placeholder="Si no está en la lista"
-            />
-          </div>
-          <div>
-            <label htmlFor="dni_nie">DNI / NIE</label>
-            <input id="dni_nie" name="dni_nie" type="text" defaultValue={editing?.dni_nie ?? ''} />
+            <div className="bank-otro">
+              <label htmlFor="banks_otro">Otro banco</label>
+              <input
+                id="banks_otro"
+                name="banks_otro"
+                type="text"
+                placeholder="Si no está en la lista"
+              />
+            </div>
           </div>
           <div className="form-actions">
             <button className="primary" type="submit" disabled={pending}>
