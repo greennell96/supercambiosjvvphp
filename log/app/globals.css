@@ -2000,6 +2000,27 @@ tr.linked-sending td {
   flex: 1 1 8px;
 }
 
+/*
+  "Cambiar número" on Nuevo código: one line saying which phone the withdrawal
+  uses, and the button beside it. Opened, the field stays phone-sized next to
+  its way back rather than stretching across the whole form.
+*/
+.codigo-phone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.codigo-phone label {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+
+.codigo-phone input[type="tel"] {
+  flex: 0 1 260px;
+}
+
 /* --------------------------------------------------------------- login page */
 
 .login-wrap {
@@ -2861,6 +2882,77 @@ tr.codigo-marcado {
   .table-wrap th,
   .table-wrap td {
     padding-inline: 8px;
+  }
+}
+
+/*
+  Desktop tables read as a spreadsheet grid (José, 2026-10-06): every cell gets
+  its own ruled box and every heading and value sits centred in it, so a figure
+  is found by row and column rather than by reading along a line. The outer
+  edge belongs to .table-wrap's rounded border, so the cells on that edge drop
+  theirs instead of drawing it twice. Phones keep their cards — a card is
+  already one record per box and has no columns to rule.
+*/
+@media (min-width: 821px) {
+  th,
+  td,
+  td.num,
+  th.num,
+  .actions-heading {
+    text-align: center;
+  }
+
+  th,
+  td {
+    border: 1px solid var(--line);
+  }
+
+  th {
+    border-bottom: 2px solid var(--line-strong);
+  }
+
+  .table-wrap table {
+    border-style: hidden;
+  }
+
+  /*
+    The controls that live in cells were laid out against a left edge; centre
+    them with the text. A form opened inside a cell keeps its labels left,
+    because a centred label over a full-width field reads as a heading.
+  */
+  .table-wrap td .row-actions,
+  .table-wrap td .pay-actions,
+  .table-wrap td .client-paid:not(.open),
+  .table-wrap td .delete-row,
+  .table-wrap td .settlement-actions,
+  .table-wrap td .inventory-cell {
+    align-items: center;
+  }
+
+  .table-wrap td .pay-actions form,
+  .table-wrap td .pay-preview-buttons,
+  .table-wrap td .delete-row form,
+  .table-wrap td .client-paid.open,
+  .table-wrap td .confirmar-retiro,
+  .table-wrap td .entregar-dinero,
+  .table-wrap td .settle-eur-form,
+  .table-wrap td .venta-actions,
+  .table-wrap td .retirado-por {
+    justify-content: center;
+  }
+
+  .table-wrap td > .client-paid,
+  .table-wrap td > .delete-row,
+  .table-wrap td .confirmar-retiro,
+  .table-wrap td .entregar-dinero,
+  .table-wrap td .retiro-nota,
+  .table-wrap td .pay-preview {
+    margin-inline: auto;
+  }
+
+  .table-wrap td .edit-sending.open,
+  .table-wrap td .edit-codigo.open {
+    text-align: left;
   }
 }
 

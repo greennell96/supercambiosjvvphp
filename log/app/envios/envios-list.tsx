@@ -20,7 +20,7 @@ import EditSendingForm from '../components/edit-sending-form';
 import LedgerList from '../components/ledger-list';
 import PaySendingActions from '../components/pay-sending-actions';
 import type { Lot } from '@/lib/fifo';
-import { fmtDateTime, fmtEur, fmtPercent, fmtRate, fmtVes } from '@/lib/format';
+import { fmtDateTimeShort, fmtEur, fmtPercent, fmtRate, fmtVes } from '@/lib/format';
 import { sendingPaymentRowClass, sendingPaymentState } from '@/lib/sending-payment-state';
 import { marginPercent } from '@/lib/stats';
 import { CLIENT_PAYMENT_METHOD_LABELS, type Sending } from '@/lib/types';
@@ -162,7 +162,7 @@ export default function EnviosList({
           <span className="payout-amount">{fmtVes(s.amount_ves_to_pay)}</span>
         )}
       </td>
-      <td data-label="Fecha">{fmtDateTime(s.created_at)}</td>
+      <td data-label="Fecha">{fmtDateTimeShort(s.created_at)}</td>
       <td data-label="Estado">
         <span className={`badge ${s.status}`}>
           {s.status === 'paid' ? 'pagado' : 'pendiente'}
@@ -184,7 +184,7 @@ export default function EnviosList({
             : s.paid_via === 'usdt'
               ? 'USDT'
               : '—'}
-        {s.fee_applied ? <span className="muted"> +0,3%</span> : null}
+        {/* fee_applied is still stored and still priced in; it is just not shown. */}
       </td>
       {/*
         The CLIENT's side, and its own words on purpose: "cobrado" vs "sin
@@ -379,7 +379,7 @@ export default function EnviosList({
             .join(' ')
         }
         getTerse={(s) => ({
-          time: fmtDateTime(s.created_at),
+          time: fmtDateTimeShort(s.created_at),
           title:
             s.is_personal && s.personal_note
               ? `${s.client_name} — ${s.personal_note}`

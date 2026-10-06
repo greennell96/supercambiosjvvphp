@@ -109,8 +109,7 @@ export default function NuevoCodigoForm({
       <input type="hidden" name="client_id" value={client?.id ?? ''} />
 
       {client ? (
-        <div className="field">
-          <p className="muted">Teléfono: {client.phone ?? 'sin teléfono'}</p>
+        <div className="field codigo-phone">
           {changingPhone ? (
             <>
               <label htmlFor="phone_override">Teléfono para este código</label>
@@ -131,9 +130,18 @@ export default function NuevoCodigoForm({
               </button>
             </>
           ) : (
-            <button className="small secondary" type="button" onClick={() => setChangingPhone(true)}>
-              Cambiar número
-            </button>
+            <>
+              <span className="muted">
+                Se retira con: {client.phone ?? 'sin teléfono'}
+              </span>
+              <button
+                className="small secondary"
+                type="button"
+                onClick={() => setChangingPhone(true)}
+              >
+                Cambiar número
+              </button>
+            </>
           )}
         </div>
       ) : null}
