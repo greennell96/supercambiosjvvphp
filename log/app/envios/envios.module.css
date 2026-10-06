@@ -446,11 +446,9 @@
   }
 
   /*
-    Pagado vía, cómo pagó, USDT, costo and ganancia are a dash on almost every
-    pendiente — nothing has been paid or drawn yet — so the pending table sheds
-    them, exactly as the phone cards already do. Even a 1920 monitor cannot hold
-    all fourteen columns beside the action rail without scrolling sideways. The
-    closed log below always shows them.
+    Pagado vía, ganancia % and ganancia are a dash on almost every pendiente —
+    nothing has been paid yet — so the pending table sheds them, exactly as the
+    phone cards already do. The closed log below always shows them.
   */
   :global([data-pending-workspace] [data-secondary-accounting]) {
     display: none;

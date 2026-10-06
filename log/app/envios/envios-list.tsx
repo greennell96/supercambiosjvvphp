@@ -20,7 +20,7 @@ import EditSendingForm from '../components/edit-sending-form';
 import LedgerList from '../components/ledger-list';
 import PaySendingActions from '../components/pay-sending-actions';
 import type { Lot } from '@/lib/fifo';
-import { fmtDateTime, fmtEur, fmtPercent, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
+import { fmtDateTime, fmtEur, fmtPercent, fmtRate, fmtVes } from '@/lib/format';
 import { sendingPaymentRowClass, sendingPaymentState } from '@/lib/sending-payment-state';
 import { marginPercent } from '@/lib/stats';
 import { CLIENT_PAYMENT_METHOD_LABELS, type Sending } from '@/lib/types';
@@ -30,8 +30,8 @@ import { CLIENT_PAYMENT_METHOD_LABELS, type Sending } from '@/lib/types';
   owes in bolivares, then the two independent statuses, then what the payout
   actually cost. On a phone each <td> becomes a labelled field of one card and
   the empty ones drop out entirely — a sending nobody has paid yet has no
-  "pagado vía", no USDT and no ganancia, and saying so four times in dashes is
-  noise, not information.
+  "pagado vía" and no ganancia, and saying so in dashes is noise, not
+  information.
 */
 const HEAD = (
   <tr>
@@ -44,10 +44,6 @@ const HEAD = (
     <th>Método</th>
     <th data-secondary-accounting>Pagado vía</th>
     <th>Cobrado</th>
-    <th data-secondary-accounting>Cómo pagó</th>
-    <th className="num" data-secondary-accounting>
-      USDT
-    </th>
     <th className="num" data-secondary-accounting>
       Ganancia %
     </th>
@@ -127,7 +123,7 @@ export default function EnviosList({
       {/*
         On an envío propio the client is the placeholder row, whose name already
         reads "Envío propio", and the note saying who received the money goes
-        here beside it. Deliberately NOT under "Cómo pagó": that column means how
+        here beside it. Deliberately NOT beside the Cobrado badge: that says how
         the CLIENT handed Jose the money in Spain, which is the other direction
         entirely and the one distinction this table works hardest to keep.
       */}
@@ -151,8 +147,7 @@ export default function EnviosList({
         data-money is the mobile card's sizing hook and says nothing about colour.
 
         Null, not zero, on an Envío USDT: no bolívares exist anywhere in that
-        operation, and it must read exactly as empty as it is — see the USDT
-        column further down for what a USDT row shows instead.
+        operation, and it must read exactly as empty as it is.
       */}
       <td
         className="num"
@@ -221,55 +216,13 @@ export default function EnviosList({
           </>
         )}
       </td>
-      <td
-        data-label="Cómo pagó"
-        data-secondary-accounting
-        data-wide
-        data-empty={s.client_payment_note ? undefined : true}
-      >
-        {s.client_payment_note ?? '—'}
-      </td>
-      <td
-        className="num"
-        data-label="USDT"
-        data-secondary-accounting
-        data-empty={s.usdt_used === null && s.usdt_to_deliver === null ? true : undefined}
-      >
-        {s.usdt_used === null ? (
-          s.usdt_to_deliver === null ? (
-            '—'
-          ) : (
-            <>
-              {/*
-                A pending Envío USDT (migration 020): nothing has been drawn
-                yet, so this is what José undertook to deliver, not what it
-                cost — hence the muted suffix, same voice as the " +0,3%" and
-                " €/USDT" suffixes below, so it reads as a qualifier and not a
-                second number.
-              */}
-              {fmtUsdt(s.usdt_to_deliver)}
-              <span className="muted"> a entregar</span>
-            </>
-          )
-        ) : (
-          <>
-            {fmtUsdt(s.usdt_used)}
-            {/*
-              A price, never a tasa: an Envío USDT has no bolívares anywhere in
-              it, so there is no VES/EUR rate to show — see the "Tasa" and "Bs a
-              pagar" cells above, both dashes on this row. What it DOES have is
-              a EUR/USDT price, and exactly like every price in lib/pools.ts it
-              is derived from the two real amounts that changed hands rather
-              than stored: amount_eur is never null on this kind of row (see
-              migration 020), so this division is always safe here. Only shown
-              once usdt_used is real — while pending there is no cost yet.
-            */}
-            {s.is_usdt && s.amount_eur !== null && s.usdt_used > 0 ? (
-              <span className="muted"> · {fmtRate(s.amount_eur / s.usdt_used)} €/USDT</span>
-            ) : null}
-          </>
-        )}
-      </td>
+      {/*
+        No "Cómo pagó" and no "USDT" column here (José, 2026-10-06): the note
+        was always empty — how the client paid already rides under the
+        Cobrado badge above — and the USDT figures are not read from this
+        table. Both are still stored and still feed every calculation;
+        client_payment_note stays editable under "Editar".
+      */}
       {/*
         Display only: cost_eur is still stored and still drives every profit
         figure — José reads the margin far more often than the cost, so the
