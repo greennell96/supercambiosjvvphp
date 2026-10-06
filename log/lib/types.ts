@@ -218,6 +218,8 @@ export interface Codigo {
   client_name: string;
   client_dni_nie: string | null;
   client_phone: string | null;
+  /** True when this código carries its own phone: client_phone is already the override. */
+  phone_overridden: boolean;
   /** The code itself. '' on rows logged before the column existed. */
   code: string;
   amount: number;

@@ -31,6 +31,8 @@ export async function crearCodigoAction(
   const bank = text(formData.get('bank'));
   // parseId returns null for a blank field, which is exactly "no link".
   const sendingId = parseId(formData.get('sending_id'));
+  // Withdrawal phone for this código only; blank or absent means the client's own.
+  const phoneOverride = text(formData.get('phone_override')) || null;
 
   if (!clientId) return { error: 'Elige un cliente de la lista.' };
   if (!code) return { error: 'Escribe el código.' };
@@ -38,7 +40,14 @@ export async function crearCodigoAction(
   if (!bank) return { error: 'Indica el banco.' };
 
   try {
-    await createCodigo({ client_id: clientId, code, amount, bank, sending_id: sendingId });
+    await createCodigo({
+      client_id: clientId,
+      code,
+      amount,
+      bank,
+      sending_id: sendingId,
+      phone_override: phoneOverride,
+    });
     revalidatePath('/');
     revalidatePath('/codigos');
     // The linked sending now says the client paid, so its list changes too.

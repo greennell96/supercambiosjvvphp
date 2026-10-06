@@ -1945,6 +1945,7 @@ type RawCodigo = {
   client_name: string;
   client_dni_nie: string | null;
   client_phone: string | null;
+  phone_overridden: boolean;
   code: string;
   amount: string;
   bank: string;
@@ -1991,7 +1992,8 @@ export async function listCodigos(limit = 500): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
-           c.phone as client_phone,
+           coalesce(g.phone_override, c.phone) as client_phone,
+           (g.phone_override is not null) as phone_overridden,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.retirado_por_kind, g.retirado_por_agente_id,
            ra.name as retirado_por_agente_nombre,
@@ -2014,7 +2016,8 @@ export async function listPendingCodigos(): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
-           c.phone as client_phone,
+           coalesce(g.phone_override, c.phone) as client_phone,
+           (g.phone_override is not null) as phone_overridden,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.retirado_por_kind, g.retirado_por_agente_id,
            ra.name as retirado_por_agente_nombre,
@@ -2048,7 +2051,8 @@ export async function listUnlinkedCodigos(): Promise<Codigo[]> {
   const sql = getSql();
   const rows = await sql<RawCodigo[]>`
     select g.id, g.client_id, c.name as client_name, c.dni_nie as client_dni_nie,
-           c.phone as client_phone,
+           coalesce(g.phone_override, c.phone) as client_phone,
+           (g.phone_override is not null) as phone_overridden,
            g.code, g.amount, g.bank, g.status, g.created_at, g.retired_at,
            g.retirado_por_kind, g.retirado_por_agente_id,
            ra.name as retirado_por_agente_nombre,
@@ -2089,6 +2093,8 @@ export async function createCodigo(input: {
   bank: string;
   /** The open sending this codigo pays for, or null to leave it unlinked. */
   sending_id: number | null;
+  /** Withdrawal phone for this código only; null uses the client's. */
+  phone_override: string | null;
 }): Promise<number> {
   const sql = getSql();
   return sql.begin(async (tx) => {
@@ -2101,9 +2107,10 @@ export async function createCodigo(input: {
     }
 
     const [row] = await tx<{ id: number }[]>`
-      insert into codigos (client_id, code, amount, bank, sending_id, sending_group_id)
+      insert into codigos (client_id, code, amount, bank, sending_id, sending_group_id,
+                           phone_override)
       values (${input.client_id}, ${input.code}, ${input.amount}, ${input.bank},
-              ${input.sending_id}, ${group?.paymentGroupId ?? null})
+              ${input.sending_id}, ${group?.paymentGroupId ?? null}, ${input.phone_override})
       returning id
     `;
 

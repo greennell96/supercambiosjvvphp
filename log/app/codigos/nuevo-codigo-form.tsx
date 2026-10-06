@@ -53,6 +53,8 @@ export default function NuevoCodigoForm({
   // mistaken for a select choice.
   const [bankChoice, setBankChoice] = useState('');
   const [sendingId, setSendingId] = useState('');
+  // "Cambiar número": a phone for this código only, never saved on the client.
+  const [changingPhone, setChangingPhone] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Picking a client decides how the bank field behaves:
@@ -65,6 +67,7 @@ export default function NuevoCodigoForm({
   useEffect(() => {
     setSendingId('');
     setBankChoice('');
+    setChangingPhone(false);
     if (!client) {
       setBank('');
       return;
@@ -79,6 +82,7 @@ export default function NuevoCodigoForm({
       setBank('');
       setBankChoice('');
       setSendingId('');
+      setChangingPhone(false);
     }
   }, [state.ok]);
 
@@ -103,6 +107,36 @@ export default function NuevoCodigoForm({
         addClientHref="/clientes?from=codigos"
       />
       <input type="hidden" name="client_id" value={client?.id ?? ''} />
+
+      {client ? (
+        <div className="field">
+          <p className="muted">Teléfono: {client.phone ?? 'sin teléfono'}</p>
+          {changingPhone ? (
+            <>
+              <label htmlFor="phone_override">Teléfono para este código</label>
+              <input
+                id="phone_override"
+                name="phone_override"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                autoFocus
+              />
+              <button
+                className="small quiet"
+                type="button"
+                onClick={() => setChangingPhone(false)}
+              >
+                Usar el del cliente
+              </button>
+            </>
+          ) : (
+            <button className="small secondary" type="button" onClick={() => setChangingPhone(true)}>
+              Cambiar número
+            </button>
+          )}
+        </div>
+      ) : null}
 
       <div className="form-row">
         <div>

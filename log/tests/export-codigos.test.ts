@@ -10,6 +10,7 @@ function codigo(overrides: Partial<Codigo> & { id: number }): Codigo {
     client_name: 'Cliente',
     client_dni_nie: null,
     client_phone: null,
+    phone_overridden: false,
     code: '',
     amount: 0,
     bank: '',

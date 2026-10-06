@@ -507,12 +507,14 @@ function CodigoRow({
           */}
           {requiresDniReminder(c.bank) ? (
             <>
-              Tel {c.client_phone ?? '—'} · Cód {c.code || '—'} · DNI {c.client_dni_nie ?? '—'}
+              Tel {c.client_phone ?? '—'}
+              {c.phone_overridden ? <span className="muted"> (otro número)</span> : null} · Cód {c.code || '—'} · DNI {c.client_dni_nie ?? '—'}
               <span className="muted"> · {fmtEur(c.amount)}</span>
             </>
           ) : (
             <>
-              Cód {c.code || '—'} · Tel {c.client_phone ?? '—'} · {fmtEur(c.amount)}
+              Cód {c.code || '—'} · Tel {c.client_phone ?? '—'}
+              {c.phone_overridden ? <span className="muted"> (otro número)</span> : null} · {fmtEur(c.amount)}
             </>
           )}
         </td>
