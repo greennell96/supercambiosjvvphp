@@ -20,8 +20,9 @@ import EditSendingForm from '../components/edit-sending-form';
 import LedgerList from '../components/ledger-list';
 import PaySendingActions from '../components/pay-sending-actions';
 import type { Lot } from '@/lib/fifo';
-import { fmtDateTime, fmtEur, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
+import { fmtDateTime, fmtEur, fmtPercent, fmtRate, fmtUsdt, fmtVes } from '@/lib/format';
 import { sendingPaymentRowClass, sendingPaymentState } from '@/lib/sending-payment-state';
+import { marginPercent } from '@/lib/stats';
 import { CLIENT_PAYMENT_METHOD_LABELS, type Sending } from '@/lib/types';
 
 /*
@@ -48,7 +49,7 @@ const HEAD = (
       USDT
     </th>
     <th className="num" data-secondary-accounting>
-      Costo
+      Ganancia %
     </th>
     <th className="num" data-secondary-accounting>
       Ganancia
@@ -269,13 +270,20 @@ export default function EnviosList({
           </>
         )}
       </td>
+      {/*
+        Display only: cost_eur is still stored and still drives every profit
+        figure — José reads the margin far more often than the cost, so the
+        column shows that instead. Same formula as "Ganancia media %" on
+        /stats, so a row and the page average can never disagree. A propio has
+        no profit and no EUR, so it stays a dash.
+      */}
       <td
         className="num"
-        data-label="Costo"
+        data-label="Ganancia %"
         data-secondary-accounting
-        data-empty={s.cost_eur === null ? true : undefined}
+        data-empty={s.profit_eur === null ? true : undefined}
       >
-        {s.cost_eur === null ? '—' : fmtEur(s.cost_eur)}
+        {s.profit_eur === null ? '—' : fmtPercent(marginPercent(s.profit_eur, s.amount_eur ?? 0))}
       </td>
       <td
         className="num"
