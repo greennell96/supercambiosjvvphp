@@ -11,7 +11,7 @@
 // 3 = + tilde (completes the mark).
 window.SITE_CONFIG = {
   etapa: 2,
-  eurToVes: 1050,
-  vesToEur: 1170,
-  updated: "08/10/2026"
+  eurToVes: 1020,
+  vesToEur: 1140,
+  updated: "14/10/2026"
 };
